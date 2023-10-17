@@ -168,5 +168,5 @@ plt.plot(animation.alphas, animation.planet_curve + animation.ring_curve, label 
 plt.xlabel(r'Phase angle $\alpha$')
 plt.ylabel(r'Intensity (arbitrary)')
 plt.legend()
-
 plt.tight_layout()
+plt.savefig('images/light_curves.jpg')
