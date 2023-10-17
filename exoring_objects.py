@@ -158,3 +158,15 @@ ring = Ring(1, 2, 3, ring_normal, star)
 
 animation = exoring_functions.Animation(planet,star,ring)
 animation.generate_animation()
+
+plt.style.use('the_usual.mplstyle')
+plt.figure()
+plt.plot(animation.alphas, animation.planet_curve, label = 'Planet')
+plt.plot(animation.alphas, animation.ring_curve, label = 'Ring')
+plt.plot(animation.alphas, animation.planet_curve + animation.ring_curve, label = 'Ring + Planet')
+
+plt.xlabel(r'Phase angle $\alpha$')
+plt.ylabel(r'Intensity (arbitrary)')
+plt.legend()
+
+plt.tight_layout()
