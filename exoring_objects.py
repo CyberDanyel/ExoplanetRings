@@ -4,6 +4,7 @@ Created on Sun Oct  8 17:51:16 2023
 
 @author: victo
 """
+import time
 
 # exoring objects
 
@@ -11,6 +12,9 @@ import numpy as np
 import scipy.integrate as spi
 import exoring_functions
 import matplotlib.pyplot as plt
+from matplotlib.ticker import FuncFormatter, FormatStrFormatter
+from fractions import Fraction
+import matplotlib.ticker as tck
 #for debugging purposes
 
 
@@ -34,6 +38,7 @@ class Planet:
         self.sc_law = lambda mu_star:albedo/np.pi # isotropic scattering law intensity distribution - 1/pi factor from normalization - currently a function to future-proof
         self.phase_curve = np.vectorize(self.phase_curve_unvectorized) # vectorizing so that arrays of phase angles can be input more efficiently than with a Python for loop
         self.star = star
+        self.Integrals = exoring_functions.Integrals(100000)
         # this definition of phase curve includes albedo already
         
     def get_mu_star(self, theta, phi, alpha):
@@ -79,8 +84,8 @@ class Planet:
         mu = self.get_mu(theta, phi)
         mu_star = self.get_mu_star(theta, phi, alpha)
         return np.sin(theta) * mu * mu_star * self.sc_law(mu_star) * self.secondary_eclipse(theta, phi, alpha)# * (np.abs(alpha) >= np.arcsin((self.star.radius + self.radius) / self.star.distance))
-    
-    def phase_curve_unvectorized(self, alpha):
+        #Only check secondary eclipse for certain alphas when you are close to the star for speed
+    def phase_curve_unvectorized(self, alpha: object) -> object:
         '''
         Parameters
         ----------
@@ -90,18 +95,19 @@ class Planet:
         The phase curve evaluated at the phase angle alpha
         '''
         #return spi.nquad(lambda theta, phi: self.phase_curve_integrand(theta, phi, alpha), ranges = [[0, np.pi], [max(alpha-np.pi/2, -np.pi/2), min(alpha + np.pi/2, np.pi/2)]])[0]
-        return exoring_functions.integrate2d(lambda theta, phi: self.phase_curve_integrand(theta, phi, alpha), bounds = [[0, np.pi], [max(alpha-np.pi/2, -np.pi/2), min(alpha + np.pi/2, np.pi/2)]], n = 10000)
+        return exoring_functions.integrate2d(lambda theta, phi: self.phase_curve_integrand(theta, phi, alpha), bounds = [[0, np.pi], [max(alpha-np.pi/2, -np.pi/2), min(alpha + np.pi/2, np.pi/2)]], sigma = 1e-3)
+        #return self.Integrals.monte_carlo_integration(alpha,lambda theta, phi: self.phase_curve_integrand(theta, phi, alpha)) # Monte Carlo
         # the lambda allows for integration across two variables while the alpha is kept constant within the method
         
     def secondary_eclipse(self, theta, phi, alpha):
-        'returns boolean of whether these coords are eclipsed at this phase angle'
+        'returns False if these coords are eclipsed at this phase angle, True otherwise'
         return ((self.radius*np.sin(theta)*np.sin(phi) - self.star.distance*np.sin(alpha))**2 + (self.radius*np.cos(theta))**2 > self.star.radius**2)
         
     def light_curve(self, alpha):
         'turns a phase curve into a light curve'
         return self.radius**2 * self.star.luminosity * (1/(4*self.star.distance**2)) * self.phase_curve(alpha)
-        
-    
+
+
 class Ring:
     def __init__(self, albedo, inner_rad, outer_rad, normal, star):
         self.inner_radius = inner_rad
@@ -132,41 +138,23 @@ class Ring:
     
     def light_curve(self, alpha):
         return (self.outer_radius**2-self.inner_radius**2)*self.phase_curve(alpha)*self.star.luminosity/(4*self.star.distance**2)
-        
+
 class Star:
     def __init__(self, luminosity, radius, distance, mass):
         self.luminosity = luminosity
         self.radius = radius
         self.distance = distance
         self.mass = mass
-        
+
 #%%%
-
 #debugging stuff
-
-plt.style.use('the_usual')
-
-star = Star(1000000, 10, 100, 10)
-
+star = Star(1000000, 10, 50, 10)
 planet = Planet(1, 1, star)
 
 ring_normal = np.array([1., 1., 0.0])
 ring_normal /= np.sum(ring_normal*ring_normal)
 
-ring = Ring(1, 2, 2.2, ring_normal, star)
-alphas = np.linspace(-np.pi, np.pi, 1000)
+ring = Ring(1, 2, 3, ring_normal, star)
 
-
-planet_curve = planet.light_curve(alphas)
-ring_curve = ring.light_curve(alphas)
-
-plt.plot(alphas, planet_curve, label = 'Planet')
-plt.plot(alphas, ring_curve, label = 'Ring')
-plt.plot(alphas, planet_curve + ring_curve, label = 'Ring + Planet')
-
-plt.xlabel(r'Phase angle $\alpha$')
-plt.ylabel(r'Intensity (arbitrary)')
-plt.legend()
-
-plt.tight_layout()
-
+animation = exoring_functions.Animation(planet,star,ring)
+animation.generate_animation()
