@@ -51,8 +51,7 @@ def integrate2d(func, bounds: list, sigma=0.01):
             old_total_integral = new_total_integral
             pass
         else:
-            if old_total_integral == 0 or abs((
-                                                      new_total_integral - old_total_integral) / old_total_integral) < sigma or old_total_integral < 1e-10:
+            if old_total_integral == 0 or abs((new_total_integral - old_total_integral) / old_total_integral) < sigma or old_total_integral < 1e-10:
                 return new_total_integral
             else:
                 n = n * 2
@@ -62,14 +61,14 @@ def integrate2d(func, bounds: list, sigma=0.01):
                 pass
 
 
-class Integrals:
+class MonteCarloPlanetIntegration:
     def __init__(self, i):
         self.i = i
         xs = np.random.uniform(0, 1, self.i)
         self.thetas = np.arccos(1 - 2 * xs)
         # self.phis = np.random.uniform(- np.pi / 2, np.pi / 2,self.i)
 
-    def monte_carlo_integration(self, alpha, func):
+    def integrate(self, alpha, func):
         if alpha >= 0:
             # phis = [phi for phi in self.phis if alpha - np.pi / 2 < phi < np.pi / 2]
             phis = np.random.uniform(alpha - np.pi / 2, np.pi / 2, self.i)
@@ -87,6 +86,34 @@ class Integrals:
         # fractional_error = error / q_average
         # print(f'q_average = {q_average} +-', f'{fractional_error*100}%')
         return q_average
+
+
+def format_fraction_with_pi(x, pos):
+    fract = Fraction(x).limit_denominator()
+    if fract == 0:
+        return "0"
+    elif x == 1:
+        return '$\\pi$'
+    elif x == -1:
+        return '$-\\pi$'
+    else:
+        if fract.numerator > 0:
+            return f'$\\frac{{{fract.numerator}}}{{{fract.denominator}}}$' + '$\\pi$'
+        else:
+            return f'$-\\frac{{{abs(fract.numerator)}}}{{{fract.denominator}}}$' + '$\\pi$'
+
+
+def monte_carlo_ring_integration(func, bounds_y, bounds_z, i):
+    integration_area = abs(bounds_y[1] - bounds_y[0]) * abs(bounds_z[1] - bounds_z[0])
+    ys = np.random.uniform(bounds_y[0], bounds_y[1], i)
+    zs = np.random.uniform(bounds_z[0], bounds_z[1], i)
+    func_values = func(ys, zs)
+    added_func_values = sum(func_values)
+    average_func_value = added_func_values / i
+    integral = (integration_area / i) * added_func_values
+    sampling_sigma_squared = (1 / (i - 1)) * sum((func_values - average_func_value) ** 2)
+    integral_sigma = (integration_area / np.sqrt(i)) * np.sqrt(sampling_sigma_squared)
+    return integral  # numerical errors may bring this down to 0
 
 
 class Animation:
@@ -129,20 +156,6 @@ class Animation:
         ax.set_ylim3d([y_middle - plot_radius, y_middle + plot_radius])
         ax.set_zlim3d([z_middle - plot_radius, z_middle + plot_radius])
 
-    def format_fraction_with_pi(self, x, pos):
-        fract = Fraction(x).limit_denominator()
-        if fract == 0:
-            return "0"
-        elif x == 1:
-            return '$\\pi$'
-        elif x == -1:
-            return '$-\\pi$'
-        else:
-            if fract.numerator > 0:
-                return f'$\\frac{{{fract.numerator}}}{{{fract.denominator}}}$' + '$\\pi$'
-            else:
-                return f'$-\\frac{{{abs(fract.numerator)}}}{{{fract.denominator}}}$' + '$\\pi$'
-
     def generate_sphere_coords(self, centre, sphere_radius, sampling_num):
         theta = np.radians(np.linspace(0, 180, sampling_num, endpoint=True))
         phi = np.radians(np.linspace(0, 360, sampling_num, endpoint=True))
@@ -169,17 +182,13 @@ class Animation:
         axs2 = fig.add_subplot(3, 1, (2, 3), projection='3d')
         fig.tight_layout()
 
-        def init():
+        def create_graph_layout():
+            axs1.xaxis.set_major_formatter(FuncFormatter(format_fraction_with_pi))
             axs1.xaxis.set_major_locator(tck.MultipleLocator(base=1 / 2))
-            axs1.xaxis.set_major_formatter(FuncFormatter(self.format_fraction_with_pi))
-            axs1.set_ylim(0, 1.1 * self.maximum_intensity)
             axs1.set_xlim(-1, 1)
+            axs1.set_ylim(0, 1.1 * self.maximum_intensity)
             axs1.set_xlabel(r'Phase angle $\alpha$')
-            axs1.set_ylabel(r'Intensity (arbitrary)')
-            blue_patch = mpatches.Patch(color='blue', label='Planet')
-            red_patch = mpatches.Patch(color='red', label='Ring')
-            orange_patch = mpatches.Patch(color='orange', label='Planet + Ring')
-            axs1.legend(handles=[blue_patch, red_patch, orange_patch], fontsize=6)
+            axs1.set_ylabel(r'Intensity ($L_{\odot}$)')
             axs2.set_xlim(-(self.star.distance + self.star.radius + self.planet.radius),
                           self.star.distance + self.star.radius + self.planet.radius)
             axs2.set_ylim(-(self.star.distance + self.star.radius + self.planet.radius),
@@ -187,8 +196,15 @@ class Animation:
             axs2.set_zlim(-(self.star.radius + self.planet.radius),
                           self.star.radius + self.planet.radius)
             axs2.set_box_aspect([10, 10, 10])
-            axs2.view_init(elev=0, azim=0)
+            axs2.view_init(elev=0, azim=0)  # Could make the camera centre around the planet, so we see it from closer
             self.set_axes_equal(axs2)
+
+        def init():
+            create_graph_layout()
+            blue_patch = mpatches.Patch(color='blue', label='Planet')
+            red_patch = mpatches.Patch(color='red', label='Ring')
+            orange_patch = mpatches.Patch(color='orange', label='Planet + Ring')
+            axs1.legend(handles=[blue_patch, red_patch, orange_patch], fontsize=6)
 
         num_frames = 100
         orbital_centre = [0, 0, 0]
@@ -196,21 +212,15 @@ class Animation:
 
         def update(frame):
             print('Frame', str(frame))
-            fig.tight_layout()
+            axs2.clear()
+            create_graph_layout()
             num_points = int(frame * len(self.alphas) / num_frames)
             axs1.plot(self.alphas[:num_points] / np.pi, self.planet_curve[:num_points], label='Planet', color='blue')
             axs1.plot(self.alphas[:num_points] / np.pi, self.ring_curve[:num_points], label='Ring', color='red')
             axs1.plot(self.alphas[:num_points] / np.pi, self.planet_curve[:num_points] + self.ring_curve[:num_points],
                       label='Planet + Ring', color='orange')
-            axs1.xaxis.set_major_formatter(FuncFormatter(self.format_fraction_with_pi))
-            axs1.xaxis.set_major_locator(tck.MultipleLocator(base=1 / 2))
-            axs1.set_xlim(-1, 1)
-            axs1.set_ylim(0, 1.1 * self.maximum_intensity)
-            axs1.set_xlabel(r'Phase angle $\alpha$')
-            axs1.set_ylabel(r'Intensity (arbitrary)')
             if frame == 0:
                 axs1.legend(fontsize=6)
-            axs2.clear()
             alpha = self.alphas[num_points]
             centre = [self.star.distance * np.cos(alpha - np.pi), self.star.distance * np.sin(alpha - np.pi),
                       z]  # np.pi factor corrects for the beginning of the phase
@@ -226,15 +236,6 @@ class Animation:
             axs2.plot_surface(
                 x_coords, y_coords, z_coords, color='blue',
                 linewidth=0, antialiased=False, rstride=1, cstride=1, alpha=1)
-            axs2.set_xlim(-(self.star.distance + self.star.radius + self.planet.radius),
-                          self.star.distance + self.star.radius + self.planet.radius)
-            axs2.set_ylim(-(self.star.distance + self.star.radius + self.planet.radius),
-                          self.star.distance + self.star.radius + self.planet.radius)
-            axs2.set_zlim(-(self.star.radius + self.planet.radius),
-                          self.star.radius + self.planet.radius)
-            axs2.set_box_aspect([10, 10, 10])
-            axs2.view_init(elev=0, azim=0)
-            self.set_axes_equal(axs2)
 
         ani = animation.FuncAnimation(fig, update, frames=num_frames, init_func=init, blit=False)
         ani.save('gifs/animated_graph.gif', writer='pillow',

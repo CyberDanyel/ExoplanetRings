@@ -9,6 +9,8 @@ Created on Sun Oct  8 17:51:16 2023
 import numpy as np
 import exoring_functions
 import matplotlib.pyplot as plt
+import matplotlib.ticker as tck
+from matplotlib.ticker import FuncFormatter
 
 # for debugging purposes
 
@@ -38,13 +40,13 @@ class Planet:
         """
         self.radius = radius
         self.sc_law = lambda \
-            mu_star: albedo / np.pi  # isotropic scattering law intensity distribution - 1/pi factor from
+                mu_star: albedo / np.pi  # isotropic scattering law intensity distribution - 1/pi factor from
         # normalization - currently a function to future-proof
         self.phase_curve = np.vectorize(
             self.phase_curve_unvectorized)  # vectorizing so that arrays of phase angles can be input more
         # efficiently than with a Python for loop
         self.star = star
-        self.Integrals = exoring_functions.Integrals(100000)
+        # self.MonteCarloPlanetIntegration = exoring_functions.MonteCarloPlanetIntegration(100000)
         # this definition of phase curve includes albedo already
 
     def get_mu_star(self, theta, phi, alpha):
@@ -107,8 +109,8 @@ class Planet:
         return exoring_functions.integrate2d(lambda theta, phi: self.phase_curve_integrand(theta, phi, alpha),
                                              bounds=[[0, np.pi], [max(alpha - np.pi / 2, -np.pi / 2),
                                                                   min(alpha + np.pi / 2, np.pi / 2)]], sigma=1e-3)
-        # return self.Integrals.monte_carlo_integration(alpha,lambda theta, phi: self.phase_curve_integrand(theta,
-        # phi, alpha)) # Monte Carlo the lambda allows for integration across two variables while the alpha is kept
+        # return self.MonteCarloPlanetIntegration.integrate(alpha,lambda theta, phi: self.phase_curve_integrand(theta,phi, alpha)) # Monte Carlo
+        # the lambda allows for integration across two variables while the alpha is kept
         # constant within the method
 
     def secondary_eclipse(self, theta, phi, alpha):
@@ -128,7 +130,7 @@ class Ring:
         self.inner_radius = inner_rad
         self.outer_radius = outer_rad
         self.sc_law = lambda \
-            mu_star: albedo / np.pi  # isotropic scattering law intensity distribution - 1/pi factor from
+                mu_star: albedo / np.pi  # isotropic scattering law intensity distribution - 1/pi factor from
         # normalization
         self.normal = normal
         self.secondary_eclipse = np.vectorize(self.unvectorized_secondary_eclipse)
@@ -172,25 +174,33 @@ class Ring:
         cos_phi = n_z / sin_theta
         sin_phi = n_y / sin_theta
 
-        def find_ring_distance(y, z):
+        def find_distance_from_ring_centre(y, z):
             return np.sqrt(
                 (y * cos_phi + z * sin_phi) ** 2 + (1 / mu ** 2) * (-y * sin_phi + z * cos_phi) ** 2)
 
-        def on_ring(y, z):
-            return find_ring_distance(y, z) > self.inner_radius
+        def outside_inner_radius(y, z):
+            return find_distance_from_ring_centre(y, z) > self.inner_radius
 
-        def in_ring(y, z):
-            return find_ring_distance(y, z) < self.outer_radius
+        def inside_outer_radius(y, z):
+            return find_distance_from_ring_centre(y, z) < self.outer_radius
 
         def in_shadow(y, z):
             return (y - y_star) ** 2 + (z - z_star) ** 2 < self.star.radius ** 2
 
-        numerator = exoring_functions.integrate2d(lambda y, z: on_ring(y, z) * in_ring(y, z) * in_shadow(y, z),
-                                                  [bounds_y, bounds_z])
-        denominator = exoring_functions.integrate2d(lambda y, z: on_ring(y, z) * in_ring(y, z),
-                                                    [bounds_y, bounds_z])  # - self.inner_radius**2)#*mu_star
-
-        return 1 - numerator / denominator
+        numerator = exoring_functions.integrate2d(
+            lambda y, z: outside_inner_radius(y, z) * inside_outer_radius(y, z) * in_shadow(y, z),
+            [bounds_y, bounds_z])
+        denominator = exoring_functions.integrate2d(
+            lambda y, z: outside_inner_radius(y, z) * inside_outer_radius(y, z),
+            [bounds_y, bounds_z])  # - self.inner_radius**2)#*mu_star
+        # numerator = exoring_functions.monte_carlo_ring_integration(
+        #    lambda y, z: outside_inner_radius(y, z) * inside_outer_radius(y, z) * in_shadow(y, z),
+        #    bounds_y, bounds_z, 10000)
+        # denominator = exoring_functions.monte_carlo_ring_integration(
+        #    lambda y, z: outside_inner_radius(y, z) * inside_outer_radius(y, z),
+        #    bounds_y, bounds_z, 10000)
+        # print(abs(1 - numerator / denominator)) # numerical errors may bring this down to 0
+        return abs(1 - numerator / denominator)  # numerical errors may bring this down to 0
 
     def light_curve(self, alpha):
         return (self.outer_radius ** 2 - self.inner_radius ** 2) * self.phase_curve(alpha) * self.star.luminosity / (
@@ -229,13 +239,14 @@ animation = exoring_functions.Animation(planet, star, ring)
 animation.generate_animation()
 
 plt.style.use('the_usual.mplstyle')
-plt.figure()
-plt.plot(animation.alphas, animation.planet_curve, label='Planet')
-plt.plot(animation.alphas, animation.ring_curve, label='Ring')
-plt.plot(animation.alphas, animation.planet_curve + animation.ring_curve, label='Ring + Planet')
-
-plt.xlabel(r'Phase angle $\alpha$')
-plt.ylabel(r'Intensity ($L_{\odot}$)')
-plt.legend()
-plt.tight_layout()
-plt.savefig('images/light_curves.jpg')
+# plt.subplots_adjust(top=2.1, bottom=2, tight_layout=True)
+fig, ax = plt.subplots()
+ax.plot(animation.alphas / np.pi, animation.planet_curve, label='Planet')
+ax.plot(animation.alphas / np.pi, animation.ring_curve, label='Ring')
+ax.plot(animation.alphas / np.pi, animation.planet_curve + animation.ring_curve, label='Ring + Planet')
+ax.xaxis.set_major_formatter(FuncFormatter(exoring_functions.format_fraction_with_pi))
+ax.xaxis.set_major_locator(tck.MultipleLocator(base=1 / 2))
+ax.set_xlabel(r'Phase angle $\alpha$')
+ax.set_ylabel(r'Intensity ($L_{\odot}$)')
+ax.legend()
+fig.savefig('images/light_curves.jpg', bbox_inches="tight")
