@@ -13,6 +13,14 @@ import matplotlib.pyplot as plt
 
 # for debugging purposes
 
+AU = 1.495978707e13
+L_SUN = 3.828e33
+R_JUP = 6.9911e9
+R_SUN = 6.957e10
+JUP_TO_AU = AU/R_JUP
+SUN_TO_JUP = R_SUN/R_JUP
+SUN_TO_AU = AU/R_SUN
+
 
 # coordinate systems defined such that the observer is always along the x-axis
 # planet always at origin
@@ -105,10 +113,11 @@ class Planet:
         # constant within the method
 
     def secondary_eclipse(self, theta, phi, alpha):
-        """returns False if these coords are eclipsed at this phase angle, True otherwise"""
-        return ((self.radius * np.sin(theta) * np.sin(phi) - self.star.distance * np.sin(alpha)) ** 2 + (
-                    self.radius * np.cos(theta)) ** 2 > self.star.radius ** 2)
-
+        'returns boolean of whether these coords are eclipsed at this phase angle'
+        if np.abs(alpha) > 2.1*self.star.radius/self.star.distance:
+            return 1.
+        return ((self.radius*np.sin(theta)*np.sin(phi) - self.star.distance*np.sin(alpha))**2 + (self.radius*np.cos(theta))**2 > self.star.radius**2)
+        
     def light_curve(self, alpha):
         """turns a phase curve into a light curve"""
         return self.radius ** 2 * self.star.luminosity * (1 / (4 * self.star.distance ** 2)) * self.phase_curve(alpha)
@@ -121,6 +130,7 @@ class Ring:
         self.sc_law = lambda \
             mu_star: albedo / np.pi  # isotropic scattering law intensity distribution - 1/pi factor from normalization
         self.normal = normal
+        self.secondary_eclipse = np.vectorize(self.unvectorized_secondary_eclipse)
         self.star = star
 
     def get_mu_star(self, alpha):
@@ -137,11 +147,40 @@ class Ring:
         """phase curve innit"""
         mu = self.get_mu()
         mu_star = self.get_mu_star(alpha)
-        return mu * mu_star * self.sc_law(mu_star) * (mu_star > 0)  # boolean prevents forwards scattering
+        return mu * mu_star * self.sc_law(mu_star) * (mu_star > 0) * self.secondary_eclipse(alpha) # boolean prevents forwards scattering
 
-    def secondary_eclipse(self, alpha):
-        """finds the amount to subtract from the ring - since there is no integral"""
-        # struggling
+    def unvectorized_secondary_eclipse(self, alpha):
+        'finds the amount of flux to subtract from the ring - since there is no integral for the total ring scattering'
+
+        if np.abs(alpha) > 2.1*self.star.radius/self.star.distance:
+            return 1.
+
+        mu = self.get_mu()
+        n_x, n_y, n_z = self.normal
+
+
+        y_star = self.star.distance * np.sin(alpha)
+        z_star = 0.
+
+        #bounds_z = [max(-self.outer_radius, -self.star.radius), min(self.outer_radius, self.star.radius)]
+        #bounds_y = [max(-self.outer_radius, y_star - self.star.radius), min(self.outer_radius, y_star + self.star.radius)]
+        bounds_z = [-self.outer_radius, self.outer_radius]
+        bounds_y = [-self.outer_radius, self.outer_radius]
+        sin_theta = np.sqrt(1-mu**2)
+        cos_phi = n_z/sin_theta
+        sin_phi = n_y/sin_theta
+
+        ring_distance = lambda y, z: np.sqrt((y*cos_phi+z*sin_phi)**2 + (1/mu**2)*(-y*sin_phi+z*cos_phi)**2)
+
+        on_ring = lambda y, z: ring_distance(y, z) > self.inner_radius
+        in_ring = lambda y, z: ring_distance(y, z) < self.outer_radius
+
+        in_shadow = lambda y, z: (y-y_star)**2 + (z-z_star)**2 < self.star.radius**2
+
+        numerator = exoring_functions.integrate2d(lambda y, z:on_ring(y, z)*in_ring(y, z)*in_shadow(y, z), [bounds_y, bounds_z], n=100)
+        denominator = exoring_functions.integrate2d(lambda y, z:on_ring(y, z)*in_ring(y, z), [bounds_y, bounds_z], n=100)# - self.inner_radius**2)#*mu_star
+
+        return 1 - numerator/denominator
 
     def light_curve(self, alpha):
         return (self.outer_radius ** 2 - self.inner_radius ** 2) * self.phase_curve(alpha) * self.star.luminosity / (
@@ -154,17 +193,26 @@ class Star:
         self.radius = radius
         self.distance = distance
         self.mass = mass
+        
+#%%%
+
+#debugging stuff
 
 
-# %%%
-# debugging stuff
-star = Star(1000000, 10, 50, 10)
-planet = Planet(1, 1, star)
+plt.style.use('the_usual')
 
-ring_normal = np.array([1., 1., 0.0])
-ring_normal /= np.sum(ring_normal * ring_normal)
+star = Star(1, 1*SUN_TO_JUP, .1*JUP_TO_AU, 1)
 
-ring = Ring(1, 2, 3, ring_normal, star)
+planet = Planet(0.52, 1, star)
+
+ring_normal = np.array([1., 1., 0.])
+ring_normal /= np.sqrt(np.sum(ring_normal*ring_normal))
+
+ring_normal2 = np.array([1., 0., 0.0])
+ring_normal2 /= np.sqrt(np.sum(ring_normal*ring_normal))
+
+ring = Ring(0.7, 1, 2., ring_normal, star)
+#ring2 = Ring(0.8, 1, 10, ring_normal2, star)
 
 animation = exoring_functions.Animation(planet, star, ring)
 animation.generate_animation()
@@ -176,7 +224,7 @@ plt.plot(animation.alphas, animation.ring_curve, label='Ring')
 plt.plot(animation.alphas, animation.planet_curve + animation.ring_curve, label='Ring + Planet')
 
 plt.xlabel(r'Phase angle $\alpha$')
-plt.ylabel(r'Intensity (arbitrary)')
+plt.ylabel(r'Intensity ($L_{\odot}$)')
 plt.legend()
 plt.tight_layout()
 plt.savefig('images/light_curves.jpg')
