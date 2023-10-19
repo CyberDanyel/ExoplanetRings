@@ -10,14 +10,14 @@ import matplotlib.animation as animation
 import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.ticker import FuncFormatter
-
+import matplotlib.patches as mpatches
 import matplotlib.ticker as tck
 
 
 # exoring_functions
 
-def integrate2d(func, bounds, sigma=0.01):
-    '''
+def integrate2d(func, bounds: list, sigma=0.01):
+    """
     2D integration by basic Riemann sum
 
     Parameters
@@ -26,15 +26,14 @@ def integrate2d(func, bounds, sigma=0.01):
         The function to be integrated, with two input variables
     bounds : iterable w. shape 2,2
         A tuple of floats specifying the bounds of the respective variables
-    n : int
-        The number of subdivisions for each variable, total number of samples is n^2.
-
+    sigma : float
+        Fractional error acceptable for end of integration
     Returns
     -------
     float
         The definite integral
 
-    '''
+    """
     old_total_integral = 0
     iteration = 1
     n = 1000
@@ -62,20 +61,6 @@ def integrate2d(func, bounds, sigma=0.01):
                 old_total_integral = new_total_integral
                 pass
 
-def integrate2d_conv(func, bounds, tol, max_n):
-    width = 10
-    total_area = (bounds[0][1] - bounds[0][0]) * (bounds[1][1] - bounds[1][0])
-    old_val = func(np.mean(bounds[0]), np.mean(bounds[1])) * total_area
-    while width < max_n-2:
-        new_val = integrate2d(func, bounds, width)
-        err = new_val-old_val
-        if np.abs(err) < tol:
-            return new_val
-        else:
-            old_val = new_val
-            width=int(width*1.1)
-    print('Integration Warning:Max n reached, delta is %.3e'%err)
-    return new_val
 
 class Integrals:
     def __init__(self, i):
@@ -109,7 +94,8 @@ class Animation:
         self.star = star
         self.planet = planet
         self.ring = ring
-        self.alphas = np.linspace(-np.pi, np.pi, 1000)
+        self.alphas = np.array(list(np.linspace(-np.pi, -0.1, 1000)) + list(np.linspace(-0.1, 0.1, 2000)) + list(
+            np.linspace(0.1, np.pi, 1000)))
         self.planet_curve = None
         self.ring_curve = None
         self.maximum_intensity = None
@@ -190,12 +176,16 @@ class Animation:
             axs1.set_xlim(-1, 1)
             axs1.set_xlabel(r'Phase angle $\alpha$')
             axs1.set_ylabel(r'Intensity (arbitrary)')
+            blue_patch = mpatches.Patch(color='blue', label='Planet')
+            red_patch = mpatches.Patch(color='red', label='Ring')
+            orange_patch = mpatches.Patch(color='orange', label='Planet + Ring')
+            axs1.legend(handles=[blue_patch, red_patch, orange_patch], fontsize=6)
             axs2.set_xlim(-(self.star.distance + self.star.radius + self.planet.radius),
                           self.star.distance + self.star.radius + self.planet.radius)
             axs2.set_ylim(-(self.star.distance + self.star.radius + self.planet.radius),
                           self.star.distance + self.star.radius + self.planet.radius)
-            axs2.set_zlim(-(self.star.distance + self.star.radius + self.planet.radius),
-                          self.star.distance + self.star.radius + self.planet.radius)
+            axs2.set_zlim(-(self.star.radius + self.planet.radius),
+                          self.star.radius + self.planet.radius)
             axs2.set_box_aspect([10, 10, 10])
             axs2.view_init(elev=0, azim=0)
             self.set_axes_equal(axs2)
@@ -205,28 +195,23 @@ class Animation:
         z = 0
 
         def update(frame):
-            fig.tight_layout()
             print('Frame', str(frame))
-            axs2.clear()
-            axs2.set_xlim(-(self.star.distance + self.star.radius + self.planet.radius),
-                          self.star.distance + self.star.radius + self.planet.radius)
-            axs2.set_ylim(-(self.star.distance + self.star.radius + self.planet.radius),
-                          self.star.distance + self.star.radius + self.planet.radius)
-            axs2.set_zlim(-(self.star.distance + self.star.radius + self.planet.radius),
-                          self.star.distance + self.star.radius + self.planet.radius)
-            axs2.set_box_aspect([10, 10, 10])
-            axs2.view_init(elev=0, azim=0)
-            self.set_axes_equal(axs2)
+            fig.tight_layout()
             num_points = int(frame * len(self.alphas) / num_frames)
-            alpha = self.alphas[num_points]
             axs1.plot(self.alphas[:num_points] / np.pi, self.planet_curve[:num_points], label='Planet', color='blue')
             axs1.plot(self.alphas[:num_points] / np.pi, self.ring_curve[:num_points], label='Ring', color='red')
             axs1.plot(self.alphas[:num_points] / np.pi, self.planet_curve[:num_points] + self.ring_curve[:num_points],
-                      label='Ring + Planet', color='orange')
+                      label='Planet + Ring', color='orange')
             axs1.xaxis.set_major_formatter(FuncFormatter(self.format_fraction_with_pi))
             axs1.xaxis.set_major_locator(tck.MultipleLocator(base=1 / 2))
             axs1.set_xlim(-1, 1)
             axs1.set_ylim(0, 1.1 * self.maximum_intensity)
+            axs1.set_xlabel(r'Phase angle $\alpha$')
+            axs1.set_ylabel(r'Intensity (arbitrary)')
+            if frame == 0:
+                axs1.legend(fontsize=6)
+            axs2.clear()
+            alpha = self.alphas[num_points]
             centre = [self.star.distance * np.cos(alpha - np.pi), self.star.distance * np.sin(alpha - np.pi),
                       z]  # np.pi factor corrects for the beginning of the phase
             star_x_coords, star_y_coords, star_z_coords = self.generate_sphere_coords([0, 0, 0],
@@ -241,11 +226,16 @@ class Animation:
             axs2.plot_surface(
                 x_coords, y_coords, z_coords, color='blue',
                 linewidth=0, antialiased=False, rstride=1, cstride=1, alpha=1)
-            # Add more lines if needed
+            axs2.set_xlim(-(self.star.distance + self.star.radius + self.planet.radius),
+                          self.star.distance + self.star.radius + self.planet.radius)
+            axs2.set_ylim(-(self.star.distance + self.star.radius + self.planet.radius),
+                          self.star.distance + self.star.radius + self.planet.radius)
+            axs2.set_zlim(-(self.star.radius + self.planet.radius),
+                          self.star.radius + self.planet.radius)
+            axs2.set_box_aspect([10, 10, 10])
+            axs2.view_init(elev=0, azim=0)
+            self.set_axes_equal(axs2)
 
-        axs1.set_xlabel(r'Phase angle $\alpha$')
-        axs1.set_ylabel(r'Intensity (arbitrary)')
-        axs1.legend()
         ani = animation.FuncAnimation(fig, update, frames=num_frames, init_func=init, blit=False)
         ani.save('gifs/animated_graph.gif', writer='pillow',
-                 fps=10)  # Adjust the filename and frames per second as needed
+                 fps=20)  # Adjust the filename and frames per second as needed
