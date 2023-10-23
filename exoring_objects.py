@@ -133,7 +133,7 @@ class Ring:
                 mu_star: albedo / np.pi  # isotropic scattering law intensity distribution - 1/pi factor from
         # normalization
         self.normal = normal
-        self.secondary_eclipse = np.vectorize(self.unvectorized_secondary_eclipse)
+        self.secondary_eclipse = np.vectorize(self.analytic_secondary_eclipse)
         self.star = star
 
     def get_mu_star(self, alpha):
@@ -201,7 +201,67 @@ class Ring:
         #    bounds_y, bounds_z, 10000)
         # print(abs(1 - numerator / denominator)) # numerical errors may bring this down to 0
         return abs(1 - numerator / denominator)  # numerical errors may bring this down to 0
+    
+    def analytic_secondary_eclipse(self, alpha):
+        if np.abs(alpha) > 2.1 * self.star.radius / self.star.distance:
+            return 1.
 
+        mu = self.get_mu()
+        n_x, n_y, n_z = self.normal
+
+        y_star = self.star.distance * np.sin(alpha)
+        z_star = 0.
+        
+        #sorry im using a negative version of phi as compared to the above
+        sin_theta = np.sqrt(1 - mu ** 2)
+        cos_phi = n_z / sin_theta
+        sin_phi = -n_y / sin_theta
+        
+        areas = []
+        for i in range(2):
+            if i == 0:
+                r = self.inner_radius
+            if i == 1:
+                r = self.outer_radius
+            A = y_star/self.star.radius
+            B = cos_phi
+            C = sin_phi
+            D = (r**2)/(self.star.radius**2)
+        
+            def param_polynomial(t):
+                t4_term = t**4 * (2*A + A**2 + 1 + C**2/mu**2 + (2*A*C**2)/mu**2 + A**2*C**2/mu**2 - D)
+                t3_term = t**3 * (4*B*C + 4*A*B - (2*B*C)/mu**2 - (2*A*B*C)/mu**2)
+                t2_term = t**2 * (2*A**2 - 2 + 4*C**2 + 4*B**2/mu**2 - 2*D - 2*C**2/mu**2 + 2*A**2*C**2/mu**2)
+                t1_term = t * (4*A*B*C - 4*B*C + 2*B*C/mu**2 - 2*A*B*C/mu**2)
+                t0_term = 1-2*A+A**2+C**2/mu**2+A**2*C**2/mu**2
+                return t4_term + t3_term + t2_term + t1_term + t0_term
+        
+            t_guesses = [np.tan(0.5*np.pi/3), np.tan(np.pi/3), -np.tan(0.5*np.pi/3), -np.tan(np.pi/3)] # 4 guesses evenly spaced around circle
+            ts = []
+            for t_guess in t_guesses:
+                ts.append(exoring_functions.newton_raphson(param_polynomial, t_guess, 1e-6))
+            t = np.unique(ts)
+            if len(t) == 2:
+                y = (1-t**2)/(1+t**2) + y_star
+                z = (2*t)/(1+t**2)
+                y_prime = (y - y_star)*cos_phi - z*sin_phi
+                z_prime = z*cos_phi + (y - y_star)*sin_phi/mu
+                ellipse_angle = np.abs(np.arctan(z_prime[1]/y_prime[1])) + np.abs(np.arctan(z_prime[0]/y_prime[0]))
+                ellipse_sector = np.pi*ellipse_angle
+                ellipse_triangle = 0.5 * np.cos(ellipse_angle/2)*np.sin(ellipse_angle/2)*r**2
+                ellipse_area = mu * (ellipse_sector - ellipse_triangle)
+                circle_angle = np.abs(np.arctan(z[1]/y[1])) + np.abs(np.arctan(z[0]/y[0]))
+                circle_sector = np.pi*circle_angle
+                circle_triangle = 0.5 * np.cos(circle_angle/2)*np.sin(circle_angle/2)*self.star.radius**2
+                circle_area = circle_sector - circle_triangle
+                total_area = circle_area + ellipse_area
+                areas.append(total_area)
+        
+        area_on_ring = areas[1]-areas[0]
+        area_frac = area_on_ring / (mu*np.pi*(self.outer_radius**2 - self.inner_radius**2))
+        return 1.-area_frac
+            
+        
     def light_curve(self, alpha):
         return (self.outer_radius ** 2 - self.inner_radius ** 2) * self.phase_curve(alpha) * self.star.luminosity / (
                 4 * self.star.distance ** 2)
@@ -235,18 +295,13 @@ ring_normal2 /= np.sqrt(np.sum(ring_normal * ring_normal))
 ring = Ring(0.7, 1, 2., ring_normal, star)
 # ring2 = Ring(0.8, 1, 10, ring_normal2, star)
 
-animation = exoring_functions.Animation(planet, star, ring)
-animation.generate_animation()
+alphas = np.array(list(np.linspace(-np.pi, -0.1, 1000)) + list(np.linspace(-.1, .1, 3000)) + list(np.linspace(.1, np.pi, 1000)))
+planet_curve = planet.light_curve(alphas)
+ring_curve = ring.light_curve(alphas)
 
-plt.style.use('the_usual.mplstyle')
-# plt.subplots_adjust(top=2.1, bottom=2, tight_layout=True)
-fig, ax = plt.subplots()
-ax.plot(animation.alphas / np.pi, animation.planet_curve, label='Planet')
-ax.plot(animation.alphas / np.pi, animation.ring_curve, label='Ring')
-ax.plot(animation.alphas / np.pi, animation.planet_curve + animation.ring_curve, label='Ring + Planet')
-ax.xaxis.set_major_formatter(FuncFormatter(exoring_functions.format_fraction_with_pi))
-ax.xaxis.set_major_locator(tck.MultipleLocator(base=1 / 2))
-ax.set_xlabel(r'Phase angle $\alpha$')
-ax.set_ylabel(r'Intensity ($L_{\odot}$)')
-ax.legend()
-fig.savefig('images/light_curves.jpg', bbox_inches="tight")
+plt.plot(alphas, planet_curve, label = 'Planet')
+plt.plot(alphas, ring_curve, label = 'Ring')
+plt.plot(alphas, planet_curve + ring_curve, label = r'Planet + Ring')
+plt.xlabel(r'Phase angle $\alpha$')
+plt.ylabel(r'Luminosity ($L_\odot$)')
+plt.legend()

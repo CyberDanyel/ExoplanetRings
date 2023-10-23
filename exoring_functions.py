@@ -16,6 +16,8 @@ import matplotlib.ticker as tck
 
 # exoring_functions
 
+
+#riemann integration
 def integrate2d(func, bounds: list, sigma=0.01):
     """
     2D integration by basic Riemann sum
@@ -60,7 +62,35 @@ def integrate2d(func, bounds: list, sigma=0.01):
                 old_total_integral = new_total_integral
                 pass
 
+#newton_raphson
+def newton_raphson(func, x_0, tol):
+    '''
+    Newton-Raphson method for finding roots
 
+    Parameters
+    ----------
+        func : function/lambda
+    The function whose roots are being sought
+        x_0 : float
+    An initial guess for the root
+        tol : float
+    The tolerance at which to return
+
+    Returns
+    -------
+    The roots of the function
+
+    '''
+    delta_x = 1e-4
+    x = x_0
+    err = tol + 1
+    while np.abs(err) > tol:
+        f_prime = (func(x+delta_x) - func(x))/(delta_x)
+        err = func(x)/f_prime
+        x -= err
+    return x
+
+#monte carlo integration
 class MonteCarloPlanetIntegration:
     def __init__(self, i):
         self.i = i
@@ -116,6 +146,7 @@ def monte_carlo_ring_integration(func, bounds_y, bounds_z, i):
     return integral  # numerical errors may bring this down to 0
 
 
+#animation functions
 class Animation:
     def __init__(self, planet, star, ring):
         self.star = star
