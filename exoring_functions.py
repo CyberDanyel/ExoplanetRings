@@ -51,7 +51,8 @@ def integrate2d(func, bounds: list, sigma=0.01):
             old_total_integral = new_total_integral
             pass
         else:
-            if old_total_integral == 0 or abs((new_total_integral - old_total_integral) / old_total_integral) < sigma or old_total_integral < 1e-10:
+            if old_total_integral == 0 or abs((
+                                                      new_total_integral - old_total_integral) / old_total_integral) < sigma or old_total_integral < 1e-10:
                 return new_total_integral
             else:
                 n = n * 2
@@ -171,6 +172,7 @@ class Animation:
         a = time.time()
         self.planet_curve = self.planet.light_curve(self.alphas)
         self.ring_curve = self.ring.light_curve(self.alphas)
+        self.star_curve = self.star.transit_function(self.alphas)
         b = time.time()
         self.maximum_intensity = max(self.planet_curve + self.ring_curve)
         print(f'ended in ' + str(b - a))

@@ -95,7 +95,7 @@ class Planet:
         # alpha) >= np.arcsin((self.star.radius + self.radius) / self.star.distance))
         # Only check secondary eclipse for certain alphas when you are close to the star for speed
 
-    def phase_curve_unvectorized(self, alpha: float) -> object:
+    def phase_curve_unvectorized(self, alpha: float) -> float:
         """
         Parameters
         ----------
@@ -208,15 +208,53 @@ class Ring:
 
 
 class Star:
-    def __init__(self, luminosity, radius, distance, mass):
+    def __init__(self, luminosity, radius, distance, mass, planet=None):
         self.luminosity = luminosity
         self.radius = radius
         self.distance = distance
         self.mass = mass
+        self.planet = planet
 
+    def transit_function(self, alpha):
+        print(alpha)
+        #if abs(alpha) <= np.pi / 2:
+        #    separation = self.distance * np.sin(abs(alpha)) For these angles the planet could never transit the sun
+        if abs(alpha) >= np.pi / 2:
+            separation = self.distance * np.sin(np.pi - abs(alpha))
+        else:
+            return self.luminosity
+        if alpha < 0:
+            separation_coord = -separation
+        elif alpha > 0:
+            separation_coord = separation
+        if separation >= self.planet.radius + self.radius:
+            return self.luminosity
+        if separation < self.radius - self.planet.radius:
+            occluded_frac = (self.planet.radius/self.radius)**2
+            return (1-occluded_frac)*self.luminosity
+
+        def integral_func(radius, bounds: []):
+            upper = radius ** 2 * np.arcsin(bounds[1] / radius) + bounds[1] * np.sqrt(radius ** 2 - bounds[1] ** 2)
+            bottom = radius ** 2 * np.arcsin(bounds[0] / radius) + bounds[0] * np.sqrt(radius ** 2 - bounds[0] ** 2)
+            integration_result = upper - bottom
+            return integration_result
+
+        x_0 = (self.planet.radius ** 2 - self.radius ** 2 + separation_coord ** 2) / (2 * separation_coord)
+        if alpha > 0:
+            integration = abs(integral_func(self.planet.radius, [x_0, self.planet.radius])) + abs(
+                integral_func(self.radius,
+                              [x_0 - separation_coord, -self.radius]))
+        if alpha < 0:
+            integration = abs(integral_func(self.planet.radius, [x_0, -self.planet.radius])) + abs(
+                integral_func(self.radius,
+                              [x_0 - separation_coord, self.radius]))
+        occluded_frac = integration/(np.pi*self.radius**2) # Occluded fraction
+        if occluded_frac > 1:
+            print('error, occluded_frac > 1')
+            exit()
+        return (1 - occluded_frac) * self.luminosity
 
 # %%%
-
 # debugging stuff
 
 
@@ -233,6 +271,7 @@ ring_normal2 = np.array([1., 0., 0.0])
 ring_normal2 /= np.sqrt(np.sum(ring_normal * ring_normal))
 
 ring = Ring(0.7, 1, 2., ring_normal, star)
+star.planet = planet
 # ring2 = Ring(0.8, 1, 10, ring_normal2, star)
 
 animation = exoring_functions.Animation(planet, star, ring)
