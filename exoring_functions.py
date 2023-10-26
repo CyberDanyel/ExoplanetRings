@@ -90,6 +90,24 @@ def newton_raphson(func, x_0, tol):
         x -= err
     return x
 
+def find_ellipse_intersection(r_0, r_1, mu, sin_phi, cos_phi, offset):
+    'r_0 - radius of circle'
+    'r_1 - semimajor axis of ellipse'
+    'mu - ratio of semiminor axis to semimajor axis'
+    t4_coeff = (cos_phi - 2*offset*cos_phi/r_0 + (offset/r_0)**2*cos_phi) + (1/mu**2) * sin_phi**2 * (1 - 2*offset/r_0 + (offset/r_0)**2) - (r_1/r_0)**2
+    t3_coeff = (1/mu**2)*(4*sin_phi*cos_phi)*(offset/r_0 - 1)
+    t2_coeff = (-2*cos_phi + 2*(offset/r_0)**2*cos_phi) + (1/mu**2) * (4*cos_phi**2 + sin_phi**2 * 2 * (offset/r_0)**2) - 2*(r_1/r_0)**2
+    t1_coeff = (1/mu**2) * (4*sin_phi*cos_phi*(1+offset/r_0) - 2*sin_phi**2)
+    t0_coeff = (cos_phi + 2*(offset/r_0)*cos_phi + (offset/r_0)**2*cos_phi) + (1/mu**2) * sin_phi**2 * (1 + 2*(offset/r_0) + (offset/r_0)**2) - (r_1/r_0)**2
+            
+            
+    t = np.roots([t4_coeff, t3_coeff, t2_coeff, t1_coeff, t0_coeff])
+    t = np.real(t[t == np.real(t)])
+    y = (1-t**2)/(1+t**2)
+    z = (2*t)/(1+t**2)
+    
+    return y, z
+    
 #monte carlo integration
 class MonteCarloPlanetIntegration:
     def __init__(self, i):
