@@ -264,3 +264,10 @@ class Animation:
         ani = animation.FuncAnimation(fig, update, frames=num_frames, init_func=init, blit=False)
         ani.save('gifs/animated_graph.gif', writer='pillow',
                  fps=20)  # Adjust the filename and frames per second as needed
+
+
+def circle_section_integral(radius, bounds: []):
+    upper = radius ** 2 * np.arcsin(bounds[1] / radius) + bounds[1] * np.sqrt(radius ** 2 - bounds[1] ** 2)
+    bottom = radius ** 2 * np.arcsin(bounds[0] / radius) + bounds[0] * np.sqrt(radius ** 2 - bounds[0] ** 2)
+    integration_result = upper - bottom
+    return integration_result

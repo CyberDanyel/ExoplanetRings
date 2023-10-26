@@ -19,7 +19,7 @@ class Planet:
         """
         self.radius = radius
         self.sc_law = lambda \
-            mu_star: albedo / np.pi  # isotropic scattering law intensity distribution - 1/pi factor from
+                mu_star: albedo / np.pi  # isotropic scattering law intensity distribution - 1/pi factor from
         # normalization - currently a function to future-proof
         self.phase_curve = np.vectorize(
             self.phase_curve_unvectorized)  # vectorizing so that arrays of phase angles can be input more
@@ -109,7 +109,7 @@ class Ring:
         self.inner_radius = inner_rad
         self.outer_radius = outer_rad
         self.sc_law = lambda \
-            mu_star: albedo / np.pi  # isotropic scattering law intensity distribution - 1/pi factor from
+                mu_star: albedo / np.pi  # isotropic scattering law intensity distribution - 1/pi factor from
         # normalization
         self.normal = normal
         self.secondary_eclipse = np.vectorize(self.unvectorized_secondary_eclipse)
@@ -208,27 +208,22 @@ class Star:
         else:
             print('problem with alpha')
             exit()
-        if separation >= self.planet.radius + self.radius: # planet does not occlude star
+        if separation >= self.planet.radius + self.radius:  # planet does not occlude star
             return self.luminosity
-        if separation < self.radius - self.planet.radius: # planet fully in front of star
+        if separation < self.radius - self.planet.radius:  # planet fully in front of star
             occluded_frac = (self.planet.radius / self.radius) ** 2
             return (1 - occluded_frac) * self.luminosity
-
-        def integral_func(radius, bounds: []):
-            upper = radius ** 2 * np.arcsin(bounds[1] / radius) + bounds[1] * np.sqrt(radius ** 2 - bounds[1] ** 2)
-            bottom = radius ** 2 * np.arcsin(bounds[0] / radius) + bounds[0] * np.sqrt(radius ** 2 - bounds[0] ** 2)
-            integration_result = upper - bottom
-            return integration_result
-
         x_0 = (self.planet.radius ** 2 - self.radius ** 2 + separation_coord ** 2) / (2 * separation_coord)
         if alpha > 0:
-            integration = abs(integral_func(self.planet.radius, [x_0, self.planet.radius])) + abs(
-                integral_func(self.radius,
-                              [x_0 - separation_coord, -self.radius]))
+            integration = abs(
+                exoring_functions.circle_section_integral(self.planet.radius, [x_0, self.planet.radius])) + abs(
+                exoring_functions.circle_section_integral(self.radius,
+                                                          [x_0 - separation_coord, -self.radius]))
         elif alpha < 0:
-            integration = abs(integral_func(self.planet.radius, [x_0, -self.planet.radius])) + abs(
-                integral_func(self.radius,
-                              [x_0 - separation_coord, self.radius]))
+            integration = abs(
+                exoring_functions.circle_section_integral(self.planet.radius, [x_0, -self.planet.radius])) + abs(
+                exoring_functions.circle_section_integral(self.radius,
+                                                          [x_0 - separation_coord, self.radius]))
         else:
             print('problem with alpha 2')
             exit()
