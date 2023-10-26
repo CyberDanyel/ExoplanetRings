@@ -1,26 +1,5 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Sun Oct  8 17:51:16 2023
-
-@author: victo
-"""
-# exoring objects
-
 import numpy as np
 import exoring_functions
-import matplotlib.pyplot as plt
-import matplotlib.ticker as tck
-from matplotlib.ticker import FuncFormatter
-
-# for debugging purposes
-
-AU = 1.495978707e13
-L_SUN = 3.828e33
-R_JUP = 6.9911e9
-R_SUN = 6.957e10
-JUP_TO_AU = AU / R_JUP
-SUN_TO_JUP = R_SUN / R_JUP
-SUN_TO_AU = AU / R_SUN
 
 
 # coordinate systems defined such that the observer is always along the x-axis
@@ -40,7 +19,7 @@ class Planet:
         """
         self.radius = radius
         self.sc_law = lambda \
-                mu_star: albedo / np.pi  # isotropic scattering law intensity distribution - 1/pi factor from
+            mu_star: albedo / np.pi  # isotropic scattering law intensity distribution - 1/pi factor from
         # normalization - currently a function to future-proof
         self.phase_curve = np.vectorize(
             self.phase_curve_unvectorized)  # vectorizing so that arrays of phase angles can be input more
@@ -130,7 +109,7 @@ class Ring:
         self.inner_radius = inner_rad
         self.outer_radius = outer_rad
         self.sc_law = lambda \
-                mu_star: albedo / np.pi  # isotropic scattering law intensity distribution - 1/pi factor from
+            mu_star: albedo / np.pi  # isotropic scattering law intensity distribution - 1/pi factor from
         # normalization
         self.normal = normal
         self.secondary_eclipse = np.vectorize(self.unvectorized_secondary_eclipse)
@@ -216,8 +195,7 @@ class Star:
         self.planet = planet
 
     def transit_function(self, alpha):
-        print(alpha)
-        #if abs(alpha) <= np.pi / 2:
+        # if abs(alpha) <= np.pi / 2:
         #    separation = self.distance * np.sin(abs(alpha)) For these angles the planet could never transit the sun
         if abs(alpha) >= np.pi / 2:
             separation = self.distance * np.sin(np.pi - abs(alpha))
@@ -227,11 +205,14 @@ class Star:
             separation_coord = -separation
         elif alpha > 0:
             separation_coord = separation
-        if separation >= self.planet.radius + self.radius:
+        else:
+            print('problem with alpha')
+            exit()
+        if separation >= self.planet.radius + self.radius: # planet does not occlude star
             return self.luminosity
-        if separation < self.radius - self.planet.radius:
-            occluded_frac = (self.planet.radius/self.radius)**2
-            return (1-occluded_frac)*self.luminosity
+        if separation < self.radius - self.planet.radius: # planet fully in front of star
+            occluded_frac = (self.planet.radius / self.radius) ** 2
+            return (1 - occluded_frac) * self.luminosity
 
         def integral_func(radius, bounds: []):
             upper = radius ** 2 * np.arcsin(bounds[1] / radius) + bounds[1] * np.sqrt(radius ** 2 - bounds[1] ** 2)
@@ -244,48 +225,19 @@ class Star:
             integration = abs(integral_func(self.planet.radius, [x_0, self.planet.radius])) + abs(
                 integral_func(self.radius,
                               [x_0 - separation_coord, -self.radius]))
-        if alpha < 0:
+        elif alpha < 0:
             integration = abs(integral_func(self.planet.radius, [x_0, -self.planet.radius])) + abs(
                 integral_func(self.radius,
                               [x_0 - separation_coord, self.radius]))
-        occluded_frac = integration/(np.pi*self.radius**2) # Occluded fraction
+        else:
+            print('problem with alpha 2')
+            exit()
+        occluded_frac = integration / (np.pi * self.radius ** 2)  # Occluded fraction
         if occluded_frac > 1:
             print('error, occluded_frac > 1')
             exit()
         return (1 - occluded_frac) * self.luminosity
 
-# %%%
-# debugging stuff
-
-
-plt.style.use('the_usual.mplstyle')
-
-star = Star(1, 1 * SUN_TO_JUP, .1 * JUP_TO_AU, 1)
-
-planet = Planet(0.52, 1, star)
-
-ring_normal = np.array([1., 1., 0.])
-ring_normal /= np.sqrt(np.sum(ring_normal * ring_normal))
-
-ring_normal2 = np.array([1., 0., 0.0])
-ring_normal2 /= np.sqrt(np.sum(ring_normal * ring_normal))
-
-ring = Ring(0.7, 1, 2., ring_normal, star)
-star.planet = planet
-# ring2 = Ring(0.8, 1, 10, ring_normal2, star)
-
-animation = exoring_functions.Animation(planet, star, ring)
-animation.generate_animation()
-
-plt.style.use('the_usual.mplstyle')
-# plt.subplots_adjust(top=2.1, bottom=2, tight_layout=True)
-fig, ax = plt.subplots()
-ax.plot(animation.alphas / np.pi, animation.planet_curve, label='Planet')
-ax.plot(animation.alphas / np.pi, animation.ring_curve, label='Ring')
-ax.plot(animation.alphas / np.pi, animation.planet_curve + animation.ring_curve, label='Ring + Planet')
-ax.xaxis.set_major_formatter(FuncFormatter(exoring_functions.format_fraction_with_pi))
-ax.xaxis.set_major_locator(tck.MultipleLocator(base=1 / 2))
-ax.set_xlabel(r'Phase angle $\alpha$')
-ax.set_ylabel(r'Intensity ($L_{\odot}$)')
-ax.legend()
-fig.savefig('images/light_curves.jpg', bbox_inches="tight")
+    def light_curve(self, alphas):
+        light_curve = [self.transit_function(alpha) for alpha in list(alphas)]
+        return light_curve
