@@ -19,7 +19,7 @@ class Planet:
         """
         self.radius = radius
         self.sc_law = lambda \
-                mu_star: albedo / np.pi  # isotropic scattering law intensity distribution - 1/pi factor from
+                mu_star: albedo / np.pi # isotropic scattering law intensity distribution - 1/pi factor from
         # normalization - currently a function to future-proof
         self.phase_curve = np.vectorize(
             self.phase_curve_unvectorized)  # vectorizing so that arrays of phase angles can be input more
@@ -109,7 +109,7 @@ class Ring:
         self.inner_radius = inner_rad
         self.outer_radius = outer_rad
         self.sc_law = lambda \
-                mu_star: albedo / np.pi  # isotropic scattering law intensity distribution - 1/pi factor from
+                mu_star: albedo * (1+mu_star**2) / 13.478   # isotropic scattering law intensity distribution - 1/pi factor from
         # normalization
         self.normal = normal
         self.secondary_eclipse = np.vectorize(self.analytic_secondary_eclipse)
@@ -220,6 +220,8 @@ class Star:
         self.radius = radius
         self.distance = distance
         self.mass = mass
+        self.planet = planet
+        
     def transit_function(self, alpha):
         # if abs(alpha) <= np.pi / 2:
         #    separation = self.distance * np.sin(abs(alpha)) For these angles the planet could never transit the sun
