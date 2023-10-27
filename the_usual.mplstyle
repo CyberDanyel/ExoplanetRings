@@ -493,7 +493,7 @@ ytick.major.width:   1.0    # major tick width in points
 ytick.minor.width:   0.8    # minor tick width in points
 ytick.major.pad:     4.     # distance to major tick label in points
 ytick.minor.pad:     3.5     # distance to the minor tick label in points
-ytick.color:         dark grey   # color of the ticks
+ytick.color:         xkcd:dark grey   # color of the ticks
 ytick.labelcolor:    inherit # color of the tick labels or inherit from ytick.color
 ytick.labelsize:     medium  # font size of the tick labels
 ytick.direction:     in     # direction: {in, out, inout}
@@ -521,7 +521,7 @@ legend.loc:           best
 legend.frameon:       True     # if True, draw the legend on a background patch
 legend.framealpha:    1.0     # legend patch transparency
 legend.facecolor:     inherit  # inherit from axes.facecolor; or color spec
-legend.edgecolor:     xkcd:balck     # background patch boundary color
+legend.edgecolor:     xkcd:black     # background patch boundary color
 legend.fancybox:      True     # if True, use a rounded box for the
                                 # legend background, else a rectangle
 legend.shadow:        False    # if True, give background a shadow effect

@@ -112,12 +112,12 @@ class Ring:
                 mu_star: albedo / np.pi  # isotropic scattering law intensity distribution - 1/pi factor from
         # normalization
         self.normal = normal
-        self.secondary_eclipse = np.vectorize(self.unvectorized_secondary_eclipse)
+        self.secondary_eclipse = np.vectorize(self.analytic_secondary_eclipse)
         self.star = star
 
     def get_mu_star(self, alpha):
         """mu_star = cos(angle between star and normal to ring)"""
-        star_pos = np.array([np.cos(alpha), np.sin(alpha), 0.])
+        star_pos = np.array([np.cos(alpha), np.sin(alpha), np.zeros(np.shape(alpha))])
         return np.dot(self.normal, star_pos)
 
     def get_mu(self):
@@ -180,7 +180,34 @@ class Ring:
         #    bounds_y, bounds_z, 10000)
         # print(abs(1 - numerator / denominator)) # numerical errors may bring this down to 0
         return abs(1 - numerator / denominator)  # numerical errors may bring this down to 0
+    
+    def analytic_secondary_eclipse(self, alpha):
+        if np.abs(alpha) > 4.0 * self.star.radius / self.star.distance:
+            return 1.
+        
+        if np.abs(alpha) < 0.05:
+            break_val = 'filler'
+        
+        mu = self.get_mu()
+        n_x, n_y, n_z = self.normal
 
+        y_star = self.star.distance * np.sin(alpha)
+        z_star = 0.
+        
+        #sorry im using a negative version of phi as compared to the above
+        sin_theta = np.sqrt(1 - mu ** 2)
+        cos_phi = n_z / sin_theta
+        sin_phi = -n_y / sin_theta
+        
+        
+        outer_area = exoring_functions.overlap_area(self.star.radius, self.outer_radius, mu, cos_phi, sin_phi, y_star)
+        inner_area = exoring_functions.overlap_area(self.star.radius, self.inner_radius, mu, cos_phi, sin_phi, y_star)
+        area_on_ring = outer_area - inner_area
+        total_ring_area = mu * np.pi * (self.outer_radius**2 - self.inner_radius**2)# - self.inner_radius**2)
+        if area_on_ring < 0:
+            print('Alpha: %.3f Area on outer: %.4f, area on inner: %.4f' %(alpha, outer_area))#, inner_area))
+        return 1. - (area_on_ring / total_ring_area)
+            
     def light_curve(self, alpha):
         return (self.outer_radius ** 2 - self.inner_radius ** 2) * self.phase_curve(alpha) * self.star.luminosity / (
                 4 * self.star.distance ** 2)
