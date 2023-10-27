@@ -1,17 +1,11 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Fri Oct 13 17:46:48 2023
-
-@author: victo
-"""
 import time
-from fractions import Fraction
 import matplotlib.animation as animation
 import numpy as np
-from matplotlib import pyplot as plt
-from matplotlib.ticker import FuncFormatter
 import matplotlib.patches as mpatches
 import matplotlib.ticker as tck
+from fractions import Fraction
+from matplotlib import pyplot as plt
+from matplotlib.ticker import FuncFormatter
 
 
 # exoring_functions
@@ -53,7 +47,8 @@ def integrate2d(func, bounds: list, sigma=0.01):
             old_total_integral = new_total_integral
             pass
         else:
-            if old_total_integral == 0 or abs((new_total_integral - old_total_integral) / old_total_integral) < sigma or old_total_integral < 1e-10:
+            if old_total_integral == 0 or abs((
+                                                      new_total_integral - old_total_integral) / old_total_integral) < sigma or old_total_integral < 1e-10:
                 return new_total_integral
             else:
                 n = n * 2
@@ -166,15 +161,18 @@ def monte_carlo_ring_integration(func, bounds_y, bounds_z, i):
 
 #animation functions
 class Animation:
-    def __init__(self, planet, star, ring):
+    def __init__(self, planet, star, ring, including_star=False):
         self.star = star
         self.planet = planet
         self.ring = ring
+        self.including_star = including_star
+        self.maximum_intensity_including_star = None
+        self.maximum_intensity_excluding_star = None
         self.alphas = np.array(list(np.linspace(-np.pi, -0.1, 1000)) + list(np.linspace(-0.1, 0.1, 2000)) + list(
             np.linspace(0.1, np.pi, 1000)))
         self.planet_curve = None
         self.ring_curve = None
-        self.maximum_intensity = None
+        self.star_curve = None
         self.calculate_light_curves()
 
     def set_axes_equal(self, ax):
@@ -220,22 +218,32 @@ class Animation:
         a = time.time()
         self.planet_curve = self.planet.light_curve(self.alphas)
         self.ring_curve = self.ring.light_curve(self.alphas)
+        self.star_curve = self.star.light_curve(self.alphas)
         b = time.time()
-        self.maximum_intensity = max(self.planet_curve + self.ring_curve)
+        if self.including_star:
+            self.maximum_intensity_including_star = max(self.planet_curve + self.ring_curve + self.star_curve)
+        self.maximum_intensity_excluding_star = max(self.planet_curve + self.ring_curve)
         print(f'ended in ' + str(b - a))
 
     def generate_animation(self):
         plt.style.use('the_usual.mplstyle')
-        fig = plt.figure(figsize=plt.figaspect(2.))
-        axs1 = fig.add_subplot(3, 1, 1)
-        axs2 = fig.add_subplot(3, 1, (2, 3), projection='3d')
-        fig.tight_layout()
+        if self.including_star:
+            fig = plt.figure(figsize=plt.figaspect(3.))
+            axs1 = fig.add_subplot(4, 1, 1)
+            axs3 = fig.add_subplot(4, 1, 2)
+            axs2 = fig.add_subplot(4, 1, (3, 4), projection='3d')
+            fig.tight_layout()
+        else:
+            fig = plt.figure(figsize=plt.figaspect(2.))
+            axs1 = fig.add_subplot(3, 1, 1)
+            axs2 = fig.add_subplot(3, 1, (2, 3), projection='3d')
+            fig.tight_layout()
 
         def create_graph_layout():
             axs1.xaxis.set_major_formatter(FuncFormatter(format_fraction_with_pi))
             axs1.xaxis.set_major_locator(tck.MultipleLocator(base=1 / 2))
             axs1.set_xlim(-1, 1)
-            axs1.set_ylim(0, 1.1 * self.maximum_intensity)
+            axs1.set_ylim(0, 1.1 * self.maximum_intensity_excluding_star)
             axs1.set_xlabel(r'Phase angle $\alpha$')
             axs1.set_ylabel(r'Intensity ($L_{\odot}$)')
             axs2.set_xlim(-(self.star.distance + self.star.radius + self.planet.radius),
@@ -247,6 +255,13 @@ class Animation:
             axs2.set_box_aspect([10, 10, 10])
             axs2.view_init(elev=0, azim=0)  # Could make the camera centre around the planet, so we see it from closer
             self.set_axes_equal(axs2)
+            if self.including_star:
+                axs3.xaxis.set_major_formatter(FuncFormatter(format_fraction_with_pi))
+                axs3.xaxis.set_major_locator(tck.MultipleLocator(base=1 / 2))
+                axs3.set_xlim(-1, 1)
+                axs3.set_ylim(0, 1.1 * self.maximum_intensity_including_star)
+                axs3.set_xlabel(r'Phase angle $\alpha$')
+                axs3.set_ylabel(r'Intensity ($L_{\odot}$)')
 
         def init():
             create_graph_layout()
@@ -254,6 +269,9 @@ class Animation:
             red_patch = mpatches.Patch(color='red', label='Ring')
             orange_patch = mpatches.Patch(color='orange', label='Planet + Ring')
             axs1.legend(handles=[blue_patch, red_patch, orange_patch], fontsize=6)
+            if self.including_star:
+                orange_patch2 = mpatches.Patch(color='orange', label='Planet + Ring + Star')
+                axs3.legend(handles=[orange_patch2], fontsize=6)
 
         num_frames = 100
         orbital_centre = [0, 0, 0]
@@ -270,6 +288,12 @@ class Animation:
                       label='Planet + Ring', color='orange')
             if frame == 0:
                 axs1.legend(fontsize=6)
+            if self.including_star:
+                axs3.plot(self.alphas[:num_points] / np.pi,
+                          self.planet_curve[:num_points] + self.ring_curve[:num_points] + self.star_curve[:num_points],
+                          label='Planet + Ring + Star', color='orange')
+                if frame == 0:
+                    axs3.legend(fontsize=6)
             alpha = self.alphas[num_points]
             centre = [self.star.distance * np.cos(alpha - np.pi), self.star.distance * np.sin(alpha - np.pi),
                       z]  # np.pi factor corrects for the beginning of the phase
@@ -295,6 +319,7 @@ def circle_section_integral(radius, bounds: []):
     bottom = radius ** 2 * np.arcsin(bounds[0] / radius) + bounds[0] * np.sqrt(radius ** 2 - bounds[0] ** 2)
     integration_result = upper - bottom
     return integration_result
+
 
 def overlap_area(r_circle, r_ellipse, mu, cos_phi, sin_phi, offset):
     def find_distance_from_ellipse_centre(a, b):
@@ -333,3 +358,4 @@ def overlap_area(r_circle, r_ellipse, mu, cos_phi, sin_phi, offset):
             
     ellipse_section_area = mu * np.abs(circle_section_integral(r_ellipse, bounds = [x_ellipse_prime[0], np.sign(offset)*r_ellipse]))
     return ellipse_section_area + circle_section_area
+

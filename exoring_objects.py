@@ -1,26 +1,5 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Sun Oct  8 17:51:16 2023
-
-@author: victo
-"""
-# exoring objects
-
 import numpy as np
 import exoring_functions
-import matplotlib.pyplot as plt
-import matplotlib.ticker as tck
-from matplotlib.ticker import FuncFormatter
-
-# for debugging purposes
-
-AU = 1.495978707e13
-L_SUN = 3.828e33
-R_JUP = 6.9911e9
-R_SUN = 6.957e10
-JUP_TO_AU = AU / R_JUP
-SUN_TO_JUP = R_SUN / R_JUP
-SUN_TO_AU = AU / R_SUN
 
 
 # coordinate systems defined such that the observer is always along the x-axis
@@ -95,7 +74,7 @@ class Planet:
         # alpha) >= np.arcsin((self.star.radius + self.radius) / self.star.distance))
         # Only check secondary eclipse for certain alphas when you are close to the star for speed
 
-    def phase_curve_unvectorized(self, alpha: float) -> object:
+    def phase_curve_unvectorized(self, alpha: float) -> float:
         """
         Parameters
         ----------
@@ -236,40 +215,50 @@ class Ring:
 
 
 class Star:
-    def __init__(self, luminosity, radius, distance, mass):
+    def __init__(self, luminosity, radius, distance, mass, planet=None):
         self.luminosity = luminosity
         self.radius = radius
         self.distance = distance
         self.mass = mass
+    def transit_function(self, alpha):
+        # if abs(alpha) <= np.pi / 2:
+        #    separation = self.distance * np.sin(abs(alpha)) For these angles the planet could never transit the sun
+        if abs(alpha) >= np.pi / 2:
+            separation = self.distance * np.sin(np.pi - abs(alpha))
+        else:
+            return self.luminosity
+        if alpha < 0:
+            separation_coord = -separation
+        elif alpha > 0:
+            separation_coord = separation
+        else:
+            print('problem with alpha')
+            exit()
+        if separation >= self.planet.radius + self.radius:  # planet does not occlude star
+            return self.luminosity
+        if separation < self.radius - self.planet.radius:  # planet fully in front of star
+            occluded_frac = (self.planet.radius / self.radius) ** 2
+            return (1 - occluded_frac) * self.luminosity
+        x_0 = (self.planet.radius ** 2 - self.radius ** 2 + separation_coord ** 2) / (2 * separation_coord)
+        if alpha > 0:
+            integration = abs(
+                exoring_functions.circle_section_integral(self.planet.radius, [x_0, self.planet.radius])) + abs(
+                exoring_functions.circle_section_integral(self.radius,
+                                                          [x_0 - separation_coord, -self.radius]))
+        elif alpha < 0:
+            integration = abs(
+                exoring_functions.circle_section_integral(self.planet.radius, [x_0, -self.planet.radius])) + abs(
+                exoring_functions.circle_section_integral(self.radius,
+                                                          [x_0 - separation_coord, self.radius]))
+        else:
+            print('problem with alpha 2')
+            exit()
+        occluded_frac = integration / (np.pi * self.radius ** 2)  # Occluded fraction
+        if occluded_frac > 1:
+            print('error, occluded_frac > 1')
+            exit()
+        return (1 - occluded_frac) * self.luminosity
 
-
-#%%%
-
-# debugging stuff
-
-
-#plt.style.use('the_usual')
-star = Star(1, 1 * SUN_TO_JUP, .1 * JUP_TO_AU, 1)
-
-planet = Planet(0.52, 1, star)
-
-ring_normal = np.array([1., 1., 0.0])
-ring_normal /= np.sqrt(np.sum(ring_normal * ring_normal))
-
-ring_normal2 = np.array([1., 0., 0.0])
-ring_normal2 /= np.sqrt(np.sum(ring_normal * ring_normal))
-
-ring = Ring(0.7, 1., 2., ring_normal, star)
-# ring2 = Ring(0.8, 1, 10, ring_normal2, star)
-
-alphas = np.array(list(np.linspace(-np.pi, -0.1, 1000)) + list(np.linspace(-.1, .1, 3000)) + list(np.linspace(.1, np.pi, 1000)))
-#planet_curve = planet.light_curve(alphas)
-ring_curve = ring.light_curve(alphas)
-
-plt.title('Physics Barbie is the best Barbie')
-#plt.plot(alphas, planet_curve, label = 'Planet')
-plt.plot(alphas, ring_curve, label = 'Ring')
-#plt.plot(alphas, planet_curve + ring_curve, label = r'Planet + Ring')
-#plt.xlabel(r'Phase angle $\alpha$')
-#plt.ylabel(r'Luminosity ($L_\odot$)')
-#plt.legend()
+    def light_curve(self, alphas):
+        light_curve = [self.transit_function(alpha) for alpha in list(alphas)]
+        return light_curve
