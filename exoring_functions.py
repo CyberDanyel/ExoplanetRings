@@ -10,8 +10,6 @@ from matplotlib.ticker import FuncFormatter
 
 # exoring_functions
 
-
-#riemann integration
 def integrate2d(func, bounds: list, sigma=0.01):
     """
     2D integration by basic Riemann sum
@@ -57,53 +55,7 @@ def integrate2d(func, bounds: list, sigma=0.01):
                 old_total_integral = new_total_integral
                 pass
 
-#newton_raphson
-def newton_raphson(func, x_0, tol):
-    '''
-    Newton-Raphson method for finding roots
 
-    Parameters
-    ----------
-        func : function/lambda
-    The function whose roots are being sought
-        x_0 : float
-    An initial guess for the root
-        tol : float
-    The tolerance at which to return
-
-    Returns
-    -------
-    The roots of the function
-
-    '''
-    delta_x = 1e-4
-    x = x_0
-    err = tol + 1
-    while np.abs(err) > tol:
-        f_prime = (func(x+delta_x) - func(x))/(delta_x)
-        err = func(x)/f_prime
-        x -= err
-    return x
-
-def find_ellipse_intersection(r_0, r_1, mu, sin_phi, cos_phi, offset):
-    'r_0 - radius of circle'
-    'r_1 - semimajor axis of ellipse'
-    'mu - ratio of semiminor axis to semimajor axis'
-    t4_coeff = (cos_phi - 2*offset*cos_phi/r_0 + (offset/r_0)**2*cos_phi) + (1/mu**2) * sin_phi**2 * (1 - 2*offset/r_0 + (offset/r_0)**2) - (r_1/r_0)**2
-    t3_coeff = (1/mu**2)*(4*sin_phi*cos_phi)*(offset/r_0 - 1)
-    t2_coeff = (-2*cos_phi + 2*(offset/r_0)**2*cos_phi) + (1/mu**2) * (4*cos_phi**2 + sin_phi**2 * 2 * (offset/r_0)**2) - 2*(r_1/r_0)**2
-    t1_coeff = (1/mu**2) * (4*sin_phi*cos_phi*(1+offset/r_0) - 2*sin_phi**2)
-    t0_coeff = (cos_phi + 2*(offset/r_0)*cos_phi + (offset/r_0)**2*cos_phi) + (1/mu**2) * sin_phi**2 * (1 + 2*(offset/r_0) + (offset/r_0)**2) - (r_1/r_0)**2
-            
-            
-    t = np.roots([t4_coeff, t3_coeff, t2_coeff, t1_coeff, t0_coeff])
-    t = np.real(t[t == np.real(t)])
-    y = (1-t**2)/(1+t**2)
-    z = (2*t)/(1+t**2)
-    
-    return y, z
-    
-#monte carlo integration
 class MonteCarloPlanetIntegration:
     def __init__(self, i):
         self.i = i
@@ -159,7 +111,6 @@ def monte_carlo_ring_integration(func, bounds_y, bounds_z, i):
     return integral  # numerical errors may bring this down to 0
 
 
-#animation functions
 class Animation:
     def __init__(self, planet, star, ring, including_star=False):
         self.star = star
@@ -313,48 +264,9 @@ class Animation:
         ani = animation.FuncAnimation(fig, update, frames=num_frames, init_func=init, blit=False)
         ani.save('gifs/animated_graph.gif', writer='pillow', fps=20)  # Adjust the filename and frames per second as needed
 
+
 def circle_section_integral(radius, bounds: []):
     upper = radius ** 2 * np.arcsin(bounds[1] / radius) + bounds[1] * np.sqrt(radius ** 2 - bounds[1] ** 2)
     bottom = radius ** 2 * np.arcsin(bounds[0] / radius) + bounds[0] * np.sqrt(radius ** 2 - bounds[0] ** 2)
     integration_result = upper - bottom
     return integration_result
-
-
-def overlap_area(r_circle, r_ellipse, mu, cos_phi, sin_phi, offset):
-    def find_distance_from_ellipse_centre(a, b):
-        return (a * cos_phi + b * sin_phi) ** 2 + (1 / mu ** 2) * (-a * sin_phi + b * cos_phi) ** 2
-    
-    angles = np.linspace(0, 2*np.pi, 2000)
-    xs = r_circle*np.cos(angles) + offset
-    ys = r_circle*np.sin(angles)
-    in_ellipse = (find_distance_from_ellipse_centre(xs, ys) < r_ellipse**2)
-    x = xs[np.roll(in_ellipse, 1) != in_ellipse]
-    y = ys[np.roll(in_ellipse, 1) != in_ellipse]
-            
-    if len(x) == 0:
-        if np.abs(offset) < r_circle:
-            return np.pi*mu*r_ellipse**2
-        else:
-            return 0.
-        
-            
-    x_prime = (x*cos_phi - y*sin_phi)
-    y_prime = (y*cos_phi + x*sin_phi)/mu
-            #plt.scatter(y, z)
-            #plt.scatter(y_prime, z_prime)
-            
-            
-    circle_rot_angle = np.arctan((x[1]-x[0])/(y[1]-y[0]))
-            
-    x_circle_prime = (x-offset)*np.cos(circle_rot_angle) - y*np.sin(circle_rot_angle)
-    #y_circle_prime = (x-offset)*np.sin(circle_rot_angle) + y*np.cos(circle_rot_angle)
-           
-    circle_section_area = np.abs(circle_section_integral(r_circle, bounds = [x_circle_prime[0], - np.sign(offset)*r_circle]))
-            
-    ellipse_rot_angle = np.arctan((x_prime[1]-x_prime[0])/(y_prime[1]-y_prime[0]))
-    x_ellipse_prime = x_prime*np.cos(ellipse_rot_angle) - y_prime*np.sin(ellipse_rot_angle)
-    #y_ellipse_prime = x_prime*np.sin(ellipse_rot_angle) + y_prime*np.cos(ellipse_rot_angle)
-            
-    ellipse_section_area = mu * np.abs(circle_section_integral(r_ellipse, bounds = [x_ellipse_prime[0], np.sign(offset)*r_ellipse]))
-    return ellipse_section_area + circle_section_area
-
