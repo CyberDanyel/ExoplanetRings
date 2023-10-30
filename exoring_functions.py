@@ -273,7 +273,7 @@ def circle_section_integral(radius, bounds: []):
 
 def overlap_area(r_circle, r_ellipse, mu, cos_phi, sin_phi, offset):
     def find_distance_from_ellipse_centre(a, b):
-        return (a * cos_phi + b * sin_phi) ** 2 + (1 / mu ** 2) * (-a * sin_phi + b * cos_phi) ** 2
+        return (a * cos_phi - b * sin_phi) ** 2 + (1 / mu ** 2) * (a * sin_phi + b * cos_phi) ** 2
     
     angles = np.linspace(0, 2*np.pi, 2000)
     xs = r_circle*np.cos(angles) + offset
@@ -291,20 +291,22 @@ def overlap_area(r_circle, r_ellipse, mu, cos_phi, sin_phi, offset):
             
     x_prime = (x*cos_phi - y*sin_phi)
     y_prime = (y*cos_phi + x*sin_phi)/mu
-            #plt.scatter(y, z)
-            #plt.scatter(y_prime, z_prime)
+    #plt.scatter(x, y)
+    #plt.scatter(x_prime, y_prime)
             
             
     circle_rot_angle = np.arctan((x[1]-x[0])/(y[1]-y[0]))
             
     x_circle_prime = (x-offset)*np.cos(circle_rot_angle) - y*np.sin(circle_rot_angle)
     #y_circle_prime = (x-offset)*np.sin(circle_rot_angle) + y*np.cos(circle_rot_angle)
-           
+    #plt.scatter(x_circle_prime, y_circle_prime)
+    
     circle_section_area = np.abs(circle_section_integral(r_circle, bounds = [x_circle_prime[0], - np.sign(offset)*r_circle]))
             
     ellipse_rot_angle = np.arctan((x_prime[1]-x_prime[0])/(y_prime[1]-y_prime[0]))
     x_ellipse_prime = x_prime*np.cos(ellipse_rot_angle) - y_prime*np.sin(ellipse_rot_angle)
-    #y_ellipse_prime = x_prime*np.sin(ellipse_rot_angle) + y_prime*np.cos(ellipse_rot_angle)
-            
+    y_ellipse_prime = x_prime*np.sin(ellipse_rot_angle) + y_prime*np.cos(ellipse_rot_angle)
+    #plt.scatter(x_ellipse_prime, y_ellipse_prime)     
+    
     ellipse_section_area = mu * np.abs(circle_section_integral(r_ellipse, bounds = [x_ellipse_prime[0], np.sign(offset)*r_ellipse]))
     return ellipse_section_area + circle_section_area

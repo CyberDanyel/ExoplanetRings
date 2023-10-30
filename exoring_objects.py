@@ -1,6 +1,6 @@
 import numpy as np
 import exoring_functions
-
+import scattering
 
 # coordinate systems defined such that the observer is always along the x-axis
 # planet always at origin
@@ -18,8 +18,7 @@ class Planet:
         The radius of the sphere.
         """
         self.radius = radius
-        self.sc_law = lambda \
-                mu_star: albedo / np.pi  # isotropic scattering law intensity distribution - 1/pi factor from
+        self.sc_law = lambda angle:albedo # isotropic scattering law intensity distribution - 1/pi factor from
         # normalization - currently a function to future-proof
         self.phase_curve = np.vectorize(
             self.phase_curve_unvectorized)  # vectorizing so that arrays of phase angles can be input more
@@ -69,7 +68,7 @@ class Planet:
         """
         mu = self.get_mu(theta, phi)
         mu_star = self.get_mu_star(theta, phi, alpha)
-        return np.sin(theta) * mu * mu_star * self.sc_law(mu_star) * self.secondary_eclipse(theta, phi,
+        return np.sin(theta) * mu * mu_star * self.sc_law(alpha) * self.secondary_eclipse(theta, phi,
                                                                                             alpha)  # * (np.abs(
         # alpha) >= np.arcsin((self.star.radius + self.radius) / self.star.distance))
         # Only check secondary eclipse for certain alphas when you are close to the star for speed
@@ -108,8 +107,7 @@ class Ring:
     def __init__(self, albedo, inner_rad, outer_rad, normal, star):
         self.inner_radius = inner_rad
         self.outer_radius = outer_rad
-        self.sc_law = lambda \
-                mu_star: albedo / np.pi  # isotropic scattering law intensity distribution - 1/pi factor from
+        self.sc_law = lambda angle:1#scattering.rayleigh(angle, albedo) # isotropic scattering law intensity distribution - 1/pi factor from
         # normalization
         self.normal = normal
         self.secondary_eclipse = np.vectorize(self.analytic_secondary_eclipse)
@@ -129,7 +127,7 @@ class Ring:
         """phase curve innit"""
         mu = self.get_mu()
         mu_star = self.get_mu_star(alpha)
-        return mu * mu_star * self.sc_law(mu_star) * (mu_star > 0) * self.secondary_eclipse(alpha)  # boolean prevents
+        return mu * mu_star * self.sc_law(alpha) * (mu_star > 0) * self.secondary_eclipse(alpha)  # boolean prevents
         # forwards scattering
 
     def unvectorized_secondary_eclipse(self, alpha):
@@ -205,7 +203,7 @@ class Ring:
         area_on_ring = outer_area - inner_area
         total_ring_area = mu * np.pi * (self.outer_radius**2 - self.inner_radius**2)# - self.inner_radius**2)
         if area_on_ring < 0:
-            print('Alpha: %.3f Area on outer: %.4f, area on inner: %.4f' %(alpha, outer_area))#, inner_area))
+            print('Alpha: %.3f Area on outer: %.4f, area on inner: %.4f' %(alpha, outer_area, inner_area))
         return 1. - (area_on_ring / total_ring_area)
             
     def light_curve(self, alpha):
