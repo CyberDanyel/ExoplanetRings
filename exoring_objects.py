@@ -2,6 +2,7 @@ import numpy as np
 import exoring_functions
 import scattering
 
+
 # coordinate systems defined such that the observer is always along the x-axis
 # planet always at origin
 # phase angle alpha is aligned with the phi of the spherical coordinate system; the star is always 'equatorial'
@@ -18,7 +19,7 @@ class Planet:
         The radius of the sphere.
         """
         self.radius = radius
-        self.sc_law = lambda angle:albedo # isotropic scattering law intensity distribution - 1/pi factor from
+        self.sc_law = lambda angle: albedo  # isotropic scattering law intensity distribution - 1/pi factor from
         # normalization - currently a function to future-proof
         self.phase_curve = np.vectorize(
             self.phase_curve_unvectorized)  # vectorizing so that arrays of phase angles can be input more
@@ -69,7 +70,7 @@ class Planet:
         mu = self.get_mu(theta, phi)
         mu_star = self.get_mu_star(theta, phi, alpha)
         return np.sin(theta) * mu * mu_star * self.sc_law(alpha) * self.secondary_eclipse(theta, phi,
-                                                                                            alpha)  # * (np.abs(
+                                                                                          alpha)  # * (np.abs(
         # alpha) >= np.arcsin((self.star.radius + self.radius) / self.star.distance))
         # Only check secondary eclipse for certain alphas when you are close to the star for speed
 
@@ -107,7 +108,8 @@ class Ring:
     def __init__(self, albedo, inner_rad, outer_rad, normal, star):
         self.inner_radius = inner_rad
         self.outer_radius = outer_rad
-        self.sc_law = lambda angle:1#scattering.rayleigh(angle, albedo) # isotropic scattering law intensity distribution - 1/pi factor from
+        self.sc_law = lambda angle: 1  # scattering.rayleigh(angle, albedo) # isotropic scattering law intensity
+        # distribution - 1/pi factor from
         # normalization
         self.normal = normal
         self.secondary_eclipse = np.vectorize(self.analytic_secondary_eclipse)
@@ -178,34 +180,33 @@ class Ring:
         #    bounds_y, bounds_z, 10000)
         # print(abs(1 - numerator / denominator)) # numerical errors may bring this down to 0
         return abs(1 - numerator / denominator)  # numerical errors may bring this down to 0
-    
+
     def analytic_secondary_eclipse(self, alpha):
         if np.abs(alpha) > 4.0 * self.star.radius / self.star.distance:
             return 1.
-        
+
         if np.abs(alpha) < 0.05:
             break_val = 'filler'
-        
+
         mu = self.get_mu()
         n_x, n_y, n_z = self.normal
 
         y_star = self.star.distance * np.sin(alpha)
         z_star = 0.
-        
-        #sorry im using a negative version of phi as compared to the above
+
+        # sorry im using a negative version of phi as compared to the above
         sin_theta = np.sqrt(1 - mu ** 2)
         cos_phi = n_z / sin_theta
         sin_phi = -n_y / sin_theta
-        
-        
+
         outer_area = exoring_functions.overlap_area(self.star.radius, self.outer_radius, mu, cos_phi, sin_phi, y_star)
         inner_area = exoring_functions.overlap_area(self.star.radius, self.inner_radius, mu, cos_phi, sin_phi, y_star)
         area_on_ring = outer_area - inner_area
-        total_ring_area = mu * np.pi * (self.outer_radius**2 - self.inner_radius**2)# - self.inner_radius**2)
+        total_ring_area = mu * np.pi * (self.outer_radius ** 2 - self.inner_radius ** 2)  # - self.inner_radius**2)
         if area_on_ring < 0:
-            print('Alpha: %.3f Area on outer: %.4f, area on inner: %.4f' %(alpha, outer_area, inner_area))
+            print('Alpha: %.3f Area on outer: %.4f, area on inner: %.4f' % (alpha, outer_area, inner_area))
         return 1. - (area_on_ring / total_ring_area)
-            
+
     def light_curve(self, alpha):
         return (self.outer_radius ** 2 - self.inner_radius ** 2) * self.phase_curve(alpha) * self.star.luminosity / (
                 4 * self.star.distance ** 2)
