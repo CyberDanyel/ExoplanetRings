@@ -19,7 +19,7 @@ class Planet:
         The radius of the sphere.
         """
         self.radius = radius
-        self.sc_law = lambda angle: albedo  # isotropic scattering law intensity distribution - 1/pi factor from
+        self.sc_law = scattering.Jupiter(albedo)  # isotropic scattering law intensity distribution - 1/pi factor from
         # normalization - currently a function to future-proof
         self.phase_curve = np.vectorize(
             self.phase_curve_unvectorized)  # vectorizing so that arrays of phase angles can be input more
@@ -108,7 +108,7 @@ class Ring:
     def __init__(self, albedo, inner_rad, outer_rad, normal, star):
         self.inner_radius = inner_rad
         self.outer_radius = outer_rad
-        self.sc_law = lambda angle: 1  # scattering.rayleigh(angle, albedo) # isotropic scattering law intensity
+        self.sc_law = scattering.Rayleigh(albedo) # isotropic scattering law intensity
         # distribution - 1/pi factor from
         # normalization
         self.normal = normal
