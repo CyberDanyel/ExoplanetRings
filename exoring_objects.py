@@ -254,6 +254,7 @@ class Ring:
         return (self.outer_radius ** 2 - self.inner_radius ** 2) * self.phase_curve(alpha) * self.star.luminosity / (
                 4 * self.star.distance ** 2)
 
+s = 5.67037e-8 # stefan boltzmann constant
 
 class Star:
     def __init__(self, luminosity, radius, distance, mass, planet=None):
@@ -262,6 +263,7 @@ class Star:
         self.distance = distance
         self.mass = mass
         self.planet = planet
+        self.T = (self.luminosity/(s*4*np.pi*radius))**0.25
 
     def transit_function(self, alpha):
         # if abs(alpha) <= np.pi / 2:
@@ -301,7 +303,17 @@ class Star:
             print('error, occluded_frac > 1')
             exit()
         return (1 - occluded_frac) * self.luminosity
-
+    
+    def blackbody(self, wavelength):
+        c = 3e8
+        h = 6.626e-34
+        k = 1.380649e-23
+        return (2*h*c**2/wavelength**5) / np.exp((h*c/(k*wavelength*self.T))-1)
+    
+    def L(self, bandpass):
+        'luminosity in a certain wavelength region'
+        return spi.quad(self.blackbody, bandpass[0], bandpass[1])
+        
     def light_curve(self, alphas):
         light_curve = [self.transit_function(alpha) for alpha in list(alphas)]
         return light_curve

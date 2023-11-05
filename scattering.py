@@ -55,7 +55,7 @@ class SingleEmpirical(SingleScatteringLaw):
 
 
 
-class SingleMie(SingleScatteringLaw):
+class Mie(SingleScatteringLaw):
     def __init__(self, albedo, X, m):
         self.X = X
         self.m = m
