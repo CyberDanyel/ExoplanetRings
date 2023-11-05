@@ -1,6 +1,7 @@
 import numpy as np
 import exoring_functions
 import scattering
+import scipy.integrate as spi
 
 
 # coordinate systems defined such that the observer is always along the x-axis
@@ -11,7 +12,7 @@ import scattering
 
 
 class Planet:
-    def __init__(self, albedo, radius, star):
+    def __init__(self, sc_law, radius, star):
         """
         Parameters
         ----------
@@ -19,14 +20,9 @@ class Planet:
         The radius of the sphere.
         """
         self.radius = radius
-        self.sc_law = scattering.Jupiter(albedo)  # isotropic scattering law intensity distribution - 1/pi factor from
-        # normalization - currently a function to future-proof
-        self.phase_curve = np.vectorize(
-            self.phase_curve_unvectorized)  # vectorizing so that arrays of phase angles can be input more
-        # efficiently than with a Python for loop
+        self.sc_law = sc_law
+        self.phase_curve = np.vectorize(self.phase_curve_single)  # vectorizing so that arrays of phase angles can be input more easily than with a Python for loop
         self.star = star
-        # self.MonteCarloPlanetIntegration = exoring_functions.MonteCarloPlanetIntegration(100000)
-        # this definition of phase curve includes albedo already
 
     def get_mu_star(self, theta, phi, alpha):
         """
@@ -74,8 +70,9 @@ class Planet:
         # alpha) >= np.arcsin((self.star.radius + self.radius) / self.star.distance))
         # Only check secondary eclipse for certain alphas when you are close to the star for speed
 
-    def phase_curve_unvectorized(self, alpha: float) -> float:
+    def phase_curve_single(self, alpha: float) -> float:
         """
+        The unvectorized phase curve for an atmospheric scattering law independent of the angle of incidence
         Parameters
         ----------
             alpha : phase angle
@@ -83,15 +80,103 @@ class Planet:
         -------
         The phase curve evaluated at the phase angle alpha
         """
-        # return spi.nquad(lambda theta, phi: self.phase_curve_integrand(theta, phi, alpha), ranges = [[0, np.pi],
-        # [max(alpha-np.pi/2, -np.pi/2), min(alpha + np.pi/2, np.pi/2)]])[0]
-        return exoring_functions.integrate2d(lambda theta, phi: self.phase_curve_integrand(theta, phi, alpha),
-                                             bounds=[[0, np.pi], [max(alpha - np.pi / 2, -np.pi / 2),
-                                                                  min(alpha + np.pi / 2, np.pi / 2)]], sigma=1e-3)
-        # return self.MonteCarloPlanetIntegration.integrate(alpha,lambda theta, phi: self.phase_curve_integrand(theta,phi, alpha)) # Monte Carlo
-        # the lambda allows for integration across two variables while the alpha is kept
-        # constant within the method
+        
+        return self.sc_law(alpha) * self.secondary_eclipse_single(alpha) * scattering.lambert_phase_func(alpha)
+    
+    def phase_curve_multiple(self, alpha: float) -> float:
+        """
+        The unvectorized phase curve for an atmospheric scattering law dependent on the angle of incidence
+        Parameters
+        ----------
+            alpha : phase angle
+        Returns
+        -------
+        The phase curve evaluated at the phase angle alpha
+        """
+        theta_bounds = [0, np.pi]
+        phi_bounds = [max(alpha - np.pi / 2, -np.pi / 2), min(alpha + np.pi / 2, np.pi / 2)]
+        return exoring_functions.integrate2d(lambda theta, phi: self.phase_curve_integrand(theta, phi, alpha), bounds=[theta_bounds, phi_bounds], sigma=1e-3)
+        
+        
+    def shadow_integrand(self, theta, alpha):
+        '''
+        The integrand for finding the amount of flux blocked by the secondary eclipse.
+        This is for a 1D integral across theta.
 
+        Parameters
+        ----------
+            theta : (float)
+        The angle theta in a spherical coordinate system
+            alpha : (float)
+        The phase angle between the star, planet and observer
+
+        Returns
+        -------
+        The flux density (in theta) of the area being blocked by the secondary eclipse
+        '''
+        R = self.star.distance
+        r_star = self.star.radius
+        r = self.radius
+        offset = R*np.sin(alpha)
+        h = np.sqrt(r_star**2 - r**2*np.cos(theta)**2)
+        if np.abs(offset + h) < np.abs(r*np.sin(theta)):
+            phi_upper = np.arcsin((offset + h)/(r*np.sin(theta)))
+        else:
+            phi_upper = min(np.pi/2, np.pi/2 + alpha)
+        #if np.isnan(phi_upper):
+        #    phi_upper = min(np.pi/2, np.pi/2+alpha)
+        #phi_lower = np.arcsin((offset - h)/(r*np.sin(theta)))
+        if np.abs(offset - h) < np.abs(r*np.sin(theta)):
+            phi_lower = np.arcsin((offset - h)/(r*np.sin(theta)))
+        else:
+            phi_lower = max(-np.pi/2, alpha - np.pi/2)
+        #if np.isnan(phi_lower):
+        #    phi_lower = max(-np.pi/2, alpha - np.pi/2)
+        term = lambda phi:0.25*(2*phi*np.cos(alpha) - np.sin(alpha-2*phi))*np.sin(theta)**3
+        term_upper = term(phi_upper)
+        term_lower = term(phi_lower)
+        return term_upper - term_lower
+    
+    def secondary_eclipse_single(self, alpha: float) -> float:
+        '''
+        Calculates the fraction of flux blocked due to the secondary
+        eclipse at some phase angle, assuming a Lambertian surface.
+        Can be used in phase curve calculations for atmospheres with
+        scattering laws indepent of the incident direction of radiation
+
+        Parameters
+        ----------
+            alpha : (float)
+        The phase angle between star, planet and observer
+        
+        Returns
+        -------
+        The fraction of flux blocked at a phase angle 
+
+        '''
+        R = self.star.distance
+        r_star = self.star.radius
+        r = self.radius
+        offset = R*np.sin(alpha)
+        
+        
+        if np.abs(R*np.sin(alpha)) > (r+r_star) or np.cos(alpha) < 0:
+            #no occlusion
+            return 1.
+        
+        elif np.abs(offset) + r < r_star:
+            #total occlusion
+            return 0.
+        
+        else:
+            #partial occlusion
+            angle = min(np.pi/2, np.arccos((r**2+offset**2-r_star**2)/(2*r*np.abs(offset))))
+            theta_upper = np.pi/2 + angle
+            theta_lower = np.pi/2 - angle
+            blocked = spi.quad(np.vectorize(lambda theta:self.shadow_integrand(theta, alpha)), theta_lower, theta_upper, epsabs = 1e-3)[0]
+            flux = scattering.lambert_phase_func(alpha)
+            return (flux-blocked)/flux
+        
     def secondary_eclipse(self, theta, phi, alpha):
         """returns boolean of whether these coords are eclipsed at this phase angle"""
         if np.abs(alpha) > 2.1 * self.star.radius / self.star.distance:
@@ -105,13 +190,12 @@ class Planet:
 
 
 class Ring:
-    def __init__(self, albedo, inner_rad, outer_rad, normal, star):
+    def __init__(self, sc_law, inner_rad, outer_rad, normal, star):
         self.inner_radius = inner_rad
         self.outer_radius = outer_rad
-        self.sc_law = scattering.Rayleigh(albedo) # isotropic scattering law intensity
-        # distribution - 1/pi factor from
-        # normalization
-        self.normal = normal
+        self.sc_law = sc_law
+        normal = np.array(normal)
+        self.normal = normal/np.sqrt(np.sum(normal**2))
         self.secondary_eclipse = np.vectorize(self.analytic_secondary_eclipse)
         self.star = star
 
@@ -132,10 +216,20 @@ class Ring:
         return mu * mu_star * self.sc_law(alpha) * (mu_star > 0) * self.secondary_eclipse(alpha)  # boolean prevents
         # forwards scattering
 
-    def unvectorized_secondary_eclipse(self, alpha):
-        """finds the amount of flux to subtract from the ring - since there is no integral for the total ring
-        scattering"""
+    def analytic_secondary_eclipse(self, alpha):
+        '''
+        A semi-analytical calculation (1D numerical calculations) for finding the 
+        fractional amount of flux blocked by the secondary eclipse
 
+        Parameters
+        ----------
+        alpha : phase angle
+
+        Returns
+        -------
+        fractional value of the flux blocked due to the secondary eclipse
+
+        '''
         if np.abs(alpha) > 2.1 * self.star.radius / self.star.distance:
             return 1.
 
@@ -143,58 +237,7 @@ class Ring:
         n_x, n_y, n_z = self.normal
 
         y_star = self.star.distance * np.sin(alpha)
-        z_star = 0.
 
-        # bounds_z = [max(-self.outer_radius, -self.star.radius), min(self.outer_radius, self.star.radius)] bounds_y
-        # = [max(-self.outer_radius, y_star - self.star.radius), min(self.outer_radius, y_star + self.star.radius)]
-        bounds_z = [-self.outer_radius, self.outer_radius]
-        bounds_y = [-self.outer_radius, self.outer_radius]
-        sin_theta = np.sqrt(1 - mu ** 2)
-        cos_phi = n_z / sin_theta
-        sin_phi = n_y / sin_theta
-
-        def find_distance_from_ring_centre(y, z):
-            return np.sqrt(
-                (y * cos_phi + z * sin_phi) ** 2 + (1 / mu ** 2) * (-y * sin_phi + z * cos_phi) ** 2)
-
-        def outside_inner_radius(y, z):
-            return find_distance_from_ring_centre(y, z) > self.inner_radius
-
-        def inside_outer_radius(y, z):
-            return find_distance_from_ring_centre(y, z) < self.outer_radius
-
-        def in_shadow(y, z):
-            return (y - y_star) ** 2 + (z - z_star) ** 2 < self.star.radius ** 2
-
-        numerator = exoring_functions.integrate2d(
-            lambda y, z: outside_inner_radius(y, z) * inside_outer_radius(y, z) * in_shadow(y, z),
-            [bounds_y, bounds_z])
-        denominator = exoring_functions.integrate2d(
-            lambda y, z: outside_inner_radius(y, z) * inside_outer_radius(y, z),
-            [bounds_y, bounds_z])  # - self.inner_radius**2)#*mu_star
-        # numerator = exoring_functions.monte_carlo_ring_integration(
-        #    lambda y, z: outside_inner_radius(y, z) * inside_outer_radius(y, z) * in_shadow(y, z),
-        #    bounds_y, bounds_z, 10000)
-        # denominator = exoring_functions.monte_carlo_ring_integration(
-        #    lambda y, z: outside_inner_radius(y, z) * inside_outer_radius(y, z),
-        #    bounds_y, bounds_z, 10000)
-        # print(abs(1 - numerator / denominator)) # numerical errors may bring this down to 0
-        return abs(1 - numerator / denominator)  # numerical errors may bring this down to 0
-
-    def analytic_secondary_eclipse(self, alpha):
-        if np.abs(alpha) > 4.0 * self.star.radius / self.star.distance:
-            return 1.
-
-        if np.abs(alpha) < 0.05:
-            break_val = 'filler'
-
-        mu = self.get_mu()
-        n_x, n_y, n_z = self.normal
-
-        y_star = self.star.distance * np.sin(alpha)
-        z_star = 0.
-
-        # sorry im using a negative version of phi as compared to the above
         sin_theta = np.sqrt(1 - mu ** 2)
         cos_phi = n_z / sin_theta
         sin_phi = -n_y / sin_theta

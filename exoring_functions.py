@@ -4,10 +4,12 @@ from fractions import Fraction
 from matplotlib import pyplot as plt
 from matplotlib.ticker import FuncFormatter
 import matplotlib.ticker as tck
+import scipy.interpolate as spint
 
 
 # exoring_functions
 
+    
 def integrate2d(func, bounds: list, sigma=0.01):
     """
     2D integration by basic Riemann sum
@@ -165,3 +167,5 @@ def generate_plot_style():
     ax.set_ylabel(r'Intensity ($L_{\odot}$)')
     fig.tight_layout()
     return fig, ax
+
+        
