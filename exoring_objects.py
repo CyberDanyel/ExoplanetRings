@@ -100,7 +100,7 @@ class Planet:
         
     def shadow_integrand(self, theta, alpha):
         '''
-        The integrand for finding the amount of flux blocked by the secondary eclipse.
+        The integrand for finding the amount of flux blocked by the secondary eclipse assuming a Lambertian surface.
         This is for a 1D integral across theta.
 
         Parameters
