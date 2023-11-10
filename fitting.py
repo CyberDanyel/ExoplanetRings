@@ -49,12 +49,8 @@ class FittingRingedPlanet(exoring_objects.RingedPlanet, FittingPlanet):
 
 
 def gaussian(x, mu, sigma):
-    with np.errstate(all='raise'):
-        try:
-            return (1 / np.sqrt(2 * np.pi * sigma)) * np.exp(-0.5 * ((x - mu) / (sigma)) ** 2)
-        except:
-            print('here')
-
+    with np.errstate(under='ignore'):
+        return (1 / np.sqrt(2 * np.pi * sigma)) * np.exp(-0.5 * ((x - mu) / sigma) ** 2)
 
 def log_likelihood_ring(data, planet_sc_law, ring_sc_law, star, *params):
     alpha = data[0]
@@ -62,7 +58,18 @@ def log_likelihood_ring(data, planet_sc_law, ring_sc_law, star, *params):
     I_errs = data[2]
     model_ringed_planet = FittingRingedPlanet(planet_sc_law, ring_sc_law, star, *params)
     x = model_ringed_planet.light_curve(alpha)
-    return -np.sum(np.log(gaussian(x, I, I_errs)))
+    with np.errstate(divide='raise'):
+        try:
+            return -np.sum(np.log(gaussian(x, I, I_errs)))
+        except: # The gaussian has returned 0 for at least 1 data point
+            with np.errstate(divide='ignore'):
+                print('Triggered')
+                logs = np.log(gaussian(x, I, I_errs))
+                for index, element in enumerate(logs):
+                    if np.isinf(element):
+                        logs[index] = -1000000000000
+                        return -np.sum(logs)
+
 
 
 def log_likelihood_planet(data, sc_law, star, *params):
@@ -106,7 +113,11 @@ def fit_data_ring(data, planet_sc_law, ring_sc_law, star, init_guess: dict):
               *planet_sc_args_bounds, *ring_sc_args_bounds]
 
     result = minimize_logL_ring(data, planet_sc_law, ring_sc_law, star, p0, bounds)
-    return result
+    output = dict()
+    for value in result:
+        output['radius'],output['inner_rad'],output['ring_width'],n_x,n_y,n_z,output['planet_sc_args'],output['ring_sc_args'] = result
+        output['ring_normal'] = (n_x,n_y,n_z)
+    return output
 
 
 def generate_data(test_planet):
@@ -128,10 +139,11 @@ test_planet = exoring_objects.RingedPlanet(scattering.Jupiter(1), 1, scattering.
 data = generate_data(test_planet)
 
 init_guess = {'radius': (1.2, (0, np.inf)), 'inner_rad': (2, (0, np.inf)), 'ring_width': (1.2, (0, np.inf)),
-              'ring_normal': ([1, 0.8, 0.1], [(0, np.inf), (0, np.inf), (0, np.inf)]),
+              'ring_normal': ([1, 0.8, 0.1], [(0, 1), (0, 1), (0, 1)]),
               'planet_sc_args': ([0.8], [(0, 1)]), 'ring_sc_args': ([0.85], [(0, 1)])}
 
 result = fit_data_ring(data, scattering.Jupiter, scattering.Rayleigh, star, init_guess)
+print(result)
 '''
 bounds = [(0,np.inf),(0,np.inf),(0,np.inf),(0.01,np.inf),(0.01,np.inf),(0.01,np.inf)]
 vals = fit_data_ring(data,scattering.Jupiter,scattering.Rayleigh,star,init_guess)
