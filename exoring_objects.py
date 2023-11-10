@@ -254,6 +254,23 @@ class Ring:
         return (self.outer_radius ** 2 - self.inner_radius ** 2) * self.phase_curve(alpha) * self.star.luminosity / (
                 4 * self.star.distance ** 2)
 
+class RingedPlanet(Planet):
+    def __init__(self, planet_sc, planet_r, ring_sc, ring_inner_r, ring_outer_r, ring_normal, star):
+        self.ring = Ring(ring_sc, ring_inner_r, ring_outer_r, ring_normal, star)
+        Planet.__init__(self, planet_sc, planet_r, star)
+    
+    def light_curve(self, alpha):
+        planet_light_curve = Planet.light_curve(self, alpha)
+        ring_light_curve = Ring.light_curve(self.ring, alpha)
+        return planet_light_curve + ring_light_curve
+
+class ExoJupiter(Planet):
+    def __init__(self, single_albedo, radius, star):
+        sc_law = scattering.Jupiter(single_albedo)
+        Planet.__init__(self, sc_law, radius, star)
+
+        
+    
 s = 5.67037e-8 # stefan boltzmann constant
 
 class Star:
@@ -304,7 +321,7 @@ class Star:
             exit()
         return (1 - occluded_frac) * self.luminosity
     
-    def blackbody(self, wavelength):
+    def planck_function(self, wavelength):
         c = 3e8
         h = 6.626e-34
         k = 1.380649e-23
@@ -312,7 +329,7 @@ class Star:
     
     def L(self, bandpass):
         'luminosity in a certain wavelength region'
-        return spi.quad(self.blackbody, bandpass[0], bandpass[1])
+        return spi.quad(self.planck_function, bandpass[0], bandpass[1])
         
     def light_curve(self, alphas):
         light_curve = [self.transit_function(alpha) for alpha in list(alphas)]

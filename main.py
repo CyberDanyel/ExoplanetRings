@@ -31,7 +31,7 @@ star.planet = planet
 
 ring_normal = np.array([1., 1., .1])
 ring_normal /= np.sqrt(np.sum(ring_normal ** 2))
-ring_law = scattering.SingleMie(1, 4, 1.5)
+ring_law = scattering.Mie(1, 4, 1.5)
 ring = exoring_objects.Ring(ring_law, 1.1, 2., ring_normal, star)
 
 alphas = np.array(

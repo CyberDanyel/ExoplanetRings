@@ -53,8 +53,6 @@ class SingleEmpirical(SingleScatteringLaw):
         emp_func = spip.CubicSpline(self.points[0], self.points[1])
         SingleScatteringLaw.__init__(self, albedo, emp_func)
 
-
-
 class Mie(SingleScatteringLaw):
     def __init__(self, albedo, X, m):
         self.X = X

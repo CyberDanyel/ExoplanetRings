@@ -5,7 +5,7 @@ Created on Sun Nov  5 16:37:10 2023
 @author: victo
 """
 
-#fitting
+# fitting
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -21,66 +21,170 @@ AU_TO_JUP = AU / R_JUP
 SUN_TO_JUP = R_SUN / R_JUP
 SUN_TO_AU = AU / R_SUN
 
-#%%
 
-#basic curve_fit stuff
+class FittingPlanet(exoring_objects.Planet):
+    def __init__(self, sc_law, star, *params):
+        radius = params[0]
+        sc_args = params[6:6 + len(sc_law.__init__.__code__.co_varnames) - 1] # This doesn't work for just fitting the planet,as we only give radius as a basic variable, FIX
+        try:
+            sc = sc_law(*sc_args)
+        except TypeError:
+            raise TypeError('Too little/many arguments for planet sc law')
 
-star = exoring_objects.Star(1, SUN_TO_JUP, 0.1*AU_TO_JUP, 1)
+        exoring_objects.Planet.__init__(self, sc, radius, star)
 
-def fit_func_ring(alphas, r_planet, planet_albedo, r_inner, ring_width, ring_angle, ring_albedo, X, m):
-    sc_law_planet = scattering.Lambert(planet_albedo)
-    model_planet = exoring_objects.Planet(sc_law_planet, r_planet, star)
-    ring_normal = [np.cos(ring_angle), np.sin(ring_angle), 0]
-    sc_law_ring = scattering.Mie(ring_albedo, X, m)
-    model_ring = exoring_objects.Ring(sc_law_ring, r_inner, r_inner+ring_width, ring_normal, star)
-    return model_planet.light_curve(alphas) + model_ring.light_curve(alphas)
 
-def fit_func_planet(alphas, r, albedo):
-    sc_law = scattering.Lambert(albedo)
-    model_planet = exoring_objects.Planet(sc_law, r, star)
-    return model_planet.light_curve(alphas)
-    
-test_planet = exoring_objects.Planet(scattering.Lambert(1), 1, star)
-test_ring = exoring_objects.Ring(scattering.Rayleigh(1), 2, 3, [1, 0.8, 0.1], star)
+class FittingRingedPlanet(exoring_objects.RingedPlanet, FittingPlanet):
+    def __init__(self, planet_sc_law, ring_sc_law, star, *params):
+        FittingPlanet.__init__(self, planet_sc_law, star, *params)
+        inner_rad, ring_width, n_x, n_y, n_z = params[1:6]
+        ring_sc_args = params[6 + len(planet_sc_law.__init__.__code__.co_varnames) - 1:]
+        try:
+            ring_sc = ring_sc_law(*ring_sc_args)
+        except TypeError:
+            raise TypeError('Too little/many arguments for ring sc law')
 
-alphas = np.linspace(-np.pi, np.pi, 10000)
+        exoring_objects.RingedPlanet.__init__(self, self.sc_law, self.radius, ring_sc, inner_rad,
+                                              inner_rad + ring_width, [n_x, n_y, n_z], star)
 
-data = test_planet.light_curve(alphas) + test_ring.light_curve(alphas)
-
-ring_vals, ring_cov = op.curve_fit(fit_func_ring, alphas, data, p0 = [1, 0.8, 1, 1.1, 0.2, 1, 0.01, 1.5], bounds = ([0, 0, 0, 0, 0, 0, 0, 1.], [np.inf, np.inf, np.inf, np.inf, 2*np.pi, np.inf, np.inf, np.inf]))
-planet_vals, planet_cov = op.curve_fit(fit_func_planet, alphas, data, p0 = [2, 0.8])
-
-plt.style.use('the_usual')
-
-plt.plot(alphas, data, label='Data')
-plt.plot(alphas, fit_func_ring(alphas, *ring_vals), label='Fitted planet with ring')
-plt.plot(alphas, fit_func_planet(alphas, *planet_vals), label = 'Fitted planet')
-
-plt.legend()
-
-#%%
-
-star = exoring_objects.Star(1, SUN_TO_JUP, 0.1*AU_TO_JUP, 1)
 
 def gaussian(x, mu, sigma):
-    return (1/np.sqrt(2*np.pi*sigma))*np.exp(-0.5*((x-mu)/(sigma))**2)
-    
-def log_likelihood_ring(data, *params):
-    g, r_planet, albedo_planet, r_inner, ring_width, ring_angle, albedo_ring, X, m = params
+    with np.errstate(under='ignore'):
+        return (1 / np.sqrt(2 * np.pi * sigma)) * np.exp(-0.5 * ((x - mu) / sigma) ** 2)
+
+
+def log_likelihood_ring(data, planet_sc_law, ring_sc_law, star, *params):
     alpha = data[0]
     I = data[1]
     I_errs = data[2]
-    sc_planet = scattering.HG(g, albedo_planet)
-    n_ring = [np.cos(ring_angle), np.sin(ring_angle), 0]
-    sc_ring = scattering.Mie(albedo_ring, X, m)
-    model_planet = exoring_objects.Planet(sc_planet, r_planet, star)
-    model_ring = exoring_objects.Ring(sc_ring, r_inner, r_inner+ring_width, n_ring, star)
-    x = model_planet.light_curve(alpha) + model_ring.light_curve(alpha)
+    model_ringed_planet = FittingRingedPlanet(planet_sc_law, ring_sc_law, star, *params)
+    x = model_ringed_planet.light_curve(alpha)
+    with np.errstate(divide='raise'):
+        try:
+            print(-np.sum(np.log(gaussian(x, I, I_errs))))
+            return -np.sum(np.log(gaussian(x, I, I_errs)))
+        except:  # The gaussian has returned 0 for at least 1 data point
+            with np.errstate(divide='ignore'):
+                print('Triggered')
+                logs = np.log(gaussian(x, I, I_errs))
+                for index, element in enumerate(logs):
+                    if np.isinf(element):
+                        logs[index] = -1000000000000
+                print(-np.sum(logs))
+                return -np.sum(logs)
+
+
+def log_likelihood_planet(data, sc_law, star, *params):
+    alpha = data[0]
+    I = data[1]
+    I_errs = data[2]
+    model_planet = FittingPlanet(sc_law, star, *params)
+    x = model_planet.light_curve(alpha)
     return -np.sum(np.log(gaussian(x, I, I_errs)))
 
-def minimize_logL(data, p0):
-    m = op.minimize(lambda *p:log_likelihood_ring(data, *p), p0)
+
+def minimize_logL_ring(data, planet_sc_law, ring_sc_law, star, p0, bounds):
+    m = op.minimize(lambda p: log_likelihood_ring(data, planet_sc_law, ring_sc_law, star, *p), p0, bounds=bounds)
     return m.x
 
-    
 
+def minimize_logL_planet(data, sc_law, star, p0, bounds):
+    m = op.minimize(lambda p: log_likelihood_planet(data, sc_law, star, *p), p0, bounds=bounds)
+    return m.x
+
+
+def fit_data_planet(data, planet_sc_law, star, init_guess: dict):
+    try:
+        radius = init_guess['radius'][0]
+        radius_bounds = init_guess['radius'][1]
+        planet_sc_args = init_guess['planet_sc_args'][0]
+        planet_sc_args_bounds = init_guess['planet_sc_args'][1]
+    except KeyError:
+        raise KeyError('Not all required parameters were inputted')
+
+    p0 = [radius, *planet_sc_args]
+    bounds = [radius_bounds, *planet_sc_args_bounds]
+
+    result = minimize_logL_planet(data, planet_sc_law, star, p0, bounds)
+    output = dict()
+    output['radius'], output['inner_rad'], output['ring_width'], n_x, n_y, n_z, output['planet_sc_args'], output[
+        'ring_sc_args'] = result
+    output['ring_normal'] = (n_x, n_y, n_z)
+    return output
+
+
+def fit_data_ring(data, planet_sc_law, ring_sc_law, star, init_guess: dict):
+    try:
+        radius = init_guess['radius'][0]
+        radius_bounds = init_guess['radius'][1]
+        inner_rad = init_guess['inner_rad'][0]
+        inner_rad_bounds = init_guess['inner_rad'][1]
+        ring_width = init_guess['ring_width'][0]
+        ring_width_bounds = init_guess['ring_width'][1]
+        n_x, n_y, n_z = init_guess['ring_normal'][0]
+        n_x_bounds, n_y_bounds, n_z_bounds = init_guess['ring_normal'][1]
+        planet_sc_args = init_guess['planet_sc_args'][0]
+        planet_sc_args_bounds = init_guess['planet_sc_args'][1]
+        ring_sc_args = init_guess['ring_sc_args'][0]
+        ring_sc_args_bounds = init_guess['ring_sc_args'][1]
+    except KeyError:
+        raise KeyError('Not all required parameters were inputted')
+
+    p0 = [radius, inner_rad, ring_width, n_x, n_y, n_z, *planet_sc_args, *ring_sc_args]
+    bounds = [radius_bounds, inner_rad_bounds, ring_width_bounds, n_x_bounds, n_y_bounds, n_z_bounds,
+              *planet_sc_args_bounds, *ring_sc_args_bounds]
+
+    result = minimize_logL_ring(data, planet_sc_law, ring_sc_law, star, p0, bounds)
+    output = dict()
+    output['radius'], output['inner_rad'], output['ring_width'], n_x, n_y, n_z, output['planet_sc_args'], output[
+        'ring_sc_args'] = result
+    output['ring_normal'] = (n_x, n_y, n_z)
+    return output
+
+
+def generate_data(test_planet):
+    test_alphas = list(np.linspace(-np.pi, -.3, 10)) + list(np.linspace(-.25, .25, 10)) + list(
+        np.linspace(.3, np.pi, 10))
+    test_alphas = np.array(test_alphas)
+    I = test_planet.light_curve(test_alphas)
+    errs = 0.02 * I + 1e-8
+    noise_vals = np.random.normal(size=len(test_alphas))
+    data_vals = errs * noise_vals + I
+    data = np.array([test_alphas, data_vals, errs])
+    return data
+
+
+star = exoring_objects.Star(1, SUN_TO_JUP, 0.1 * AU_TO_JUP, 1)
+
+test_planet = exoring_objects.RingedPlanet(scattering.Jupiter(1), 1, scattering.Rayleigh(0.9), 2, 3,
+                                           np.array([1., 1., 0]), star)
+data = generate_data(test_planet)
+
+init_guess_planet = {'radius': (1, (0, np.inf)), 'planet_sc_args': ([1], [(0, 1)])}
+init_guess_ring = {'radius': (1, (0, np.inf)), 'inner_rad': (2, (2, np.inf)), 'ring_width': (1, (0, np.inf)),
+                   'ring_normal': ([1, 1, 0], [(0, 1), (0, 1), (0, 1)]),
+                   'planet_sc_args': ([1], [(0, 1)]), 'ring_sc_args': ([0.9], [(0, 1)])}
+
+#result_planetfit = fit_data_planet(data, scattering.Jupiter, star, init_guess_ring)
+result_ringfit = fit_data_ring(data, scattering.Jupiter, scattering.Rayleigh, star, init_guess_ring)
+#print('planetfit', result_planetfit)
+print('ringfit', result_ringfit)
+'''
+bounds = [(0,np.inf),(0,np.inf),(0,np.inf),(0.01,np.inf),(0.01,np.inf),(0.01,np.inf)]
+vals = fit_data_ring(data,scattering.Jupiter,scattering.Rayleigh,star,init_guess)
+
+planet_vals = minimize_logL_planet(data, scattering.Rayleigh, star, np.array([1, 1]), bounds=[(0, np.inf), (0., np.inf)])
+ring_vals = minimize_logL_ring(data, scattering.Jupiter, scattering.Rayleigh, star, np.array([.2, .5, 1., 1., 1., 1., 1., 1.]),
+                               bounds=[(0, np.inf), (0, np.inf), (0, np.inf), (0, np.inf), (0, np.inf), (0.01, np.inf),
+                                       (0.01, np.inf), (0.01, np.inf)])
+
+
+#alphas = np.linspace(-np.pi, np.pi, 10000)
+#plt.style.use('barbie')
+#plt.title('This Barbie is NOT a ringed planet')
+#plt.errorbar(data[0], data[1], data[2], fmt='.')
+#plt.plot(alphas, FittingPlanet('Rayleigh', star, *planet_vals).light_curve(alphas), label='Planet')
+#plt.plot(alphas, FittingRingedPlanet('Jupiter', 'Rayleigh', star, *ring_vals).light_curve(alphas), label='Planet+Ring')
+
+plt.legend()
+'''
