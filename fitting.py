@@ -176,24 +176,7 @@ init_guess_ring = {'radius': (1, (0, np.inf)), 'inner_rad': (2, (2, np.inf)), 'r
 
 #result_planetfit = fit_data_planet(data, scattering.Jupiter, star, init_guess_ring)
 result_ringfit = fit_data_ring(data, scattering.Jupiter, scattering.Rayleigh, star, init_guess_ring)
+plot_ring_result(data, result_ringfit)
 #print('planetfit', result_planetfit)
 #print('ringfit', result_ringfit)
-'''
-bounds = [(0,np.inf),(0,np.inf),(0,np.inf),(0.01,np.inf),(0.01,np.inf),(0.01,np.inf)]
-vals = fit_data_ring(data,scattering.Jupiter,scattering.Rayleigh,star,init_guess)
 
-planet_vals = minimize_logL_planet(data, scattering.Rayleigh, star, np.array([1, 1]), bounds=[(0, np.inf), (0., np.inf)])
-ring_vals = minimize_logL_ring(data, scattering.Jupiter, scattering.Rayleigh, star, np.array([.2, .5, 1., 1., 1., 1., 1., 1.]),
-                               bounds=[(0, np.inf), (0, np.inf), (0, np.inf), (0, np.inf), (0, np.inf), (0.01, np.inf),
-                                       (0.01, np.inf), (0.01, np.inf)])
-
-
-#alphas = np.linspace(-np.pi, np.pi, 10000)
-#plt.style.use('barbie')
-#plt.title('This Barbie is NOT a ringed planet')
-#plt.errorbar(data[0], data[1], data[2], fmt='.')
-#plt.plot(alphas, FittingPlanet('Rayleigh', star, *planet_vals).light_curve(alphas), label='Planet')
-#plt.plot(alphas, FittingRingedPlanet('Jupiter', 'Rayleigh', star, *ring_vals).light_curve(alphas), label='Planet+Ring')
-
-plt.legend()
-'''

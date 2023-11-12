@@ -2,7 +2,7 @@ import numpy as np
 import exoring_functions
 import scattering
 import scipy.integrate as spi
-
+import materials
 
 # coordinate systems defined such that the observer is always along the x-axis
 # planet always at origin
@@ -119,19 +119,17 @@ class Planet:
         r = self.radius
         offset = R*np.sin(alpha)
         h = np.sqrt(r_star**2 - r**2*np.cos(theta)**2)
+        
         if np.abs(offset + h) < np.abs(r*np.sin(theta)):
             phi_upper = np.arcsin((offset + h)/(r*np.sin(theta)))
         else:
             phi_upper = min(np.pi/2, np.pi/2 + alpha)
-        #if np.isnan(phi_upper):
-        #    phi_upper = min(np.pi/2, np.pi/2+alpha)
-        #phi_lower = np.arcsin((offset - h)/(r*np.sin(theta)))
+            
         if np.abs(offset - h) < np.abs(r*np.sin(theta)):
             phi_lower = np.arcsin((offset - h)/(r*np.sin(theta)))
         else:
             phi_lower = max(-np.pi/2, alpha - np.pi/2)
-        #if np.isnan(phi_lower):
-        #    phi_lower = max(-np.pi/2, alpha - np.pi/2)
+            
         term = lambda phi:0.25*(2*phi*np.cos(alpha) - np.sin(alpha-2*phi))*np.sin(theta)**3
         term_upper = term(phi_upper)
         term_lower = term(phi_lower)
