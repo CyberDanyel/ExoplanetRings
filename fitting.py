@@ -153,6 +153,15 @@ def generate_data(test_planet):
     data = np.array([test_alphas, data_vals, errs])
     return data
 
+#should turn fitting results into their own class later
+def plot_ring_result(data, result_ringfit):
+    plt.style.use('the_usual')
+    fmt_list = list([result_ringfit['radius'], result_ringfit['inner_rad'], result_ringfit['ring_width'], *result_ringfit['ring_normal'], result_ringfit['planet_sc_args'], result_ringfit['ring_sc_args']])
+    fitted_planet = FittingRingedPlanet(scattering.Jupiter, scattering.Rayleigh, star, *fmt_list)
+    alphas = np.linspace(-np.pi, np.pi, 10000)
+    plt.errorbar(data[0], data[1], data[2], fmt = '.')
+    plt.plot(alphas, fitted_planet.light_curve(alphas))
+    
 
 star = exoring_objects.Star(1, SUN_TO_JUP, 0.1 * AU_TO_JUP, 1)
 
@@ -168,7 +177,7 @@ init_guess_ring = {'radius': (1, (0, np.inf)), 'inner_rad': (2, (2, np.inf)), 'r
 #result_planetfit = fit_data_planet(data, scattering.Jupiter, star, init_guess_ring)
 result_ringfit = fit_data_ring(data, scattering.Jupiter, scattering.Rayleigh, star, init_guess_ring)
 #print('planetfit', result_planetfit)
-print('ringfit', result_ringfit)
+#print('ringfit', result_ringfit)
 '''
 bounds = [(0,np.inf),(0,np.inf),(0,np.inf),(0.01,np.inf),(0.01,np.inf),(0.01,np.inf)]
 vals = fit_data_ring(data,scattering.Jupiter,scattering.Rayleigh,star,init_guess)
