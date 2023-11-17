@@ -4,6 +4,7 @@ import scattering
 import scipy.integrate as spi
 import materials
 
+
 # coordinate systems defined such that the observer is always along the x-axis
 # planet always at origin
 # phase angle alpha is aligned with the phi of the spherical coordinate system; the star is always 'equatorial'
@@ -21,7 +22,8 @@ class Planet:
         """
         self.radius = radius
         self.sc_law = sc_law
-        self.phase_curve = np.vectorize(self.phase_curve_single)  # vectorizing so that arrays of phase angles can be input more easily than with a Python for loop
+        self.phase_curve = np.vectorize(self.phase_curve_single)  # vectorizing so that arrays of phase angles can be
+        # input more easily than with a Python for loop
         self.star = star
 
     def get_mu_star(self, theta, phi, alpha):
@@ -80,9 +82,9 @@ class Planet:
         -------
         The phase curve evaluated at the phase angle alpha
         """
-        
+
         return self.sc_law(alpha) * self.secondary_eclipse_single(alpha) * scattering.lambert_phase_func(alpha)
-    
+
     def phase_curve_multiple(self, alpha: float) -> float:
         """
         The unvectorized phase curve for an atmospheric scattering law dependent on the angle of incidence
@@ -95,9 +97,9 @@ class Planet:
         """
         theta_bounds = [0, np.pi]
         phi_bounds = [max(alpha - np.pi / 2, -np.pi / 2), min(alpha + np.pi / 2, np.pi / 2)]
-        return exoring_functions.integrate2d(lambda theta, phi: self.phase_curve_integrand(theta, phi, alpha), bounds=[theta_bounds, phi_bounds], sigma=1e-3)
-        
-        
+        return exoring_functions.integrate2d(lambda theta, phi: self.phase_curve_integrand(theta, phi, alpha),
+                                             bounds=[theta_bounds, phi_bounds], sigma=1e-3)
+
     def shadow_integrand(self, theta, alpha):
         '''
         The integrand for finding the amount of flux blocked by the secondary eclipse.
@@ -117,30 +119,30 @@ class Planet:
         R = self.star.distance
         r_star = self.star.radius
         r = self.radius
-        offset = R*np.sin(alpha)
-        h = np.sqrt(r_star**2 - r**2*np.cos(theta)**2)
-        
-        if np.abs(offset + h) < np.abs(r*np.sin(theta)):
-            phi_upper = np.arcsin((offset + h)/(r*np.sin(theta)))
+        offset = R * np.sin(alpha)
+        h = np.sqrt(r_star ** 2 - r ** 2 * np.cos(theta) ** 2)
+
+        if np.abs(offset + h) < np.abs(r * np.sin(theta)):
+            phi_upper = np.arcsin((offset + h) / (r * np.sin(theta)))
         else:
-            phi_upper = min(np.pi/2, np.pi/2 + alpha)
-            
-        if np.abs(offset - h) < np.abs(r*np.sin(theta)):
-            phi_lower = np.arcsin((offset - h)/(r*np.sin(theta)))
+            phi_upper = min(np.pi / 2, np.pi / 2 + alpha)
+
+        if np.abs(offset - h) < np.abs(r * np.sin(theta)):
+            phi_lower = np.arcsin((offset - h) / (r * np.sin(theta)))
         else:
-            phi_lower = max(-np.pi/2, alpha - np.pi/2)
-            
-        term = lambda phi:0.25*(2*phi*np.cos(alpha) - np.sin(alpha-2*phi))*np.sin(theta)**3
+            phi_lower = max(-np.pi / 2, alpha - np.pi / 2)
+
+        term = lambda phi: 0.25 * (2 * phi * np.cos(alpha) - np.sin(alpha - 2 * phi)) * np.sin(theta) ** 3
         term_upper = term(phi_upper)
         term_lower = term(phi_lower)
         return term_upper - term_lower
-    
+
     def secondary_eclipse_single(self, alpha: float) -> float:
         '''
         Calculates the fraction of flux blocked due to the secondary
         eclipse at some phase angle, assuming a Lambertian surface.
         Can be used in phase curve calculations for atmospheres with
-        scattering laws indepent of the incident direction of radiation
+        scattering laws independent of the incident direction of radiation
 
         Parameters
         ----------
@@ -155,26 +157,27 @@ class Planet:
         R = self.star.distance
         r_star = self.star.radius
         r = self.radius
-        offset = R*np.sin(alpha)
-        
-        
-        if np.abs(R*np.sin(alpha)) > (r+r_star) or np.cos(alpha) < 0:
-            #no occlusion
+        offset = R * np.sin(alpha)
+
+        if np.abs(R * np.sin(alpha)) > (r + r_star) or np.cos(alpha) < 0:
+            # no occlusion
             return 1.
-        
+
         elif np.abs(offset) + r < r_star:
-            #total occlusion
+            # total occlusion
             return 0.
-        
+
         else:
-            #partial occlusion
-            angle = min(np.pi/2, np.arccos((r**2+offset**2-r_star**2)/(2*r*np.abs(offset))))
-            theta_upper = np.pi/2 + angle
-            theta_lower = np.pi/2 - angle
-            blocked = spi.quad(np.vectorize(lambda theta:self.shadow_integrand(theta, alpha)), theta_lower, theta_upper, epsabs = 1e-3)[0]
+            # partial occlusion
+            angle = min(np.pi / 2, np.arccos((r ** 2 + offset ** 2 - r_star ** 2) / (2 * r * np.abs(offset))))
+            theta_upper = np.pi / 2 + angle
+            theta_lower = np.pi / 2 - angle
+            blocked = \
+            spi.quad(np.vectorize(lambda theta: self.shadow_integrand(theta, alpha)), theta_lower, theta_upper,
+                     epsabs=1e-3)[0]
             flux = scattering.lambert_phase_func(alpha)
-            return (flux-blocked)/flux
-        
+            return (flux - blocked) / flux
+
     def secondary_eclipse(self, theta, phi, alpha):
         """returns boolean of whether these coords are eclipsed at this phase angle"""
         if np.abs(alpha) > 2.1 * self.star.radius / self.star.distance:
@@ -193,7 +196,7 @@ class Ring:
         self.outer_radius = outer_rad
         self.sc_law = sc_law
         normal = np.array(normal)
-        self.normal = normal/np.sqrt(np.sum(normal**2))
+        self.normal = normal / np.sqrt(np.sum(normal ** 2))
         self.secondary_eclipse = np.vectorize(self.analytic_secondary_eclipse)
         self.star = star
 
@@ -252,24 +255,26 @@ class Ring:
         return (self.outer_radius ** 2 - self.inner_radius ** 2) * self.phase_curve(alpha) * self.star.luminosity / (
                 4 * self.star.distance ** 2)
 
+
 class RingedPlanet(Planet):
     def __init__(self, planet_sc, planet_r, ring_sc, ring_inner_r, ring_outer_r, ring_normal, star):
         self.ring = Ring(ring_sc, ring_inner_r, ring_outer_r, ring_normal, star)
         Planet.__init__(self, planet_sc, planet_r, star)
-    
+
     def light_curve(self, alpha):
         planet_light_curve = Planet.light_curve(self, alpha)
         ring_light_curve = Ring.light_curve(self.ring, alpha)
         return planet_light_curve + ring_light_curve
+
 
 class ExoJupiter(Planet):
     def __init__(self, single_albedo, radius, star):
         sc_law = scattering.Jupiter(single_albedo)
         Planet.__init__(self, sc_law, radius, star)
 
-        
-    
-s = 5.67037e-8 # stefan boltzmann constant
+
+s = 5.67037e-8  # stefan boltzmann constant
+
 
 class Star:
     def __init__(self, luminosity, radius, distance, mass, planet=None):
@@ -278,7 +283,7 @@ class Star:
         self.distance = distance
         self.mass = mass
         self.planet = planet
-        self.T = (self.luminosity/(s*4*np.pi*radius))**0.25
+        self.T = (self.luminosity / (s * 4 * np.pi * radius)) ** 0.25
 
     def transit_function(self, alpha):
         # if abs(alpha) <= np.pi / 2:
@@ -318,17 +323,17 @@ class Star:
             print('error, occluded_frac > 1')
             exit()
         return (1 - occluded_frac) * self.luminosity
-    
+
     def planck_function(self, wavelength):
         c = 3e8
         h = 6.626e-34
         k = 1.380649e-23
-        return (2*h*c**2/wavelength**5) / np.exp((h*c/(k*wavelength*self.T))-1)
-    
+        return (2 * h * c ** 2 / wavelength ** 5) / np.exp((h * c / (k * wavelength * self.T)) - 1)
+
     def L(self, bandpass):
         'luminosity in a certain wavelength region'
         return spi.quad(self.planck_function, bandpass[0], bandpass[1])
-        
+
     def light_curve(self, alphas):
         light_curve = [self.transit_function(alpha) for alpha in list(alphas)]
         return light_curve

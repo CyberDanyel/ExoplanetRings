@@ -36,4 +36,3 @@ class Material:
     #    return I*spi.quad(self.absorption, bandpass[0], bandpass[1])[0]/(bandpass[1]-bandpass[0])
     
         
-        
