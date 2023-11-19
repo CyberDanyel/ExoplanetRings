@@ -122,7 +122,7 @@ def overlap_area(r_circle, r_ellipse, mu, cos_phi, sin_phi, offset):
     def find_distance_from_ellipse_centre(a, b):
         with np.errstate(all='raise'):
             if mu == 0:
-                return 0
+                return 0 # IDK if this is the right value
             else:
                 return (a * cos_phi - b * sin_phi) ** 2 + (1 / mu ** 2) * (a * sin_phi + b * cos_phi) ** 2
 
