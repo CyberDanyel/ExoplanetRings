@@ -173,8 +173,8 @@ class Planet:
             theta_upper = np.pi / 2 + angle
             theta_lower = np.pi / 2 - angle
             blocked = \
-            spi.quad(np.vectorize(lambda theta: self.shadow_integrand(theta, alpha)), theta_lower, theta_upper,
-                     epsabs=1e-3)[0]
+                spi.quad(np.vectorize(lambda theta: self.shadow_integrand(theta, alpha)), theta_lower, theta_upper,
+                         epsabs=1e-3)[0]
             flux = scattering.lambert_phase_func(alpha)
             return (flux - blocked) / flux
 
@@ -196,7 +196,10 @@ class Ring:
         self.outer_radius = outer_rad
         self.sc_law = sc_law
         normal = np.array(normal)
-        self.normal = normal / np.sqrt(np.sum(normal ** 2))
+        if np.sum(normal ** 2) == 0:
+            self.normal = [0, 0, 0]
+        else:
+            self.normal = normal / np.sqrt(np.sum(normal ** 2))
         self.secondary_eclipse = np.vectorize(self.analytic_secondary_eclipse)
         self.star = star
 
@@ -240,8 +243,14 @@ class Ring:
         y_star = self.star.distance * np.sin(alpha)
 
         sin_theta = np.sqrt(1 - mu ** 2)
-        cos_phi = n_z / sin_theta
-        sin_phi = -n_y / sin_theta
+        if n_y == 0:
+            sin_phi = 0  # IDK if these are the right values to assign
+        else:
+            sin_phi = -n_y / sin_theta
+        if n_z == 0:
+            cos_phi = 0
+        else:
+            cos_phi = n_z / sin_theta
 
         outer_area = exoring_functions.overlap_area(self.star.radius, self.outer_radius, mu, cos_phi, sin_phi, y_star)
         inner_area = exoring_functions.overlap_area(self.star.radius, self.inner_radius, mu, cos_phi, sin_phi, y_star)
@@ -249,7 +258,10 @@ class Ring:
         total_ring_area = mu * np.pi * (self.outer_radius ** 2 - self.inner_radius ** 2)  # - self.inner_radius**2)
         if area_on_ring < 0:
             print('Alpha: %.3f Area on outer: %.4f, area on inner: %.4f' % (alpha, outer_area, inner_area))
-        return 1. - (area_on_ring / total_ring_area)
+        elif area_on_ring == 0:
+            return 1 # IDK if this is the right value to set
+        else:
+            return 1. - (area_on_ring / total_ring_area)
 
     def light_curve(self, alpha):
         return (self.outer_radius ** 2 - self.inner_radius ** 2) * self.phase_curve(alpha) * self.star.luminosity / (
