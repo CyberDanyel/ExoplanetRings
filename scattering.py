@@ -90,4 +90,27 @@ class Jupiter(SingleScatteringLaw):
     def jupiter_func(self, theta):
         return self.f*self.hg_func(self.g1, theta) + (1-self.f)*self.hg_func(self.g2, theta)
     
-
+class WavelengthDependentScattering(SingleScatteringLaw):
+    def __init__(self, material, bandpass):
+        self.material = material
+        self.bandpass = bandpass
+        self.bandwidth = bandpass[1] - bandpass[0]
+        
+        albedo = spi.quad(material.albedo, bandpass[0], bandpass[1])[0]
+        angles = np.linspace(0, np.pi, 1000)
+        vals = []
+        for angle in angles:
+            #int_val = spi.quad(lambda lam:material.phase_func(angle, lam), bandpass[0], bandpass[1])[0]
+            #this integral is incredibly slow, the following code is a crappy Riemann sum
+            lams = material.wavelengths
+            dlams = (lams - np.roll(lams, 1))[1:]
+            integrand = []
+            for i, dlam in enumerate(dlams):
+                integrand.append(material.phase_funcs[lams[i]](angle)*dlam)
+            int_val = np.sum(integrand)
+            avg_val = int_val / self.bandwidth
+            vals.append(avg_val)
+        func = spip.CubicSpline(angles, vals)
+        SingleScatteringLaw.__init__(self, albedo, func)
+        
+        

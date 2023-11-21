@@ -344,7 +344,7 @@ class Star:
 
     def L(self, bandpass):
         'luminosity in a certain wavelength region'
-        return spi.quad(self.planck_function, bandpass[0], bandpass[1])
+        return self.luminosity * spi.quad(self.planck_function, bandpass[0], bandpass[1])[0]
 
     def light_curve(self, alphas):
         light_curve = [self.transit_function(alpha) for alpha in list(alphas)]
