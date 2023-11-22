@@ -22,7 +22,7 @@ class SingleScatteringLaw:
     def __init__(self, albedo, func):
         self.albedo = albedo
         self.func = func
-        self.norm = spi.quad(func, 0, np.pi)[0]
+        self.norm = spi.quad(lambda angle:np.sin(angle)*func(angle), 0, np.pi, limit=1080)[0]
     def __call__(self, alpha):
         return (self.albedo/self.norm) * self.func(np.pi-np.abs(alpha))
 
@@ -96,17 +96,18 @@ class WavelengthDependentScattering(SingleScatteringLaw):
         self.bandpass = bandpass
         self.bandwidth = bandpass[1] - bandpass[0]
         
-        albedo = spi.quad(material.albedo, bandpass[0], bandpass[1])[0]
+        albedo = spi.quad(material.albedo, bandpass[0], bandpass[1], limit=1000)[0]
         angles = np.linspace(0, np.pi, 1000)
         vals = []
         for angle in angles:
             #int_val = spi.quad(lambda lam:material.phase_func(angle, lam), bandpass[0], bandpass[1])[0]
             #this integral is incredibly slow, the following code is a crappy Riemann sum
             lams = material.wavelengths
+            lams = lams[(lams >= bandpass[0]) * (lams <= bandpass[1])]
             dlams = (lams - np.roll(lams, 1))[1:]
             integrand = []
             for i, dlam in enumerate(dlams):
-                integrand.append(material.phase_funcs[lams[i]](angle)*dlam)
+               integrand.append(material.phase_funcs[lams[i]](angle)*dlam)
             int_val = np.sum(integrand)
             avg_val = int_val / self.bandwidth
             vals.append(avg_val)

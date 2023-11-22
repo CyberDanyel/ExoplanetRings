@@ -342,7 +342,7 @@ class Star:
         k = 1.380649e-23
         return (2 * h * c ** 2 / wavelength ** 5) / np.exp((h * c / (k * wavelength * self.T)) - 1)
 
-    def L(self, bandpass):
+    def L_wav(self, bandpass):
         'luminosity in a certain wavelength region'
         return self.luminosity * spi.quad(self.planck_function, bandpass[0], bandpass[1])[0]
 

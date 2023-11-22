@@ -8,6 +8,7 @@ Created on Tue Nov 21 13:43:21 2023
 #wavelength testing
 
 import numpy as np
+import matplotlib.pyplot as plt
 
 import exoring_objects
 import scattering
@@ -22,17 +23,19 @@ SUN_TO_JUP = R_SUN / R_JUP
 AU_TO_SUN = AU / R_SUN
 AU_TO_JUP = AU / R_JUP
 
-bandpass = (2, 20)
+bandpass = (3, 5)
 
-test_mat = materials.RingMaterial('dustkapscatmat.inp', 361, 300)
-test_sc_ring = scattering.WavelengthDependentScattering(test_mat, bandpass)
-test_sc_planet = scattering.Jupiter(1.)
+material = materials.RingMaterial('materials/saturn_ring.inp', 361, 500)
+sc_ring = scattering.WavelengthDependentScattering(material, bandpass)
+sc_planet = scattering.Jupiter(0.1)
 
-star = exoring_objects.Star(L_SUN, R_SUN, 0.1*AU, 1.)
-test_ringed_planet = exoring_objects.RingedPlanet(test_sc_planet, R_JUP, test_sc_ring, 1.5*R_JUP, 3.*R_JUP, [1., 1., 0.1], star)
+star = exoring_objects.Star(1, R_SUN, 0.1*AU, 1.)
+ringed_planet = exoring_objects.RingedPlanet(sc_planet, R_JUP, sc_ring, 1.5*R_JUP, 3.*R_JUP, [1., 1., 0.1], star)
 
-alphas = np.linspace(-np.pi, np.pi, 10000)
-vals = test_ringed_planet.light_curve(alphas)
-vals *= star.L((bandpass[0]*1e-6, bandpass[1]*1e-6))/star.luminosity
+alphas = list(np.linspace(-np.pi, -.1, 2000)) + list(np.linspace(-.1, .1, 5000)) + list(np.linspace(.1, np.pi, 2000))
 
+light_curve = ringed_planet.light_curve(alphas)
+
+plt.style.use('the_usual')
+plt.plot(alphas, light_curve)
 

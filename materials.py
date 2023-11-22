@@ -48,7 +48,7 @@ class RingMaterial:
             nang: the number of points in the angular grid used by optool
             nlam: the number of points in the wavelength grid used by optool
         '''
-        opacity_data = np.loadtxt(filename, skiprows = 40, max_rows = nlam)
+        opacity_data = np.loadtxt(filename, skiprows = 42, max_rows = nlam)
         wavelengths = opacity_data[:,0]
         self.k_sc = opacity_data[:,2] * 1e-4 # necessary for normalization, but the rest of the model uses SI
         self.k_ab = opacity_data[:,1] * 1e-4
@@ -56,8 +56,8 @@ class RingMaterial:
         self.albedos = self.k_sc/(self.k_sc + self.k_ab)
         self.albedo_func = spint.CubicSpline(self.wavelengths, self.albedos)
         
-        angles = np.loadtxt(filename, skiprows = 40 + 1 + nlam, max_rows = nang) * (np.pi/180) # why is it not already in radians, ew
-        sc_data = np.loadtxt(filename, skiprows = 40 + 1 + nlam + 1 + nang)
+        angles = np.loadtxt(filename, skiprows = 42 + 1 + nlam, max_rows = nang) * (np.pi/180) # why is it not already in radians, ew
+        sc_data = np.loadtxt(filename, skiprows = 42 + 1 + nlam + 1 + nang)
         
         sc_data = sc_data.reshape(nlam, nang, 6)[:,:,0].T # reshaping data so that each row is assigned an angle and each column is a wavelength
         sc_data *= 2*np.pi/np.broadcast_to(self.k_sc, sc_data.shape) # normalization - optool output is normalized to scattering cross section
