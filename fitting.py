@@ -26,6 +26,8 @@ class FittingPlanet(exoring_objects.Planet):
 
 class FittingRingedPlanet(exoring_objects.RingedPlanet, FittingPlanet):
     def __init__(self, planet_sc_law, ring_sc_law, star, parameters):
+        if parameters == {'radius': 1.114733369384162, 'inner_rad': 3.241237811613774, 'ring_width': 2.9495194816718544, 'n_x': -1.3877787807814457e-17, 'n_y': -1.8041124150158794e-16, 'n_z': -3.010556408208738e-17, 'planet_sc_args': {'albedo': 1.0}, 'ring_sc_args': {'albedo': 2.7755575615628914e-17}}:
+            print('here')
         FittingPlanet.__init__(self, planet_sc_law, star, parameters)
         inner_rad, ring_width, n_x, n_y, n_z, ring_sc_args = parameters['inner_rad'], parameters['ring_width'], \
             parameters['n_x'], parameters['n_y'], parameters['n_z'], parameters['ring_sc_args']
@@ -65,7 +67,7 @@ class PerformFit():
                                          range(len(planet_sc_args_positional))},
                       'ring_sc_args': {ring_sc_args_order[index]: ring_sc_args_positional[index] for index in
                                        range(len(ring_sc_args_positional))}}
-        model_ringed_planet = FittingRingedPlanet(planet_sc_law, ring_sc_law, self.star, parameters)
+        model_ringed_planet = FittingRingedPlanet(planet_sc_law, ring_sc_law, self.star, parameters) # problem occurs here
         x = model_ringed_planet.light_curve(alpha)
         with np.errstate(divide='raise'):
             try:
@@ -294,19 +296,22 @@ class PerformFit():
             search_positions = self.assign_bounds(bounds, search_positions)
             init_guesses.append(search_positions)
         freeze_support()
+        res = list()
         if ring_sc_functions:
             #with Pool(processes=len(positions[0])) as pool:
-            with Pool(16) as pool:
-                for planet_sc in planet_sc_functions:
-                    for ring_sc in ring_sc_functions:
-                        args = [(planet_sc, ring_sc, guess) for guess in init_guesses]
-                        return pool.map(self.fitwrap_ring, args)
+            #with Pool(16) as pool:
+            for planet_sc in planet_sc_functions:
+                for ring_sc in ring_sc_functions:
+                    args = [(planet_sc, ring_sc, guess) for guess in init_guesses]
+                    for arg in args:
+                        res.append(self.fitwrap_ring(arg))
+                        return res
         else:
             #with Pool(processes=len(positions[0])) as pool:
-            with Pool(16) as pool:
-                for planet_sc in planet_sc_functions:
-                    args = [(planet_sc, guess) for guess in init_guesses]
-                    return pool.map(self.fitwrap_planet, args)
+            #with Pool(16) as pool:
+            for planet_sc in planet_sc_functions:
+                args = [(planet_sc, guess) for guess in init_guesses]
+                return pool.map(self.fitwrap_planet, args)
 
 
 def generate_data(test_planet):
