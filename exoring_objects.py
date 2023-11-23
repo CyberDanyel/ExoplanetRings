@@ -217,7 +217,10 @@ class Ring:
         """phase curve innit"""
         mu = self.get_mu()
         mu_star = self.get_mu_star(alpha)
-        return mu * mu_star * self.sc_law(alpha) * (mu_star > 0) * self.secondary_eclipse(alpha)  # boolean prevents
+        if mu == 0:
+            return 0
+        else:
+            return mu * mu_star * self.sc_law(alpha) * (mu_star > 0) * self.secondary_eclipse(alpha)  # boolean prevents
         # forwards scattering
 
     def analytic_secondary_eclipse(self, alpha):
@@ -238,18 +241,24 @@ class Ring:
             return 1.
 
         mu = self.get_mu()
+        if mu == 0:
+            print("AAAAAAAAAAAAAAAAAAAAAAAA")
         n_x, n_y, n_z = self.normal
+        if n_x < 0:
+            print('here', n_x, 'alpha', alpha)
+        if n_y < 0:
+            print('here', n_y, 'alpha', alpha)
+        if n_z < 0:
+            print('here', n_z, 'alpha', alpha)
 
         y_star = self.star.distance * np.sin(alpha)
 
         sin_theta = np.sqrt(1 - mu ** 2)
-        if n_y == 0:
-            sin_phi = 0  # IDK if these are the right values to assign
+        if sin_theta == 0:
+            sin_phi = 0
+            cos_phi = 1
         else:
             sin_phi = -n_y / sin_theta
-        if n_z == 0:
-            cos_phi = 0
-        else:
             cos_phi = n_z / sin_theta
 
         outer_area = exoring_functions.overlap_area(self.star.radius, self.outer_radius, mu, cos_phi, sin_phi, y_star)
