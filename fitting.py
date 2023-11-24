@@ -26,8 +26,6 @@ class FittingPlanet(exoring_objects.Planet):
 
 class FittingRingedPlanet(exoring_objects.RingedPlanet, FittingPlanet):
     def __init__(self, planet_sc_law, ring_sc_law, star, parameters):
-        if parameters == {'radius': 1.114733369384162, 'inner_rad': 3.241237811613774, 'ring_width': 2.9495194816718544, 'n_x': -1.3877787807814457e-17, 'n_y': -1.8041124150158794e-16, 'n_z': -3.010556408208738e-17, 'planet_sc_args': {'albedo': 1.0}, 'ring_sc_args': {'albedo': 2.7755575615628914e-17}}:
-            print('here')
         FittingPlanet.__init__(self, planet_sc_law, star, parameters)
         inner_rad, ring_width, n_x, n_y, n_z, ring_sc_args = parameters['inner_rad'], parameters['ring_width'], \
             parameters['n_x'], parameters['n_y'], parameters['n_z'], parameters['ring_sc_args']

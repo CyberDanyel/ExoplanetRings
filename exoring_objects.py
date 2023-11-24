@@ -246,10 +246,6 @@ class Ring:
         n_x, n_y, n_z = self.normal
         if n_x < 0:
             print('here', n_x, 'alpha', alpha)
-        if n_y < 0:
-            print('here', n_y, 'alpha', alpha)
-        if n_z < 0:
-            print('here', n_z, 'alpha', alpha)
 
         y_star = self.star.distance * np.sin(alpha)
 
@@ -273,7 +269,6 @@ class Ring:
         elif area_on_ring == 0:
             return 1 # IDK if this is the right value to set
         else:
-            print('a-ok')
             return 1. - (area_on_ring / total_ring_area)
 
     def light_curve(self, alpha):
