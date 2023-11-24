@@ -260,16 +260,20 @@ class Ring:
         else:
             sin_phi = -n_y / sin_theta
             cos_phi = n_z / sin_theta
-
+          
         outer_area = exoring_functions.overlap_area(self.star.radius, self.outer_radius, mu, cos_phi, sin_phi, y_star)
         inner_area = exoring_functions.overlap_area(self.star.radius, self.inner_radius, mu, cos_phi, sin_phi, y_star)
         area_on_ring = outer_area - inner_area
         total_ring_area = mu * np.pi * (self.outer_radius ** 2 - self.inner_radius ** 2)  # - self.inner_radius**2)
         if area_on_ring < 0:
             print('Alpha: %.3f Area on outer: %.4f, area on inner: %.4f' % (alpha, outer_area, inner_area))
+            outer_area = exoring_functions.overlap_area(self.star.radius, self.outer_radius, mu, cos_phi, sin_phi, y_star)
+            inner_area = exoring_functions.overlap_area(self.star.radius, self.inner_radius, mu, cos_phi, sin_phi, y_star)
+            
         elif area_on_ring == 0:
             return 1 # IDK if this is the right value to set
         else:
+            print('a-ok')
             return 1. - (area_on_ring / total_ring_area)
 
     def light_curve(self, alpha):

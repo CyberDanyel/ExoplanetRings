@@ -122,7 +122,7 @@ def overlap_area(r_circle, r_ellipse, mu, cos_phi, sin_phi, offset):
     def find_distance_from_ellipse_centre(a, b):
         with np.errstate(all='raise'):
             if mu == 0:
-                return 0 # IDK if this is the right value
+                return a ** 2 + b ** 2
             else:
                 return (a * cos_phi - b * sin_phi) ** 2 + (1 / mu ** 2) * (a * sin_phi + b * cos_phi) ** 2
 
@@ -160,7 +160,7 @@ def overlap_area(r_circle, r_ellipse, mu, cos_phi, sin_phi, offset):
     # plt.scatter(x_ellipse_prime, y_ellipse_prime)
 
     ellipse_section_area = mu * np.abs(
-        circle_section_integral(r_ellipse, bounds=[x_ellipse_prime[0], np.sign(offset) * r_ellipse]))
+        circle_section_integral(r_ellipse, bounds=[np.sign(x[0])*np.abs(x_ellipse_prime[0]), np.sign(offset) * r_ellipse]))
     return ellipse_section_area + circle_section_area
 
 
