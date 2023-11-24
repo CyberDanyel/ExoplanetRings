@@ -27,15 +27,15 @@ class FittingPlanet(exoring_objects.Planet):
 class FittingRingedPlanet(exoring_objects.RingedPlanet, FittingPlanet):
     def __init__(self, planet_sc_law, ring_sc_law, star, parameters):
         FittingPlanet.__init__(self, planet_sc_law, star, parameters)
-        inner_rad, ring_width, n_x, n_y, n_z, ring_sc_args = parameters['inner_rad'], parameters['ring_width'], \
+        disk_gap, ring_width, n_x, n_y, n_z, ring_sc_args = parameters['disk_gap'], parameters['ring_width'], \
             parameters['n_x'], parameters['n_y'], parameters['n_z'], parameters['ring_sc_args']
         try:
             ring_sc = ring_sc_law(**ring_sc_args)
         except TypeError:
             raise TypeError('Too little/many arguments for ring sc law')
 
-        exoring_objects.RingedPlanet.__init__(self, self.sc_law, self.radius, ring_sc, inner_rad,
-                                              inner_rad + ring_width, [n_x, n_y, n_z], star)
+        exoring_objects.RingedPlanet.__init__(self, self.sc_law, self.radius, ring_sc, self.radius + disk_gap,
+                                              self.radius + disk_gap + ring_width, [n_x, n_y, n_z], star)
         # Note that sc.law here
         # does not follow the previous naming convention, it is not the class
         # itself, but an instantiation of that class (we would usually not have
@@ -59,13 +59,15 @@ class PerformFit():
         I_errs = self.data[2]
         planet_sc_args_positional = params[6:6 + len(planet_sc_law.__init__.__code__.co_varnames) - 1]
         ring_sc_args_positional = params[6 + len(planet_sc_law.__init__.__code__.co_varnames) - 1:]
-        parameters = {'radius': params[0], 'inner_rad': params[1], 'ring_width': params[2], 'n_x': params[3],
+        parameters = {'radius': params[0], 'disk_gap': params[1], 'ring_width': params[2], 'n_x': params[3],
                       'n_y': params[4], 'n_z': params[5],
                       'planet_sc_args': {planet_sc_args_order[index]: planet_sc_args_positional[index] for index in
                                          range(len(planet_sc_args_positional))},
                       'ring_sc_args': {ring_sc_args_order[index]: ring_sc_args_positional[index] for index in
                                        range(len(ring_sc_args_positional))}}
-        model_ringed_planet = FittingRingedPlanet(planet_sc_law, ring_sc_law, self.star, parameters) # problem occurs here
+        if parameters['n_x'] < 0:
+            print('n_x was inputted to be <0, possibly the minimiser not respecting bounds')
+        model_ringed_planet = FittingRingedPlanet(planet_sc_law, ring_sc_law, self.star, parameters)
         x = model_ringed_planet.light_curve(alpha)
         with np.errstate(divide='raise'):
             try:
@@ -130,7 +132,7 @@ class PerformFit():
         bounds = [radius_bounds, *planet_sc_bounds_positional]
         minimization = op.minimize(
             lambda p: self.log_likelihood_planet(planet_sc_law, planet_sc_args_order, *p), p0,
-            bounds=bounds, method='COBYLA')
+            bounds=bounds)
         result = minimization.x
         NLL = minimization.fun
         success = minimization.success
@@ -150,8 +152,8 @@ class PerformFit():
         try:
             radius = init_guess['radius'][0]
             radius_bounds = init_guess['radius'][1]
-            inner_rad = init_guess['inner_rad'][0]
-            inner_rad_bounds = init_guess['inner_rad'][1]
+            disk_gap = init_guess['disk_gap'][0]
+            disk_gap_bounds = init_guess['disk_gap'][1]
             ring_width = init_guess['ring_width'][0]
             ring_width_bounds = init_guess['ring_width'][1]
             n_x, n_y, n_z = init_guess['ring_normal'][0]
@@ -187,12 +189,12 @@ class PerformFit():
             else:
                 raise 'Given parameter in ring_sc_args was not given a bound'
         p0 = np.array(
-            [radius, inner_rad, ring_width, n_x, n_y, n_z, *planet_sc_args_positional, *ring_sc_args_positional])
-        bounds = [radius_bounds, inner_rad_bounds, ring_width_bounds, n_x_bounds, n_y_bounds, n_z_bounds,
+            [radius, disk_gap, ring_width, n_x, n_y, n_z, *planet_sc_args_positional, *ring_sc_args_positional])
+        bounds = [radius_bounds, disk_gap_bounds, ring_width_bounds, n_x_bounds, n_y_bounds, n_z_bounds,
                   *planet_sc_bounds_positional, *ring_sc_bounds_positional]
         minimization = op.minimize(
             lambda p: self.log_likelihood_ring(planet_sc_law, ring_sc_law, planet_sc_args_order, ring_sc_args_order,
-                                               *p), p0, bounds=bounds, method='COBYLA')
+                                               *p), p0, bounds=bounds)
         result = minimization.x
         NLL = minimization.fun
         success = minimization.success
@@ -294,22 +296,19 @@ class PerformFit():
             search_positions = self.assign_bounds(bounds, search_positions)
             init_guesses.append(search_positions)
         freeze_support()
-        res = list()
         if ring_sc_functions:
             #with Pool(processes=len(positions[0])) as pool:
-            #with Pool(16) as pool:
-            for planet_sc in planet_sc_functions:
-                for ring_sc in ring_sc_functions:
-                    args = [(planet_sc, ring_sc, guess) for guess in init_guesses]
-                    for arg in args:
-                        res.append(self.fitwrap_ring(arg))
-                        return res
+            with Pool(16) as pool:
+                for planet_sc in planet_sc_functions:
+                    for ring_sc in ring_sc_functions:
+                        args = [(planet_sc, ring_sc, guess) for guess in init_guesses]
+                        return pool.map(self.fitwrap_ring, args)
         else:
             #with Pool(processes=len(positions[0])) as pool:
-            #with Pool(16) as pool:
-            for planet_sc in planet_sc_functions:
-                args = [(planet_sc, guess) for guess in init_guesses]
-                return pool.map(self.fitwrap_planet, args)
+            with Pool(16) as pool:
+                for planet_sc in planet_sc_functions:
+                    args = [(planet_sc, guess) for guess in init_guesses]
+                    return pool.map(self.fitwrap_planet, args)
 
 
 def generate_data(test_planet):

@@ -64,11 +64,11 @@ if __name__ == '__main__':
                                                     np.array([1., 1., 0]), star_obj)
     ring_data = fitting.generate_data(test_ring_planet)
 
-    search_ranges_ring = {'radius': (0.1, 1.9), 'inner_rad': (2, 3), 'ring_width': (1, 2),
+    search_ranges_ring = {'radius': (0.1, 1.9), 'disk_gap': (0, 3), 'ring_width': (1, 2),
                           'ring_normal': [(0.1, 1), (0.1, 1), (0, 0)],
                           'planet_sc_args': {'albedo': (0.1, 1)},
                           'ring_sc_args': {'albedo': (0.1, 1)}}
-    bounds_ring = {'radius': (0, np.inf), 'inner_rad': (0, np.inf), 'ring_width': (0.1, np.inf),
+    bounds_ring = {'radius': (0, np.inf), 'disk_gap': (0, np.inf), 'ring_width': (0.1, np.inf),
                    'ring_normal': [(0, 1), (0, 1), (0, 1)],
                    'planet_sc_args': {'albedo': (0, 1)},
                    'ring_sc_args': {'albedo': (0, 1)}}
