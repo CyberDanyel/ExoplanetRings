@@ -91,12 +91,14 @@ class Jupiter(SingleScatteringLaw):
         return self.f*self.hg_func(self.g1, theta) + (1-self.f)*self.hg_func(self.g2, theta)
     
 class WavelengthDependentScattering(SingleScatteringLaw):
-    def __init__(self, material, bandpass):
+    def __init__(self, material, bandpass, inc_spec):
         self.material = material
         self.bandpass = bandpass
         self.bandwidth = bandpass[1] - bandpass[0]
-        
-        albedo = spi.quad(material.albedo, bandpass[0], bandpass[1], limit=1000)[0]
+        self.inc_spec = inc_spec #spectrum of the incident light for weighting scattering functions
+        self.spec_norm = spi.quad(inc_spec, bandpass[0], bandpass[1], limit = 100)[0]
+        albedo_int = spi.quad(material.albedo, bandpass[0], bandpass[1], limit=1000)[0]
+        albedo = albedo_int/self.bandwidth
         angles = np.linspace(0, np.pi, 1000)
         vals = []
         for angle in angles:
@@ -107,11 +109,13 @@ class WavelengthDependentScattering(SingleScatteringLaw):
             dlams = (lams - np.roll(lams, 1))[1:]
             integrand = []
             for i, dlam in enumerate(dlams):
-               integrand.append(material.phase_funcs[lams[i]](angle)*dlam)
+               integrand.append(material.phase_funcs[lams[i]](angle)*dlam*self.wavelength_weighting(lams[i]))
             int_val = np.sum(integrand)
             avg_val = int_val / self.bandwidth
             vals.append(avg_val)
         func = spip.CubicSpline(angles, vals)
         SingleScatteringLaw.__init__(self, albedo, func)
-        
+    
+    def wavelength_weighting(self, wavelength):
+        return self.inc_spec(wavelength)/self.spec_norm
         

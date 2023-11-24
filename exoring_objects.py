@@ -303,7 +303,7 @@ class Star:
         self.distance = distance
         self.mass = mass
         self.planet = planet
-        self.T = (self.luminosity / (s * 4 * np.pi * radius)) ** 0.25
+        self.T = (self.luminosity / (s * 4 * np.pi * radius**2)) ** 0.25
 
     def transit_function(self, alpha):
         # if abs(alpha) <= np.pi / 2:
@@ -352,7 +352,7 @@ class Star:
 
     def L_wav(self, bandpass):
         'luminosity in a certain wavelength region'
-        return self.luminosity * spi.quad(self.planck_function, bandpass[0], bandpass[1])[0]
+        return spi.quad(self.planck_function, bandpass[0], bandpass[1])[0] * 4 * np.pi * self.radius**2
 
     def light_curve(self, alphas):
         light_curve = [self.transit_function(alpha) for alpha in list(alphas)]
