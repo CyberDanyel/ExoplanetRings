@@ -1,12 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Wed Nov  8 15:30:24 2023
-
-@author: victo
-"""
-
-# spectra
-
 import numpy as np
 import pandas as pd
 import scipy.interpolate as spint

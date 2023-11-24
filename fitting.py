@@ -1,18 +1,11 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Sun Nov  5 16:37:10 2023
-
-@author: victo
-"""
-
-# fitting
-
 import numpy as np
 import matplotlib.pyplot as plt
 import exoring_objects
 import scattering
 import scipy.optimize as op
 from multiprocessing import Pool, freeze_support
+
+
 class FittingPlanet(exoring_objects.Planet):
     def __init__(self, sc_law, star, parameters):
         radius = parameters['radius']
@@ -53,7 +46,33 @@ class PerformFit():
         self.data = data
         self.star = star
 
+    def log_likelihood_planet(self, sc_law, planet_sc_args_order, *params):
+        # Calculates log likelihood for specific planet params and scattering law
+        alpha = self.data[0]
+        I = self.data[1]
+        I_errs = self.data[2]
+        planet_sc_args_positional = params[1:]
+        parameters = {'radius': params[0],
+                      'planet_sc_args': {planet_sc_args_order[index]: planet_sc_args_positional[index] for index in
+                                         range(len(planet_sc_args_positional))}}
+        model_planet = FittingPlanet(sc_law, self.star, parameters)
+        x = model_planet.light_curve(alpha)
+        with np.errstate(divide='raise'):
+            try:
+                # print(-np.sum(np.log(gaussian(x, I, I_errs))))
+                return -np.sum(np.log(gaussian(x, I, I_errs)))
+            except:  # The gaussian has returned 0 for at least 1 data point
+                with np.errstate(divide='ignore'):
+                    # print('Triggered')
+                    logs = np.log(gaussian(x, I, I_errs))
+                    for index, element in enumerate(logs):
+                        if np.isinf(element):
+                            logs[index] = -1000
+                    # print(-np.sum(logs))
+                    return -np.sum(logs)
+
     def log_likelihood_ring(self, planet_sc_law, ring_sc_law, planet_sc_args_order, ring_sc_args_order, *params):
+        # Calculates log likelihood for specific ringed planet params and scattering laws
         alpha = self.data[0]
         I = self.data[1]
         I_errs = self.data[2]
@@ -83,31 +102,22 @@ class PerformFit():
                     # print(-np.sum(logs))
                     return -np.sum(logs)
 
-    def log_likelihood_planet(self, sc_law, planet_sc_args_order, *params):
-        alpha = self.data[0]
-        I = self.data[1]
-        I_errs = self.data[2]
-        planet_sc_args_positional = params[1:]
-        parameters = {'radius': params[0],
-                      'planet_sc_args': {planet_sc_args_order[index]: planet_sc_args_positional[index] for index in
-                                         range(len(planet_sc_args_positional))}}
-        model_planet = FittingPlanet(sc_law, self.star, parameters)
-        x = model_planet.light_curve(alpha)
-        with np.errstate(divide='raise'):
-            try:
-                # print(-np.sum(np.log(gaussian(x, I, I_errs))))
-                return -np.sum(np.log(gaussian(x, I, I_errs)))
-            except:  # The gaussian has returned 0 for at least 1 data point
-                with np.errstate(divide='ignore'):
-                    # print('Triggered')
-                    logs = np.log(gaussian(x, I, I_errs))
-                    for index, element in enumerate(logs):
-                        if np.isinf(element):
-                            logs[index] = -1000
-                    # print(-np.sum(logs))
-                    return -np.sum(logs)
-
     def fit_data_planet(self, planet_sc_law, init_guess: dict):
+        """
+        Finds planet giving best fit to the data with given planet scattering law and initial guesses
+
+        Parameters
+        ----------
+        planet_sc_law: planet scattering law class
+        init_guess: initial guess for minimisation
+
+        Returns
+        -------
+        result of minimisation
+        NLL of minimisation
+        success of minimisation
+
+        """
         try:
             radius = init_guess['radius'][0]
             radius_bounds = init_guess['radius'][1]
@@ -144,11 +154,29 @@ class PerformFit():
         return NLL  # change this
 
     def fitwrap_planet(self, args):
+        # pool.map only takes a function with a single argument, so all arguments are wrapped here and parsed onto
+        # the fitting function
         planet_sc_law = args[0]
         init_guess_planet = args[1]
         return self.fit_data_planet(planet_sc_law, init_guess_planet)
 
     def fit_data_ring(self, planet_sc_law, ring_sc_law, init_guess: dict):
+        """
+        Finds ringed planet giving best fit to the data with given planet & ring scattering laws and initial guesses
+
+        Parameters
+        ----------
+        planet_sc_law: planet scattering law class
+        ring_sc_law: ring scattering law class
+        init_guess: initial guess for minimisation
+
+        Returns
+        -------
+        result of minimisation
+        NLL of minimisation
+        success of minimisation
+
+        """
         try:
             radius = init_guess['radius'][0]
             radius_bounds = init_guess['radius'][1]
@@ -210,6 +238,8 @@ class PerformFit():
         return NLL
 
     def fitwrap_ring(self, args):
+        # pool.map only takes a function with a single argument, so all arguments are wrapped here and parsed onto
+        # the fitting function
         planet_sc_law = args[0]
         ring_sc_law = args[1]
         init_guess_ring = args[2]
@@ -238,6 +268,8 @@ class PerformFit():
         plt.savefig('images/RingFit', dpi=600)
 
     def assign_bounds(self, bounds: dict, boundless_init_guess: dict):
+        # fit_data_planet and fit_data_ring take bounds in the initial guesses.
+        # This assigns given bounds to a boundless initial guess to be used in the perform_fitting function
         init_guess = dict()
         for key in boundless_init_guess:
             if key in bounds.keys():
@@ -248,6 +280,29 @@ class PerformFit():
 
     def perform_fitting(self, search_ranges, search_interval, bounds, planet_sc_functions, ring_sc_functions=None,
                         search_values=None):
+        # Creates meshgrid of initial_values to form multiple initial guesses. Runs minimisation for all these
+        # initial guesses with every possible combination of planet & ring scattering functions If you want the data
+        # to be optimised with a ringed planet model, include ring_sc_functions. If you want a planet-only fit,
+        # leave it blank.
+
+        """
+
+        Parameters
+        ----------
+        search_ranges: dictionary with desired search ranges for initial values
+        search_interval: from 0 to 1, fractional difference seeked between initial values created.
+                    Search ranges (0,1) with search_interval = 0.2 will create 5 initial values evenly spaced from 0 to 1
+        bounds: bounds for minimisation
+        planet_sc_functions: planet scattering function
+        ring_sc_functions: ring scattering function
+        search_values: if you want to use specific initial values in the search, use this (currently not implemented)
+
+        Returns
+        -------
+        Whatever the fuck you want it to return. Maybe the initial guess with the lowest NLL if you rly want that
+        what else do you want from me. Look man my shift ended 5 minutes ago if you have anymore questions
+        you're gonna have to come tomorrow
+        """
         if not search_values:
             search_ranges['n_x'] = search_ranges['ring_normal'][0]
             search_ranges['n_y'] = search_ranges['ring_normal'][1]
@@ -292,19 +347,19 @@ class PerformFit():
             search_positions['ring_normal'] = [search_positions['n_x'], search_positions['n_y'],
                                                search_positions['n_z']]
             if ring_sc_functions:
-                del search_positions['n_x'],search_positions['n_y'],search_positions['n_z']
+                del search_positions['n_x'], search_positions['n_y'], search_positions['n_z']
             search_positions = self.assign_bounds(bounds, search_positions)
             init_guesses.append(search_positions)
         freeze_support()
         if ring_sc_functions:
-            #with Pool(processes=len(positions[0])) as pool:
+            # with Pool(processes=len(positions[0])) as pool:
             with Pool(16) as pool:
                 for planet_sc in planet_sc_functions:
                     for ring_sc in ring_sc_functions:
                         args = [(planet_sc, ring_sc, guess) for guess in init_guesses]
                         return pool.map(self.fitwrap_ring, args)
         else:
-            #with Pool(processes=len(positions[0])) as pool:
+            # with Pool(processes=len(positions[0])) as pool:
             with Pool(16) as pool:
                 for planet_sc in planet_sc_functions:
                     args = [(planet_sc, guess) for guess in init_guesses]
@@ -321,6 +376,7 @@ def generate_data(test_planet):
     data_vals = errs * noise_vals + I
     data = np.array([test_alphas, data_vals, errs])
     return data
+
 
 '''
 star_obj = exoring_objects.Star(1, SUN_TO_JUP, 0.1 * AU_TO_JUP, 1)

@@ -7,9 +7,6 @@ import matplotlib.ticker as tck
 import scipy.interpolate as spint
 
 
-# exoring_functions
-
-    
 def integrate2d(func, bounds: list, sigma=0.01):
     """
     2D integration by basic Riemann sum
@@ -126,7 +123,6 @@ def overlap_area(r_circle, r_ellipse, mu, cos_phi, sin_phi, offset):
             else:
                 return (a * cos_phi - b * sin_phi) ** 2 + (1 / mu ** 2) * (a * sin_phi + b * cos_phi) ** 2
 
-
     angles = np.linspace(0, 2 * np.pi, 2000)
     xs = r_circle * np.cos(angles) + offset
     ys = r_circle * np.sin(angles)
@@ -160,7 +156,8 @@ def overlap_area(r_circle, r_ellipse, mu, cos_phi, sin_phi, offset):
     # plt.scatter(x_ellipse_prime, y_ellipse_prime)
 
     ellipse_section_area = mu * np.abs(
-        circle_section_integral(r_ellipse, bounds=[np.sign(x[0])*np.abs(x_ellipse_prime[0]), np.sign(offset) * r_ellipse]))
+        circle_section_integral(r_ellipse,
+                                bounds=[np.sign(x[0]) * np.abs(x_ellipse_prime[0]), np.sign(offset) * r_ellipse]))
     return ellipse_section_area + circle_section_area
 
 
@@ -172,5 +169,3 @@ def generate_plot_style():
     ax.set_ylabel(r'Intensity ($L_{\odot}$)')
     fig.tight_layout()
     return fig, ax
-
-        

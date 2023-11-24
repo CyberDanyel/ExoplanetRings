@@ -1,12 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Tue Nov 21 13:43:21 2023
-
-@author: victo
-"""
-
-#wavelength testing
-
 import numpy as np
 import matplotlib.pyplot as plt
 

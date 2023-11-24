@@ -1,11 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Sun Oct 29 22:12:36 2023
-
-@author: victo
-"""
-
-# testing
 if __name__ == '__main__':
     import exoring_objects
     import scattering
