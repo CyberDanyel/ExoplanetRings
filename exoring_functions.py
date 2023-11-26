@@ -136,8 +136,8 @@ def overlap_area(r_circle, r_ellipse, mu, cos_phi, sin_phi, offset):
         else:
             return 0.
 
-    x_prime = (x * cos_phi - y * sin_phi)
-    y_prime = (y * cos_phi + x * sin_phi) / mu
+    x_prime = (x * cos_phi + y * sin_phi)
+    y_prime = (y * cos_phi - x * sin_phi) / mu
     # plt.scatter(x, y)
     # plt.scatter(x_prime, y_prime)
 
@@ -157,7 +157,7 @@ def overlap_area(r_circle, r_ellipse, mu, cos_phi, sin_phi, offset):
 
     ellipse_section_area = mu * np.abs(
         circle_section_integral(r_ellipse,
-                                bounds=[np.sign(x[0]) * np.abs(x_ellipse_prime[0]), np.sign(offset) * r_ellipse]))
+                                bounds=[x_ellipse_prime[0], np.sign(offset) * r_ellipse]))
     return ellipse_section_area + circle_section_area
 
 

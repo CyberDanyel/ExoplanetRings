@@ -19,14 +19,15 @@ star = exoring_objects.Star(L_SUN, R_SUN, 0.1*AU, 1.)
 
 material = materials.RingMaterial('dustkapscatmat.inp', 1081, 500)
 sc_ring = scattering.WavelengthDependentScattering(material, bandpass, star.planck_function)
-sc_planet = scattering.Jupiter(.1)
+#sc_ring = scattering.Rayleigh(1.)
+sc_planet = scattering.Jupiter(1.)
 
 
-ringed_planet = exoring_objects.RingedPlanet(sc_planet, R_JUP, sc_ring, 1.5*R_JUP, 3.*R_JUP, [1., 1., 0.1], star)
+ringed_planet = exoring_objects.RingedPlanet(sc_planet, R_JUP, sc_ring, 1.5*R_JUP, 3.*R_JUP, [1., 1., -.1], star)
 
 alphas = list(np.linspace(-np.pi, -.1, 2000)) + list(np.linspace(-.1, .1, 5000)) + list(np.linspace(.1, np.pi, 2000))
 
-light_curve = ringed_planet.ring.light_curve(alphas)/star.L_wav(bandpass)
+light_curve = ringed_planet.light_curve(alphas)/star.L_wav(bandpass)
 
 plt.style.use('the_usual')
 plt.plot(alphas, light_curve)

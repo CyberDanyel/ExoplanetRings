@@ -255,7 +255,7 @@ class Ring:
             cos_phi = 1
         else:
             sin_phi = -n_y / sin_theta
-            cos_phi = n_z / sin_theta
+            cos_phi = np.abs(n_z) / sin_theta # if the normal is pointing up or down we want to rotate s. t. it aligns vertically
           
         outer_area = exoring_functions.overlap_area(self.star.radius, self.outer_radius, mu, cos_phi, sin_phi, y_star)
         inner_area = exoring_functions.overlap_area(self.star.radius, self.inner_radius, mu, cos_phi, sin_phi, y_star)
