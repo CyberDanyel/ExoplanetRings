@@ -142,22 +142,35 @@ def overlap_area(r_circle, r_ellipse, mu, cos_phi, sin_phi, offset):
     # plt.scatter(x_prime, y_prime)
 
     circle_rot_angle = np.arctan((x[1] - x[0]) / (y[1] - y[0]))
-
-    x_circle_prime = (x - offset) * np.cos(circle_rot_angle) - y * np.sin(circle_rot_angle)
-    # y_circle_prime = (x-offset)*np.sin(circle_rot_angle) + y*np.cos(circle_rot_angle)
-    # plt.scatter(x_circle_prime, y_circle_prime)
-
+       
+    circle_bound, extra = (x - offset) * np.cos(circle_rot_angle) - y * np.sin(circle_rot_angle)
+    #catching numerical errors:
+    if np.abs(circle_bound / r_circle) >= 1:
+        if np.abs(offset) < r_circle:
+            return np.pi * mu * r_ellipse ** 2
+        else:
+            return 0.
+        
     circle_section_area = np.abs(
-        circle_section_integral(r_circle, bounds=[x_circle_prime[0], - np.sign(offset) * r_circle]))
+        circle_section_integral(r_circle, bounds=[circle_bound, - np.sign(offset) * r_circle]))
 
     ellipse_rot_angle = np.arctan((x_prime[1] - x_prime[0]) / (y_prime[1] - y_prime[0]))
-    x_ellipse_prime = x_prime * np.cos(ellipse_rot_angle) - y_prime * np.sin(ellipse_rot_angle)
-    y_ellipse_prime = x_prime * np.sin(ellipse_rot_angle) + y_prime * np.cos(ellipse_rot_angle)
-    # plt.scatter(x_ellipse_prime, y_ellipse_prime)
-
+    
+    #catching edge cases where y_prime[1] is close to y_prime[0] - numerical errors can flip pi/2 to -pi/2
+    ellipse_rot_angle = np.sign(sin_phi) * np.abs(ellipse_rot_angle)
+    
+    ellipse_bound, extra = x_prime * np.cos(ellipse_rot_angle) - y_prime * np.sin(ellipse_rot_angle)
+    
+    #catching numerical errors:
+    if np.abs(ellipse_bound / r_ellipse) >= 1:
+        if np.abs(offset) < r_circle:
+            return np.pi * mu * r_ellipse ** 2
+        else:
+            return 0.
+    
     ellipse_section_area = mu * np.abs(
         circle_section_integral(r_ellipse,
-                                bounds=[x_ellipse_prime[0], np.sign(offset) * r_ellipse]))
+                                bounds=[ellipse_bound, np.sign(offset)*r_ellipse]))
     return ellipse_section_area + circle_section_area
 
 

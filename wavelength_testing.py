@@ -17,13 +17,13 @@ AU_TO_JUP = AU / R_JUP
 bandpass = (1.0e-6, 1.25e-6)
 star = exoring_objects.Star(L_SUN, R_SUN, 0.1*AU, 1.)
 
-material = materials.RingMaterial('dustkapscatmat.inp', 1081, 500)
-sc_ring = scattering.WavelengthDependentScattering(material, bandpass, star.planck_function)
-#sc_ring = scattering.Rayleigh(1.)
+material = materials.RingMaterial('materials/saturn_ring.inp', 361, 500)
+#sc_ring = scattering.WavelengthDependentScattering(material, bandpass, star.planck_function)
+sc_ring = scattering.Rayleigh(1.)
 sc_planet = scattering.Jupiter(1.)
 
 
-ringed_planet = exoring_objects.RingedPlanet(sc_planet, R_JUP, sc_ring, 1.5*R_JUP, 3.*R_JUP, [1., 1., -.1], star)
+ringed_planet = exoring_objects.RingedPlanet(sc_planet, R_JUP, sc_ring, 3.*R_JUP, 5.*R_JUP, [1., 1., 0.5], star)
 
 alphas = list(np.linspace(-np.pi, -.1, 2000)) + list(np.linspace(-.1, .1, 5000)) + list(np.linspace(.1, np.pi, 2000))
 
