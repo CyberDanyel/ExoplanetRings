@@ -13,7 +13,7 @@ class SingleScatteringLaw:
     def __init__(self, albedo, func):
         self.albedo = albedo
         self.func = func
-        self.norm = spi.quad(lambda angle:np.sin(angle)*func(angle), 0, np.pi, limit=1080)[0]
+        self.norm = 2*np.pi*spi.quad(lambda angle:np.sin(angle)*func(angle), 0, np.pi, limit=1080)[0]
     def __call__(self, alpha):
         return (self.albedo/self.norm) * self.func(np.pi-np.abs(alpha))
 
@@ -88,19 +88,19 @@ class WavelengthDependentScattering(SingleScatteringLaw):
         self.bandwidth = bandpass[1] - bandpass[0]
         self.inc_spec = inc_spec #spectrum of the incident light for weighting scattering functions
         self.spec_norm = spi.quad(inc_spec, bandpass[0], bandpass[1], limit = 100)[0]
-        albedo_int = spi.quad(material.albedo, bandpass[0], bandpass[1], limit=1000)[0]
-        albedo = albedo_int/self.bandwidth
+        albedo = spi.quad(lambda wav:material.albedo(wav)*self.wavelength_weighting(wav), bandpass[0], bandpass[1], limit=1000)[0]
+        # we dont need to normalize albedo by bandpass since wavelength_weights is already normalized by bandpass
         angles = np.linspace(0, np.pi, 1000)
         vals = []
         for angle in angles:
             #int_val = spi.quad(lambda lam:material.phase_func(angle, lam), bandpass[0], bandpass[1])[0]
-            #this integral is incredibly slow, the following code is a crappy Riemann sum
+            #this integral is incredibly slow, the following code is a simpler but quicker Riemann sum
             lams = material.wavelengths
             lams = lams[(lams >= bandpass[0]) * (lams <= bandpass[1])]
             dlams = (lams - np.roll(lams, 1))[1:]
             integrand = []
             for i, dlam in enumerate(dlams):
-               integrand.append(material.phase_funcs[lams[i]](angle)*dlam*self.wavelength_weighting(lams[i]))
+               integrand.append(material.phase_funcs[lams[i]](angle)*dlam*self.wavelength_weighting(lams[i])*material.albedo(lams[i]))
             int_val = np.sum(integrand)
             avg_val = int_val / self.bandwidth
             vals.append(avg_val)

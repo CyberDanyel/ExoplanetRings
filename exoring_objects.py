@@ -267,7 +267,7 @@ class Ring:
             inner_area = exoring_functions.overlap_area(self.star.radius, self.inner_radius, mu, cos_phi, sin_phi, y_star)
             
         elif area_on_ring == 0:
-            return 1 # IDK if this is the right value to set
+            return 1. # IDK if this is the right value to set
         else:
             return 1. - (area_on_ring / total_ring_area)
 
