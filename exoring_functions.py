@@ -114,7 +114,7 @@ def circle_section_integral(radius, bounds: []):
     integration_result = upper - bottom
     return integration_result
 
-
+    
 def overlap_area(r_circle, r_ellipse, mu, cos_phi, sin_phi, offset):
     def find_distance_from_ellipse_centre(a, b):
         with np.errstate(all='raise'):
@@ -122,57 +122,93 @@ def overlap_area(r_circle, r_ellipse, mu, cos_phi, sin_phi, offset):
                 return a ** 2 + b ** 2
             else:
                 return (a * cos_phi - b * sin_phi) ** 2 + (1 / mu ** 2) * (a * sin_phi + b * cos_phi) ** 2
-
+            
     angles = np.linspace(0, 2 * np.pi, 2000)
     xs = r_circle * np.cos(angles) + offset
     ys = r_circle * np.sin(angles)
     in_ellipse = (find_distance_from_ellipse_centre(xs, ys) < r_ellipse ** 2)
     x = xs[np.roll(in_ellipse, 1) != in_ellipse]
     y = ys[np.roll(in_ellipse, 1) != in_ellipse]
-
-    if len(x) == 0:
-        if np.abs(offset) < r_circle:
-            return np.pi * mu * r_ellipse ** 2
-        else:
-            return 0.
-
+    
     x_prime = (x * cos_phi + y * sin_phi)
     y_prime = (y * cos_phi - x * sin_phi) / mu
-    # plt.scatter(x, y)
-    # plt.scatter(x_prime, y_prime)
-
-    circle_rot_angle = np.arctan((x[1] - x[0]) / (y[1] - y[0]))
-       
-    circle_bound, extra = (x - offset) * np.cos(circle_rot_angle) - y * np.sin(circle_rot_angle)
-    #catching numerical errors:
-    if np.abs(circle_bound / r_circle) >= 1:
-        if np.abs(offset) < r_circle:
-            return np.pi * mu * r_ellipse ** 2
+    
+    ellipse_area = np.pi * mu * r_ellipse**2
+    circle_area = np.pi * r_circle**2
+    
+    if len(x) == 0:
+        if np.all(in_ellipse):
+            return circle_area
+        elif not np.any(in_ellipse) and np.abs(offset) < r_circle:
+            return ellipse_area
         else:
             return 0.
+    
+    elif len(x) == 2:
+        circle_rot_angle = np.arctan((x[1] - x[0]) / (y[1] - y[0]))
+        circle_bound, extra = (x - offset) * np.cos(circle_rot_angle) - y * np.sin(circle_rot_angle)
         
-    circle_section_area = np.abs(
-        circle_section_integral(r_circle, bounds=[circle_bound, - np.sign(offset) * r_circle]))
+        #catching numerical errors:
+        if np.abs(circle_bound / r_circle) >= 1:
+            if np.sign(circle_bound == np.sign(offset)):
+                return min(ellipse_area, circle_area)
+            else:
+                return 0.
+        
+        circle_section_area = np.abs(circle_section_integral(r_circle, bounds=[circle_bound,  - np.sign(offset) * r_circle]))
 
-    ellipse_rot_angle = np.arctan((x_prime[1] - x_prime[0]) / (y_prime[1] - y_prime[0]))
+        ellipse_rot_angle = np.arctan((x_prime[1] - x_prime[0]) / (y_prime[1] - y_prime[0]))
+        #catching edge cases where y_prime[1] is close to y_prime[0] - numerical errors can flip pi/2 to -pi/2
+        ellipse_rot_angle = np.sign(sin_phi) * np.abs(ellipse_rot_angle)
+        ellipse_bound, extra = x_prime * np.cos(ellipse_rot_angle) - y_prime * np.sin(ellipse_rot_angle)
     
-    #catching edge cases where y_prime[1] is close to y_prime[0] - numerical errors can flip pi/2 to -pi/2
-    ellipse_rot_angle = np.sign(sin_phi) * np.abs(ellipse_rot_angle)
+        #catching numerical errors:
+        if np.abs(ellipse_bound / r_ellipse) >= 1:
+            if np.sign(ellipse_bound) != np.sign(offset):
+                return min(ellipse_area, circle_area)
+            else:
+                return 0.
     
-    ellipse_bound, extra = x_prime * np.cos(ellipse_rot_angle) - y_prime * np.sin(ellipse_rot_angle)
-    
-    #catching numerical errors:
-    if np.abs(ellipse_bound / r_ellipse) >= 1:
-        if np.abs(offset) < r_circle:
-            return np.pi * mu * r_ellipse ** 2
-        else:
-            return 0.
-    
-    ellipse_section_area = mu * np.abs(
-        circle_section_integral(r_ellipse,
-                                bounds=[ellipse_bound, np.sign(offset)*r_ellipse]))
-    return ellipse_section_area + circle_section_area
+        ellipse_section_area = mu * np.abs(circle_section_integral(r_ellipse, bounds=[ellipse_bound, np.sign(offset)*r_ellipse]))
+        if ellipse_section_area + circle_section_area > min(circle_area, ellipse_area):
+            return min(circle_area, ellipse_area) # this is a cop-out but it limits the effects of numerical errors
+        return ellipse_section_area + circle_section_area
 
+    elif len(x) == 4:
+        print('not even debugging this yet')
+        intersect_order = np.argsort(x_prime)
+        x = x[intersect_order]
+        y = y[intersect_order]
+        x_prime = x_prime[intersect_order]
+        y_prime = y_prime[intersect_order]
+        
+        area_diff = 0
+        for i in range(2):
+            x_i = x[2*i:2*(i+1)]
+            y_i = y[2*i:2*(i+1)]
+            x_i_prime = x_prime[2*i:2*(i+1)]
+            y_i_prime = y_prime[2*i:2*(i+1)]
+            
+            circle_rot_angle = np.arctan((x_i[1] - x_i[0]) / (y_i[1] - y_i[0]))
+            circle_bound, extra = (x_i - offset) * np.cos(circle_rot_angle) - y_i * np.sin(circle_rot_angle)
+    
+        
+            circle_section_area = np.abs(circle_section_integral(r_circle, bounds=[circle_bound, np.sign(x_i_prime[0]) * r_circle]))
+
+            ellipse_rot_angle = np.arctan((x_i_prime[1] - x_i_prime[0]) / (y_i_prime[1] - y_i_prime[0]))
+            
+            #catching edge cases where y_prime[1] is close to y_prime[0] - numerical errors can flip pi/2 to -pi/2
+            ellipse_rot_angle = np.sign(sin_phi) * np.abs(ellipse_rot_angle)
+            ellipse_bound, extra = x_i_prime * np.cos(ellipse_rot_angle) - y_i_prime * np.sin(ellipse_rot_angle)
+    
+            ellipse_section_area = mu * np.abs(circle_section_integral(r_ellipse, bounds=[ellipse_bound, np.sign(x_i_prime[0])*r_ellipse]))
+            area_diff -= ellipse_section_area
+            area_diff += circle_section_area
+        
+        return ellipse_area + area_diff
+    
+    else:
+        print('Edge case of %.i intersection points'%len(x))
 
 def generate_plot_style():
     fig, ax = plt.subplots()
