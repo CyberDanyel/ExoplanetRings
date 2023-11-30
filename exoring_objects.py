@@ -237,7 +237,7 @@ class Ring:
         fractional value of the flux transmitted past secondary eclipse
 
         '''
-        if np.abs(self.star.distance*np.sin(alpha)) > self.star.radius + self.outer_radius or np.cos(alpha) < 0:
+        if np.abs(self.star.distance*np.sin(alpha)) > (self.star.radius + self.outer_radius) or np.cos(alpha) < 0:
             return 1.
 
         mu = self.get_mu()
@@ -254,9 +254,11 @@ class Ring:
             sin_phi = 0
             cos_phi = 1
         else:
-            sin_phi = -n_y / sin_theta * (-1 + 2*(n_z>=0)) # last bit is np.sign(n_z) but an input of 0 is considered positive
-            cos_phi = np.abs(n_z) / sin_theta
-          
+            sin_phi = -n_y / sin_theta
+            cos_phi = n_z / sin_theta
+         
+        if -.0572 < alpha < -.057:
+            print('bingo')
         outer_area = exoring_functions.overlap_area(self.star.radius, self.outer_radius, mu, cos_phi, sin_phi, y_star)
         inner_area = exoring_functions.overlap_area(self.star.radius, self.inner_radius, mu, cos_phi, sin_phi, y_star)
         area_on_ring = outer_area - inner_area
