@@ -116,6 +116,7 @@ def circle_section_integral(radius, bounds: []):
 
     
 def overlap_area(r_circle, r_ellipse, mu, cos_phi, sin_phi, offset):
+    ellipse_sign = np.sign(sin_phi)
     sin_phi *= (-1 + 2*(cos_phi>=0)) # aligns everything with closest axis instead of same axis everytime - keeps bounds w. correct sign
     cos_phi = np.abs(cos_phi)
     def find_distance_from_ellipse_centre(a, b):
@@ -159,18 +160,23 @@ def overlap_area(r_circle, r_ellipse, mu, cos_phi, sin_phi, offset):
             else:
                 return 0.
         
-        circle_section_area = np.abs(circle_section_integral(r_circle, bounds=[circle_bound,  - np.sign(offset)*r_circle]))
-        ellipse_rot_angle = np.arctan((x_prime[1] - x_prime[0]) / (y_prime[1] - y_prime[0]))
+        circle_sign =  np.sign(offset) * np.sign(offset - (x[0] - y[0] * (x[1]-x[0])/(y[1]-y[0])))
+        circle_section_area = np.abs(circle_section_integral(r_circle, bounds=[circle_sign * np.abs(circle_bound), r_circle]))
+        
+        ellipse_rot_angle = np.arctan2((x_prime[1] - x_prime[0]) , (y_prime[1] - y_prime[0]))
+        
+        
         ellipse_bound, extra = x_prime * np.cos(ellipse_rot_angle) - y_prime * np.sin(ellipse_rot_angle)
-    
         #catching numerical errors:
         if np.abs(ellipse_bound / r_ellipse) >= 1:
             if np.sign(ellipse_bound) != np.sign(offset):
                 return min(ellipse_area, circle_area)
             else:
                 return 0.
-    
-        ellipse_section_area = mu * np.abs(circle_section_integral(r_ellipse, bounds=[ellipse_bound, np.sign(offset)*r_ellipse]))
+        
+        
+        ellipse_sign =  np.sign(offset) * np.sign(x[0] - y[0] * (x[1]-x[0])/(y[1]-y[0]))
+        ellipse_section_area = mu * np.abs(circle_section_integral(r_ellipse, bounds=[ellipse_sign * np.abs(ellipse_bound), r_ellipse]))
         return ellipse_section_area + circle_section_area
 
     elif len(x) == 4:
@@ -218,7 +224,7 @@ def overlap_area(r_circle, r_ellipse, mu, cos_phi, sin_phi, offset):
             elif np.all(other_x_prime > x_i_prime):
                 ellipse_radius_sign = -1
             else:
-                raise NotImplementedError('idek anymore')
+                print('bad result')
             
             ellipse_rot_angle = np.arctan((x_i_prime[1] - x_i_prime[0]) / (y_i_prime[1] - y_i_prime[0]))
             ellipse_bound, extra = x_i_prime * np.cos(ellipse_rot_angle) - y_i_prime * np.sin(ellipse_rot_angle)

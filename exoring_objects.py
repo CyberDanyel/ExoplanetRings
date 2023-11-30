@@ -256,9 +256,7 @@ class Ring:
         else:
             sin_phi = -n_y / sin_theta
             cos_phi = n_z / sin_theta
-         
-        if -.0572 < alpha < -.057:
-            print('bingo')
+        
         outer_area = exoring_functions.overlap_area(self.star.radius, self.outer_radius, mu, cos_phi, sin_phi, y_star)
         inner_area = exoring_functions.overlap_area(self.star.radius, self.inner_radius, mu, cos_phi, sin_phi, y_star)
         area_on_ring = outer_area - inner_area

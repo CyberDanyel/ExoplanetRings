@@ -22,7 +22,7 @@ material = materials.RingMaterial('materials/saturn_ring.inp', 361, 500)
 sc_ring = scattering.Rayleigh(1.)
 sc_planet = scattering.Lambert(1.)
 
-ringed_planet = exoring_objects.RingedPlanet(sc_planet, 4, sc_ring, 0, 25, [1., .5, 2.], star)
+ringed_planet = exoring_objects.RingedPlanet(sc_planet, 4, sc_ring, 15, 25, [.1, 0., 5.], star)
 
 alphas = np.linspace(-np.pi, np.pi, 100000)
 
