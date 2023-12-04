@@ -4,10 +4,12 @@ if __name__ == '__main__':
     import numpy as np
     import fitting
     import json
+    import time
     import matplotlib.pyplot as plt
     import exoring_functions
     from matplotlib.ticker import FuncFormatter
     import matplotlib.ticker as tck
+    start = time.time()
 
     AU = 1.495978707e13
     L_SUN = 3.828e33
@@ -60,14 +62,12 @@ if __name__ == '__main__':
                           'ring_normal': [(0.1, 1), (0.1, 1), (0, 0)],
                           'planet_sc_args': {'albedo': (0.1, 1)},
                           'ring_sc_args': {'albedo': (0.1, 1)}}
-    bounds_ring = {'radius': (0, np.inf), 'disk_gap': (0, np.inf), 'ring_width': (0.1, np.inf),
+    bounds_ring = {'radius': (0, star.radius), 'disk_gap': (0, np.inf), 'ring_width': (0.1, np.inf),
                    'ring_normal': [(0, 1), (0, 1), (0, 1)],
                    'planet_sc_args': {'albedo': (0, 1)},
                    'ring_sc_args': {'albedo': (0, 1)}}
     Fit = fitting.PerformFit(ring_data, star_obj)
-    # result_planetfit = Fit.fit_data_planet(scattering.Jupiter, init_guess_planet)
-    result = Fit.perform_fitting(search_ranges_ring, 0.5, bounds_ring, [scattering.Jupiter], [scattering.Rayleigh])
-    print('result length is', len(result))
-    print('result is', result)
-    with open('data.json', 'w') as f:
-        json.dump(result, f)
+    Fit.perform_fitting(search_ranges_ring, 0.5, bounds_ring, [scattering.Jupiter], [scattering.Rayleigh])
+    Fit.plot_best_ringfit()
+    end = time.time()
+    print('Time taken:', end-start)

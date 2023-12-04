@@ -1,8 +1,13 @@
+import json
+
 import numpy as np
 import matplotlib.pyplot as plt
+
+import exoring_functions
 import exoring_objects
 import scattering
 import scipy.optimize as op
+import time
 from multiprocessing import Pool, freeze_support
 
 
@@ -43,6 +48,8 @@ def gaussian(x, mu, sigma):
 
 class PerformFit():
     def __init__(self, data, star):
+        self.best_result_ring = None
+        self.best_result_planet = None
         self.data = data
         self.star = star
 
@@ -146,12 +153,15 @@ class PerformFit():
         result = minimization.x
         NLL = minimization.fun
         success = minimization.success
-        output = dict()
-        output['radius'] = result[0]
-        planet_sc_args = result[1:]
-        output['planet_sc_args'] = {planet_sc_args_order[index]: planet_sc_args[index] for index in
-                                    range(len(planet_sc_args))}
-        return NLL  # change this
+        if not success:
+            return np.inf, None
+        elif success:
+            output = dict()
+            output['radius'] = result[0]
+            planet_sc_args = result[1:]
+            output['planet_sc_args'] = {planet_sc_args_order[index]: planet_sc_args[index] for index in
+                                        range(len(planet_sc_args))}
+            return NLL, output
 
     def fitwrap_planet(self, args):
         # pool.map only takes a function with a single argument, so all arguments are wrapped here and parsed onto
@@ -226,16 +236,21 @@ class PerformFit():
         result = minimization.x
         NLL = minimization.fun
         success = minimization.success
-        output = dict()
-        output['radius'], output['inner_rad'], output['ring_width'], n_x, n_y, n_z = result[:6]
-        planet_sc_args = result[6:6 + len(planet_sc_args_positional)]
-        ring_sc_args = result[6 + len(planet_sc_args_positional):]
-        output['planet_sc_args'] = {planet_sc_args_order[index]: planet_sc_args[index] for index in
-                                    range(len(planet_sc_args))}
-        output['ring_sc_args'] = {ring_sc_args_order[index]: ring_sc_args[index] for index in
-                                  range(len(ring_sc_args))}
-        output['ring_normal'] = (n_x, n_y, n_z)
-        return NLL
+        if not success:
+            return np.inf, None
+        elif success:
+            output = dict()
+            output['radius'], output['disk_gap'], output['ring_width'], n_x, n_y, n_z = result[:6]
+            planet_sc_args = result[6:6 + len(planet_sc_args_positional)]
+            ring_sc_args = result[6 + len(planet_sc_args_positional):]
+            output['planet_sc_args'] = {planet_sc_args_order[index]: planet_sc_args[index] for index in
+                                        range(len(planet_sc_args))}
+            output['ring_sc_args'] = {ring_sc_args_order[index]: ring_sc_args[index] for index in
+                                      range(len(ring_sc_args))}
+            ring_normal = np.array([n_x, n_y, n_z])
+            ring_normal /= np.linalg.norm(ring_normal)
+            output['ring_normal'] = tuple(ring_normal)
+            return NLL, output
 
     def fitwrap_ring(self, args):
         # pool.map only takes a function with a single argument, so all arguments are wrapped here and parsed onto
@@ -246,7 +261,7 @@ class PerformFit():
         return self.fit_data_ring(planet_sc_law, ring_sc_law, init_guess_ring)
 
     # should turn fitting results into their own class later
-    def plot_planet_result(self, result_planetfit):
+    def plot_planet_result(self, result_planetfit, planet_sc):
         plt.figure()
         plt.style.use('the_usual.mplstyle')
         fitted_planet = FittingPlanet(scattering.Jupiter, self.star, result_planetfit)
@@ -255,17 +270,17 @@ class PerformFit():
         plt.plot(alphas, fitted_planet.light_curve(alphas))
         plt.savefig('images/PlanetFit', dpi=600)
 
-    def plot_ring_result(self, result_ringfit):
+    def plot_ring_result(self, result_ringfit, planet_sc, ring_sc):
         plt.figure()
         plt.style.use('the_usual.mplstyle')
         result_ringfit['n_x'] = result_ringfit['ring_normal'][0]
         result_ringfit['n_y'] = result_ringfit['ring_normal'][1]
         result_ringfit['n_z'] = result_ringfit['ring_normal'][2]
-        fitted_planet = FittingRingedPlanet(scattering.Jupiter, scattering.Rayleigh, self.star, result_ringfit)
+        fitted_planet = FittingRingedPlanet(planet_sc, ring_sc, self.star, result_ringfit)
         alphas = np.linspace(-np.pi, np.pi, 10000)
         plt.errorbar(self.data[0], self.data[1], self.data[2], fmt='.')
         plt.plot(alphas, fitted_planet.light_curve(alphas))
-        plt.savefig('images/RingFit', dpi=600)
+        plt.savefig('images/BestRingFit', dpi=600)
 
     def assign_bounds(self, bounds: dict, boundless_init_guess: dict):
         # fit_data_planet and fit_data_ring take bounds in the initial guesses.
@@ -304,11 +319,11 @@ class PerformFit():
         you're gonna have to come tomorrow
         """
         if not search_values:
-            search_ranges['n_x'] = search_ranges['ring_normal'][0]
-            search_ranges['n_y'] = search_ranges['ring_normal'][1]
-            search_ranges['n_z'] = search_ranges['ring_normal'][2]
             if ring_sc_functions:
                 try:
+                    search_ranges['n_x'] = search_ranges['ring_normal'][0]
+                    search_ranges['n_y'] = search_ranges['ring_normal'][1]
+                    search_ranges['n_z'] = search_ranges['ring_normal'][2]
                     del search_ranges['ring_normal']
                 except KeyError:
                     raise 'No ring_normal given'
@@ -344,26 +359,53 @@ class PerformFit():
                         search_positions[parameter_ordering[order].split(',')[0]][
                             parameter_ordering[order].split(',')[1]] = \
                             positions[order][iteration]
-            search_positions['ring_normal'] = [search_positions['n_x'], search_positions['n_y'],
-                                               search_positions['n_z']]
             if ring_sc_functions:
+                search_positions['ring_normal'] = [search_positions['n_x'], search_positions['n_y'],
+                                                   search_positions['n_z']]
                 del search_positions['n_x'], search_positions['n_y'], search_positions['n_z']
             search_positions = self.assign_bounds(bounds, search_positions)
             init_guesses.append(search_positions)
         freeze_support()
+        lowest_NLL = np.inf
         if ring_sc_functions:
-            # with Pool(processes=len(positions[0])) as pool:
             with Pool(16) as pool:
                 for planet_sc in planet_sc_functions:
                     for ring_sc in ring_sc_functions:
                         args = [(planet_sc, ring_sc, guess) for guess in init_guesses]
-                        return pool.map(self.fitwrap_ring, args)
+                        results = pool.map(self.fitwrap_ring, args)
+                        best_NLL, best_fit = exoring_functions.select_best_result(results)
+                        if best_NLL < lowest_NLL:
+                            best_result = (best_NLL, best_fit, planet_sc, ring_sc)
+                            lowest_NLL = best_NLL
+                        else:
+                            pass
+                self.best_result_ring = best_result
+                print(type(best_result))
+                print(best_result)
+                json_serializable_best_result = ({'NLL': best_result[0],
+                                                  'Result': best_result[1],
+                                                  'Planet_sc_function': best_result[2].__name__,
+                                                  'Ring_sc_function': best_result[3].__name__})
+                with open('best_fit_ring.json', 'w') as f:
+                    json.dump(json_serializable_best_result, f)
+
         else:
-            # with Pool(processes=len(positions[0])) as pool:
             with Pool(16) as pool:
                 for planet_sc in planet_sc_functions:
                     args = [(planet_sc, guess) for guess in init_guesses]
-                    return pool.map(self.fitwrap_planet, args)
+                    results = pool.map(self.fitwrap_planet, args)
+                    best_NLL, best_fit = exoring_functions.select_best_result(results)
+                    if best_NLL < lowest_NLL:
+                        best_result = (best_NLL, best_fit, planet_sc)
+                        lowest_NLL = best_NLL
+                    else:
+                        pass
+                self.best_result_planet = best_result
+                with open('best_fit_planet.json', 'w') as f:
+                    json.dump(best_result, f)
+
+    def plot_best_ringfit(self):
+        self.plot_ring_result(self.best_result_ring[1], self.best_result_ring[2], self.best_result_ring[3])
 
 
 def generate_data(test_planet):
