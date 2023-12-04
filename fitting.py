@@ -299,7 +299,7 @@ class PerformFit():
 
         Returns
         -------
-        Whatever the fuck you want it to return. Maybe the initial guess with the lowest NLL if you rly want that
+        Whatever you want it to return. Maybe the initial guess with the lowest NLL if you rly want that
         what else do you want from me. Look man my shift ended 5 minutes ago if you have anymore questions
         you're gonna have to come tomorrow
         """

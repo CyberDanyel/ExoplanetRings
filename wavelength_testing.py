@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import exoring_objects
 import scattering
 import materials
+import socket
 
 AU = 1.495978707e11
 L_SUN = 3.828e26
@@ -28,6 +29,8 @@ alphas = np.linspace(-np.pi, np.pi, 100000)
 
 light_curve = ringed_planet.ring.light_curve(alphas)/star.luminosity#/star.L_wav(bandpass)
 
-plt.style.use('the_usual')
+if socket.gethostname() == 'LAPTOP-2NDLGNMT':
+    plt.style.use('the_usual.mplstyle')
+else:
+    plt.style.use('the_usual')
 plt.plot(alphas, light_curve)
-
