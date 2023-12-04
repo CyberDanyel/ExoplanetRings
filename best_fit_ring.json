@@ -1,0 +1,1 @@
+{"NLL": -226.31744167622276, "Result": {"radius": 1.1448129774835107, "disk_gap": 1.6434907715542273, "ring_width": 1.5912134582050477, "planet_sc_args": {"albedo": 0.7991477640832317}, "ring_sc_args": {"albedo": 0.3958540104353801}, "ring_normal": [0.7032399742361539, 0.7109524020022185, 0.0004698123129589165]}, "Planet_sc_function": "Jupiter", "Ring_sc_function": "Rayleigh"}
