@@ -262,24 +262,24 @@ class PerformFit():
 
     # should turn fitting results into their own class later
     def plot_planet_result(self, result_planetfit, planet_sc):
-        plt.figure()
+        fig, ax = exoring_functions.generate_plot_style()
         plt.style.use('the_usual.mplstyle')
-        fitted_planet = FittingPlanet(scattering.Jupiter, self.star, result_planetfit)
+        fitted_planet = FittingPlanet(planet_sc, self.star, result_planetfit)
         alphas = np.linspace(-np.pi, np.pi, 10000)
-        plt.errorbar(self.data[0], self.data[1], self.data[2], fmt='.')
-        plt.plot(alphas, fitted_planet.light_curve(alphas))
+        ax.errorbar(self.data[0] / np.pi, self.data[1], self.data[2], fmt='.')
+        ax.plot(alphas / np.pi, fitted_planet.light_curve(alphas))
         plt.savefig('images/PlanetFit', dpi=600)
 
     def plot_ring_result(self, result_ringfit, planet_sc, ring_sc):
-        plt.figure()
+        fig, ax = exoring_functions.generate_plot_style()
         plt.style.use('the_usual.mplstyle')
         result_ringfit['n_x'] = result_ringfit['ring_normal'][0]
         result_ringfit['n_y'] = result_ringfit['ring_normal'][1]
         result_ringfit['n_z'] = result_ringfit['ring_normal'][2]
         fitted_planet = FittingRingedPlanet(planet_sc, ring_sc, self.star, result_ringfit)
         alphas = np.linspace(-np.pi, np.pi, 10000)
-        plt.errorbar(self.data[0], self.data[1], self.data[2], fmt='.')
-        plt.plot(alphas, fitted_planet.light_curve(alphas))
+        ax.errorbar(self.data[0] / np.pi, self.data[1], self.data[2], fmt='.')
+        ax.plot(alphas / np.pi, fitted_planet.light_curve(alphas))
         plt.savefig('images/BestRingFit', dpi=600)
 
     def assign_bounds(self, bounds: dict, boundless_init_guess: dict):
@@ -327,6 +327,7 @@ class PerformFit():
                     del search_ranges['ring_normal']
                 except KeyError:
                     raise 'No ring_normal given'
+
             search_values = list()
             parameter_ordering = dict()
             for order, key in enumerate(search_ranges):
@@ -380,12 +381,10 @@ class PerformFit():
                         else:
                             pass
                 self.best_result_ring = best_result
-                print(type(best_result))
-                print(best_result)
-                json_serializable_best_result = ({'NLL': best_result[0],
-                                                  'Result': best_result[1],
-                                                  'Planet_sc_function': best_result[2].__name__,
-                                                  'Ring_sc_function': best_result[3].__name__})
+                json_serializable_best_result = {'NLL': best_result[0],
+                                                 'Result': best_result[1],
+                                                 'Planet_sc_function': best_result[2].__name__,
+                                                 'Ring_sc_function': best_result[3].__name__}
                 with open('best_fit_ring.json', 'w') as f:
                     json.dump(json_serializable_best_result, f)
 
@@ -401,11 +400,17 @@ class PerformFit():
                     else:
                         pass
                 self.best_result_planet = best_result
+                json_serializable_best_result = {'NLL': best_result[0],
+                                                 'Result': best_result[1],
+                                                 'Planet_sc_function': best_result[2].__name__}
                 with open('best_fit_planet.json', 'w') as f:
-                    json.dump(best_result, f)
+                    json.dump(json_serializable_best_result, f)
 
     def plot_best_ringfit(self):
         self.plot_ring_result(self.best_result_ring[1], self.best_result_ring[2], self.best_result_ring[3])
+
+    def plot_best_planetfit(self):
+        self.plot_planet_result(self.best_result_planet[1], self.best_result_planet[2])
 
 
 def generate_data(test_planet):
@@ -418,38 +423,3 @@ def generate_data(test_planet):
     data_vals = errs * noise_vals + I
     data = np.array([test_alphas, data_vals, errs])
     return data
-
-
-'''
-star_obj = exoring_objects.Star(1, SUN_TO_JUP, 0.1 * AU_TO_JUP, 1)
-test_planet = exoring_objects.Planet(scattering.Jupiter(0.9), 1, star_obj)
-test_ring_planet = exoring_objects.RingedPlanet(scattering.Jupiter(1), 1, scattering.Rayleigh(0.9), 2, 3,
-                                                np.array([1., 1., 0]), star_obj)
-planet_data = generate_data(test_planet)
-ring_data = generate_data(test_ring_planet)
-
-init_guess_planet = {'radius': (4, (0, np.inf)), 'planet_sc_args': ({'albedo': 0.3}, {'albedo': (0, 1)})}
-
-init_guess_ring = {'radius': (1, (0, np.inf)), 'inner_rad': (1, (1, np.inf)), 'ring_width': (0.5, (0, np.inf)),
-                   'ring_normal': ([1, 1, 0], [(0, 1), (0, 1), (0, 1)]),
-                   'planet_sc_args': ({'albedo': 1}, {'albedo': (0, 1)}),
-                   'ring_sc_args': ({'albedo': 1}, {'albedo': (0, 1)})}
-
-search_ranges_planet = {'radius': (1, 4), 'planet_sc_args': {'albedo': (0, 1)}}
-search_ranges_ring = {'radius': (0, 2), 'inner_rad': (1, 3), 'ring_width': (1, 2),
-                      'ring_normal': [(0, 1), (0, 1), (0, 1)],
-                      'planet_sc_args': {'albedo': (0, 1)},
-                      'ring_sc_args': {'albedo': (0, 1)}}
-bounds_ring = {'radius': (0, np.inf), 'inner_rad': (0, np.inf), 'ring_width': (0.1, np.inf),
-               'ring_normal': [(0, 1), (0, 1), (0, 1)],
-               'planet_sc_args': {'albedo': (0, 1)},
-               'ring_sc_args': {'albedo': (0, 1)}}
-Fit = PerformFit(ring_data, star_obj)
-# result_planetfit = Fit.fit_data_planet(scattering.Jupiter, init_guess_planet)
-result = Fit.perform_fitting(search_ranges_ring, 0.2, bounds_ring, scattering.Jupiter, scattering.Rayleigh)
-# result_ringfit = fit_data_ring(planet_data, scattering.Jupiter, scattering.Rayleigh, star, init_guess_ring)
-# Fit.plot_planet_result(result_planetfit[0])
-# plot_ring_result(planet_data, result_ringfit)
-# print('planetfit', result_planetfit[0])
-'''
-# print('ringfit', result_ringfit)

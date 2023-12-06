@@ -9,6 +9,7 @@ if __name__ == '__main__':
     import exoring_functions
     from matplotlib.ticker import FuncFormatter
     import matplotlib.ticker as tck
+
     start = time.time()
 
     AU = 1.495978707e13
@@ -56,6 +57,7 @@ if __name__ == '__main__':
     star_obj = exoring_objects.Star(1, SUN_TO_JUP, 0.1 * AU_TO_JUP, 1)
     test_ring_planet = exoring_objects.RingedPlanet(scattering.Jupiter(1), 1, scattering.Rayleigh(0.9), 2, 3,
                                                     np.array([1., 1., 0]), star_obj)
+
     ring_data = fitting.generate_data(test_ring_planet)
 
     search_ranges_ring = {'radius': (0.1, 1.9), 'disk_gap': (0, 3), 'ring_width': (1, 2),
@@ -66,8 +68,13 @@ if __name__ == '__main__':
                    'ring_normal': [(0, 1), (0, 1), (0, 1)],
                    'planet_sc_args': {'albedo': (0, 1)},
                    'ring_sc_args': {'albedo': (0, 1)}}
+    search_ranges_planet = {'radius': (0.1, 1.9), 'planet_sc_args': {'albedo': (0.1, 1)}, }
+    bounds_planet = {'radius': (0, star.radius), 'planet_sc_args': {'albedo': (0, 1)}}
+
     Fit = fitting.PerformFit(ring_data, star_obj)
-    Fit.perform_fitting(search_ranges_ring, 0.5, bounds_ring, [scattering.Jupiter], [scattering.Rayleigh])
+    Fit.perform_fitting(search_ranges_planet, 0.5, bounds_planet, [scattering.Lambert, scattering.Jupiter])
+    Fit.perform_fitting(search_ranges_ring, 0.5, bounds_ring, [scattering.Lambert, scattering.Jupiter], [scattering.Rayleigh])
     Fit.plot_best_ringfit()
+    Fit.plot_best_planetfit()
     end = time.time()
-    print('Time taken:', end-start)
+    print('Time taken:', end - start)
