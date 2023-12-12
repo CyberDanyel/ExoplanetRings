@@ -386,7 +386,7 @@ class PerformFit():
                                                  'Planet_sc_function': best_result[2].__name__,
                                                  'Ring_sc_function': best_result[3].__name__}
                 with open('best_fit_ring.json', 'w') as f:
-                    json.dump(json_serializable_best_result, f)
+                    json.dump(json_serializable_best_result, f, indent=4)
 
         else:
             with Pool(16) as pool:
@@ -404,7 +404,7 @@ class PerformFit():
                                                  'Result': best_result[1],
                                                  'Planet_sc_function': best_result[2].__name__}
                 with open('best_fit_planet.json', 'w') as f:
-                    json.dump(json_serializable_best_result, f)
+                    json.dump(json_serializable_best_result, f, indent=4)
 
     def plot_best_ringfit(self):
         self.plot_ring_result(self.best_result_ring[1], self.best_result_ring[2], self.best_result_ring[3])

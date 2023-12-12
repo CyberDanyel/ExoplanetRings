@@ -3,7 +3,7 @@ import exoring_functions
 import scattering
 import scipy.integrate as spi
 import materials
-
+import time
 
 # coordinate systems defined such that the observer is always along the x-axis
 # planet always at origin
@@ -82,7 +82,10 @@ class Planet:
         -------
         The phase curve evaluated at the phase angle alpha
         """
-
+        if isinstance(self.sc_law, scattering.Lambert):
+            notes_val = (2/(3*np.pi))*((np.pi-np.abs(alpha))*np.cos(np.abs(alpha))+np.sin(np.abs(alpha)))
+            if notes_val != self.sc_law(alpha) * self.secondary_eclipse_single(alpha) * scattering.lambert_phase_func(alpha):
+                print('does not match')
         return self.sc_law(alpha) * self.secondary_eclipse_single(alpha) * scattering.lambert_phase_func(alpha)
 
     def phase_curve_multiple(self, alpha: float) -> float:
