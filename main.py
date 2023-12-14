@@ -72,18 +72,9 @@ if __name__ == '__main__':
     bounds_planet = {'radius': (0, star.radius), 'planet_sc_args': {'albedo': (0, 1)}}
 
     Fit = fitting.PerformFit(ring_data, star_obj)
-<<<<<<< Updated upstream
     Fit.perform_fitting(search_ranges_planet, 0.5, bounds_planet, [scattering.Lambert, scattering.Jupiter])
     Fit.perform_fitting(search_ranges_ring, 0.5, bounds_ring, [scattering.Lambert, scattering.Jupiter], [scattering.Rayleigh])
     Fit.plot_best_ringfit()
     Fit.plot_best_planetfit()
     end = time.time()
     print('Time taken:', end - start)
-=======
-    # result_planetfit = Fit.fit_data_planet(scattering.Jupiter, init_guess_planet)
-    result = Fit.perform_fitting(search_ranges_ring, 0.5, bounds_ring, [scattering.Jupiter], [scattering.Rayleigh])
-    print('result length is', len(result))
-    print('result is', result)
-    #with open('data.json', 'w') as f:
-     #   json.dump(result, f)
->>>>>>> Stashed changes

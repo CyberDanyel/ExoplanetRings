@@ -116,26 +116,18 @@ def circle_section_integral(radius, bounds: []):
 
 
 def overlap_area(r_circle, r_ellipse, mu, cos_phi, sin_phi, offset):
-<<<<<<< Updated upstream
     ellipse_sign = np.sign(sin_phi)
     sin_phi *= (-1 + 2 * (
                 cos_phi >= 0))  # aligns everything with closest axis instead of same axis everytime - keeps bounds w. correct sign
     cos_phi = np.abs(cos_phi)
 
-=======
->>>>>>> Stashed changes
     def find_distance_from_ellipse_centre(a, b):
         with np.errstate(all='raise'):
             if mu == 0:
                 return a ** 2 + b ** 2
             else:
                 return (a * cos_phi + b * sin_phi) ** 2 + (1 / mu ** 2) * (a * sin_phi - b * cos_phi) ** 2
-<<<<<<< Updated upstream
 
-=======
-         
-    # finding the intersection points
->>>>>>> Stashed changes
     angles = np.linspace(0, 2 * np.pi, 5000)
     xs = r_circle * np.cos(angles) + offset
     ys = r_circle * np.sin(angles)
@@ -143,7 +135,6 @@ def overlap_area(r_circle, r_ellipse, mu, cos_phi, sin_phi, offset):
     intersect_bool = np.roll(in_ellipse, 1) != in_ellipse
     x = xs[intersect_bool]
     y = ys[intersect_bool]
-<<<<<<< Updated upstream
 
     x_prime = (x * cos_phi + y * sin_phi)
     y_prime = (y * cos_phi - x * sin_phi) / mu
@@ -151,18 +142,6 @@ def overlap_area(r_circle, r_ellipse, mu, cos_phi, sin_phi, offset):
     ellipse_area = np.pi * mu * r_ellipse ** 2
     circle_area = np.pi * r_circle ** 2
 
-=======
-    
-    # intersection points in the coordinates of the ellipse
-    # y is along the projected normal axis/semi-minor axis and scaled by mu
-    x_prime = (x * cos_phi + y * sin_phi)
-    y_prime = (y * cos_phi - x * sin_phi) / mu
-    
-    ellipse_area = np.pi * mu * r_ellipse**2
-    circle_area = np.pi * r_circle**2
-    
-    # cases of different numbers of intersection points
->>>>>>> Stashed changes
     if len(x) == 0:
         if np.all(in_ellipse):
             return circle_area
@@ -172,13 +151,7 @@ def overlap_area(r_circle, r_ellipse, mu, cos_phi, sin_phi, offset):
             return 0.
 
     elif len(x) == 2:
-<<<<<<< Updated upstream
 
-=======
-        
-        # rotates the circle such that the line segment connecting the two intersection points is vertical
-        # this provides the bound for the integral used to calculate area
->>>>>>> Stashed changes
         circle_rot_angle = np.arctan((x[1] - x[0]) / (y[1] - y[0]))
         circle_bound, extra = (x - offset) * np.cos(circle_rot_angle) - y * np.sin(circle_rot_angle)
 
@@ -188,7 +161,6 @@ def overlap_area(r_circle, r_ellipse, mu, cos_phi, sin_phi, offset):
                 return min(ellipse_area, circle_area)
             else:
                 return 0.
-<<<<<<< Updated upstream
 
         circle_sign = np.sign(offset) * np.sign(offset - (x[0] - y[0] * (x[1] - x[0]) / (y[1] - y[0])))
         circle_section_area = np.abs(
@@ -198,53 +170,26 @@ def overlap_area(r_circle, r_ellipse, mu, cos_phi, sin_phi, offset):
 
         ellipse_bound, extra = x_prime * np.cos(ellipse_rot_angle) - y_prime * np.sin(ellipse_rot_angle)
         # catching numerical errors:
-=======
-        
-        #circle_sign is -1 if the center of the circle lies in the sector whose area is being calculated
-        #circle_sign is 1 if the center of the circle lies outside the sector whose area is being calculated
-        circle_sign =  np.sign(offset) * np.sign(offset - (x[0] - y[0] * (x[1]-x[0])/(y[1]-y[0])))
-        circle_section_area = np.abs(circle_section_integral(r_circle, bounds=[circle_sign * np.abs(circle_bound), r_circle]))
-        
-        #same process for the ellipse in its own coordinates as for the circle in real space
-        ellipse_rot_angle = np.arctan2((x_prime[1] - x_prime[0]) , (y_prime[1] - y_prime[0]))
-        ellipse_bound, extra = x_prime * np.cos(ellipse_rot_angle) - y_prime * np.sin(ellipse_rot_angle)
-        
-        #catching numerical errors:
->>>>>>> Stashed changes
         if np.abs(ellipse_bound / r_ellipse) >= 1:
             if np.sign(ellipse_bound) != np.sign(offset):
                 return min(ellipse_area, circle_area)
             else:
                 return 0.
-<<<<<<< Updated upstream
 
         ellipse_sign = np.sign(offset) * np.sign(x[0] - y[0] * (x[1] - x[0]) / (y[1] - y[0]))
         ellipse_section_area = mu * np.abs(
             circle_section_integral(r_ellipse, bounds=[ellipse_sign * np.abs(ellipse_bound), r_ellipse]))
-=======
-        
-        #ellipse_sign is -1 if the center of the ellipse lies in the sector whose area is being calculated
-        #ellipse_sign is 1 if the center of the ellipse lies outside the sector whose area is being calculated
-        ellipse_sign =  np.sign(offset) * np.sign(x[0] - y[0] * (x[1]-x[0])/(y[1]-y[0]))
-        ellipse_section_area = mu * np.abs(circle_section_integral(r_ellipse, bounds=[ellipse_sign * np.abs(ellipse_bound), r_ellipse]))
->>>>>>> Stashed changes
         return ellipse_section_area + circle_section_area
 
     elif len(x) == 4:
         intersect_index = np.where(intersect_bool)[0]
         i_0 = intersect_index[0]
-        # setting up which 2 points between which we calculate section area
+        # setting up which 2 points to take each time
         # we want two points where the section of ellipse is outside the section of circle
-<<<<<<< Updated upstream
         clockwise_connected = in_ellipse[
             i_0 - 1]  # is the first point in the list paired with the one clockwise or anti-clockwise relative to it
         connection_direction = 1 - 2 * clockwise_connected  # the sign becomes important later when finding the length of the circle section between two points
-=======
-        clockwise_connected = in_ellipse[i_0 - 1] # is the first point in the list paired with the one clockwise or anti-clockwise relative to it
-        connection_direction = 1 - 2*clockwise_connected # this sign becomes important later; -1 for clockwise, 1 for anti-clockwise
->>>>>>> Stashed changes
         if clockwise_connected:
-            # roll array so that connected points are adjacent in these arrays
             x = np.roll(x, 1)
             y = np.roll(y, 1)
             x_prime = np.roll(x_prime, 1)
@@ -262,15 +207,12 @@ def overlap_area(r_circle, r_ellipse, mu, cos_phi, sin_phi, offset):
 
             # check if the section of the circle subtending the two intersection points is less than the circumference
             # if yes the signs of the two bounds in the integral should be the same
-            # if no the signs must be opposite - the subtended area is larger than half the circle area
             index_i = index_i[::connection_direction]
             if index_i[0] < index_i[1] and clockwise_connected:
                 # python can't loop back around to the start when splicing arrays, or at least I don't know how
                 circle_section_size = len(in_ellipse) - index_i[1] + index_i[0]
             else:
-                # counting the number of points along the circle between the intersection points
                 circle_section_points = in_ellipse[index_i[0]:index_i[1]:connection_direction]
-<<<<<<< Updated upstream
                 circle_section_size = np.sum(circle_section_points)
             small_circle_section = circle_section_size < len(in_ellipse) / 2
             circle_bound_sign = 2 * small_circle_section - 1
@@ -281,31 +223,13 @@ def overlap_area(r_circle, r_ellipse, mu, cos_phi, sin_phi, offset):
                 circle_section_integral(r_circle, bounds=[circle_bound_sign * np.abs(circle_bound), r_circle]))
 
             other_x_prime = x_prime[2 - 2 * i:int(4 / (i + 1))]
-=======
-                circle_section_size = np.sum(circle_section_points) # total number of points around the circle
-            small_circle_section = circle_section_size < len(in_ellipse)/2
-            circle_bound_sign = 2*small_circle_section - 1
-            
-            #rotates the circle such that the line segment connecting the two intersection points is vertical
-            circle_rot_angle = np.arctan((x_i[1] - x_i[0]) / (y_i[1] - y_i[0]))
-            circle_bound, extra = (x_i - offset) * np.cos(circle_rot_angle) - y_i * np.sin(circle_rot_angle)
-            circle_section_area = np.abs(circle_section_integral(r_circle, bounds=[circle_bound_sign*np.abs(circle_bound),  r_circle]))
-            
-            other_x_prime = x_prime[2-2*i:int(4/(i+1))] # the other pair - this will always be on the other side of the ellipse in prime coordinates
->>>>>>> Stashed changes
             if np.all(other_x_prime < x_i_prime):
                 ellipse_radius_sign = 1
             elif np.all(other_x_prime > x_i_prime):
                 ellipse_radius_sign = -1
             else:
-<<<<<<< Updated upstream
                 print('bad result')
 
-=======
-                print('bad result - unforeseen case, gotta redo the math')
-            
-            #rotates the ellipse in its own coords such that the line segment connecting the two intersection points is vertical
->>>>>>> Stashed changes
             ellipse_rot_angle = np.arctan((x_i_prime[1] - x_i_prime[0]) / (y_i_prime[1] - y_i_prime[0]))
             ellipse_bound, extra = x_i_prime * np.cos(ellipse_rot_angle) - y_i_prime * np.sin(ellipse_rot_angle)
             ellipse_section_area = mu * np.abs(
@@ -317,15 +241,8 @@ def overlap_area(r_circle, r_ellipse, mu, cos_phi, sin_phi, offset):
         return ellipse_area + area_diff
 
     else:
-<<<<<<< Updated upstream
         raise NotImplementedError('Edge case of %.i intersection points, how did you even do this??!' % len(x))
 
-=======
-        # mathematically I'm don't think that intersection finding algorithm could find tangent points
-        # this rules out 1 or 3 intersection points
-        # can never be too sure though
-        raise NotImplementedError('Edge case of %.i intersection points, how did you even do this??!'%len(x))
->>>>>>> Stashed changes
 
 def generate_plot_style():
     fig, ax = plt.subplots()
