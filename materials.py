@@ -51,7 +51,7 @@ class RingMaterial:
         sc_data = np.loadtxt(filename, skiprows = 42 + 1 + nlam + 1 + nang)
         
         sc_data = sc_data.reshape(nlam, nang, 6)[:,:,0].T # reshaping data so that each row is assigned an angle and each column is a wavelength
-        sc_data *= 2*np.pi/np.broadcast_to(self.k_sc, sc_data.shape) # normalization - optool output is normalized to scattering cross section
+        sc_data *= 4*np.pi/np.broadcast_to(self.k_sc, sc_data.shape) # normalization - optool output is normalized to scattering cross section
         self.data = pd.DataFrame(sc_data, index = angles, columns = wavelengths)
         
         self.phase_funcs = _MatPhaseFuncs(self.data) # phase functions not interpolated in wavelength

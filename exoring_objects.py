@@ -82,10 +82,6 @@ class Planet:
         -------
         The phase curve evaluated at the phase angle alpha
         """
-        if isinstance(self.sc_law, scattering.Lambert):
-            notes_val = (2/(3*np.pi))*((np.pi-np.abs(alpha))*np.cos(np.abs(alpha))+np.sin(np.abs(alpha)))
-            if notes_val != self.sc_law(alpha) * self.secondary_eclipse_single(alpha) * scattering.lambert_phase_func(alpha):
-                print('does not match')
         return self.sc_law(alpha) * self.secondary_eclipse_single(alpha) * scattering.lambert_phase_func(alpha)
 
     def phase_curve_multiple(self, alpha: float) -> float:
@@ -175,10 +171,8 @@ class Planet:
             angle = min(np.pi / 2, np.arccos((r ** 2 + offset ** 2 - r_star ** 2) / (2 * r * np.abs(offset))))
             theta_upper = np.pi / 2 + angle
             theta_lower = np.pi / 2 - angle
-            blocked = \
-                spi.quad(np.vectorize(lambda theta: self.shadow_integrand(theta, alpha)), theta_lower, theta_upper,
-                         epsabs=1e-3)[0]
-            flux = scattering.lambert_phase_func(alpha)
+            blocked = spi.quad(np.vectorize(lambda theta: self.shadow_integrand(theta, alpha)), theta_lower, theta_upper, epsabs=1e-3)[0]
+            flux = scattering.lambert_phase_func(alpha) * np.pi # the extra factor of pi is require to turn a phase function into a flux
             return (flux - blocked) / flux
 
     def secondary_eclipse(self, theta, phi, alpha):

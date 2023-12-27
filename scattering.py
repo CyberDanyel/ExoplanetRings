@@ -7,14 +7,14 @@ import PyMieScatt as msc
 
 def lambert_phase_func(alpha):
     # important enough to make its own thing
-    return 2 / 3 * ((np.pi - np.abs(alpha)) * np.cos(np.abs(alpha)) + np.sin(np.abs(alpha)))
+    return (2 / (3*np.pi)) * ((np.pi - np.abs(alpha)) * np.cos(np.abs(alpha)) + np.sin(np.abs(alpha)))
 
 
 class SingleScatteringLaw:
     def __init__(self, albedo, func):
         self.albedo = albedo
         self.func = func
-        self.norm = 2 * np.pi * spi.quad(lambda angle: np.sin(angle) * func(angle), 0, np.pi, limit=1080)[0]
+        self.norm = 0.5 * spi.quadrature(lambda angle: np.sin(angle) * func(angle), 0, np.pi, maxiter = 1000)[0]
 
     def __call__(self, alpha):
         return (self.albedo / self.norm) * self.func(np.pi - np.abs(alpha))
@@ -113,9 +113,7 @@ class WavelengthDependentScattering(SingleScatteringLaw):
         self.bandwidth = bandpass[1] - bandpass[0]
         self.inc_spec = inc_spec  # spectrum of the incident light for weighting scattering functions
         self.spec_norm = spi.quad(inc_spec, bandpass[0], bandpass[1], limit=100)[0]
-        albedo = spi.quad(lambda wav: material.albedo(wav) * self.wavelength_weighting(wav), bandpass[0], bandpass[1],
-                          limit=1000)[0]
-        # we dont need to normalize albedo by bandpass since wavelength_weights is already normalized by bandpass
+        albedo = spi.quad(lambda wav: material.albedo(wav) * self.wavelength_weighting(wav), bandpass[0], bandpass[1], limit=1000)[0] / self.bandwidth
         angles = np.linspace(0, np.pi, 1000)
         vals = []
         for angle in angles:
@@ -127,8 +125,7 @@ class WavelengthDependentScattering(SingleScatteringLaw):
             integrand = []
             for i, dlam in enumerate(dlams):
                 integrand.append(
-                    material.phase_funcs[lams[i]](angle) * dlam * self.wavelength_weighting(lams[i]) * material.albedo(
-                        lams[i]))
+                    material.phase_funcs[lams[i]](angle) * dlam * self.wavelength_weighting(lams[i]) * material.albedo(lams[i]))
             int_val = np.sum(integrand)
             avg_val = int_val / self.bandwidth
             vals.append(avg_val)
@@ -136,4 +133,4 @@ class WavelengthDependentScattering(SingleScatteringLaw):
         SingleScatteringLaw.__init__(self, albedo, func)
 
     def wavelength_weighting(self, wavelength):
-        return self.inc_spec(wavelength) / self.spec_norm
+        return self.inc_spec(wavelength) * self.bandwidth / self.spec_norm
