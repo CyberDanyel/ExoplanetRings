@@ -1,7 +1,9 @@
 import json
-
 import numpy as np
 import matplotlib.pyplot as plt
+import math
+import matplotlib.ticker as tck
+from matplotlib.ticker import FuncFormatter
 
 import exoring_functions
 import exoring_objects
@@ -46,7 +48,7 @@ def gaussian(x, mu, sigma):
         return (1 / np.sqrt(2 * np.pi * sigma)) * np.exp(-0.5 * ((x - mu) / sigma) ** 2)
 
 
-class PerformFit():
+class Data_Object():
     def __init__(self, data, star):
         self.best_result_ring = None
         self.best_result_planet = None
@@ -261,26 +263,26 @@ class PerformFit():
         return self.fit_data_ring(planet_sc_law, ring_sc_law, init_guess_ring)
 
     # should turn fitting results into their own class later
-    def plot_planet_result(self, result_planetfit, planet_sc):
+    def plot_planet_result(self, result, planet_sc):
         fig, ax = exoring_functions.generate_plot_style()
         plt.style.use('the_usual.mplstyle')
-        fitted_planet = FittingPlanet(planet_sc, self.star, result_planetfit)
+        fitted_planet = FittingPlanet(planet_sc, self.star, result)
         alphas = np.linspace(-np.pi, np.pi, 10000)
         ax.errorbar(self.data[0] / np.pi, self.data[1], self.data[2], fmt='.')
         ax.plot(alphas / np.pi, fitted_planet.light_curve(alphas))
         plt.savefig('images/PlanetFit', dpi=600)
 
-    def plot_ring_result(self, result_ringfit, planet_sc, ring_sc):
+    def plot_ring_result(self, result, planet_sc, ring_sc):
         fig, ax = exoring_functions.generate_plot_style()
         plt.style.use('the_usual.mplstyle')
-        result_ringfit['n_x'] = result_ringfit['ring_normal'][0]
-        result_ringfit['n_y'] = result_ringfit['ring_normal'][1]
-        result_ringfit['n_z'] = result_ringfit['ring_normal'][2]
-        fitted_planet = FittingRingedPlanet(planet_sc, ring_sc, self.star, result_ringfit)
+        result['n_x'] = result['ring_normal'][0]
+        result['n_y'] = result['ring_normal'][1]
+        result['n_z'] = result['ring_normal'][2]
+        fitted_planet = FittingRingedPlanet(planet_sc, ring_sc, self.star, result)
         alphas = np.linspace(-np.pi, np.pi, 10000)
         ax.errorbar(self.data[0] / np.pi, self.data[1], self.data[2], fmt='.')
         ax.plot(alphas / np.pi, fitted_planet.light_curve(alphas))
-        plt.savefig('images/BestRingFit', dpi=600)
+        plt.savefig('images/RingFit', dpi=600)
 
     def assign_bounds(self, bounds: dict, boundless_init_guess: dict):
         # fit_data_planet and fit_data_ring take bounds in the initial guesses.
@@ -293,8 +295,7 @@ class PerformFit():
                 raise f'Bound not given for {key}'
         return init_guess
 
-    def perform_fitting(self, search_ranges, search_interval, bounds, planet_sc_functions, ring_sc_functions=None,
-                        search_values=None):
+    def range_search_fitting(self, search_ranges, search_interval, bounds, planet_sc_functions, ring_sc_functions=None):
         # Creates meshgrid of initial_values to form multiple initial guesses. Runs minimisation for all these
         # initial guesses with every possible combination of planet & ring scattering functions If you want the data
         # to be optimised with a ringed planet model, include ring_sc_functions. If you want a planet-only fit,
@@ -318,30 +319,29 @@ class PerformFit():
         what else do you want from me. Look man my shift ended 5 minutes ago if you have anymore questions
         you're gonna have to come tomorrow
         """
-        if not search_values:
-            if ring_sc_functions:
-                try:
-                    search_ranges['n_x'] = search_ranges['ring_normal'][0]
-                    search_ranges['n_y'] = search_ranges['ring_normal'][1]
-                    search_ranges['n_z'] = search_ranges['ring_normal'][2]
-                    del search_ranges['ring_normal']
-                except KeyError:
-                    raise 'No ring_normal given'
+        if ring_sc_functions:
+            try:
+                search_ranges['n_x'] = search_ranges['ring_normal'][0]
+                search_ranges['n_y'] = search_ranges['ring_normal'][1]
+                search_ranges['n_z'] = search_ranges['ring_normal'][2]
+                del search_ranges['ring_normal']
+            except KeyError:
+                raise 'No ring_normal given'
 
-            search_values = list()
-            parameter_ordering = dict()
-            for order, key in enumerate(search_ranges):
-                if key == 'planet_sc_args' or key == 'ring_sc_args':
-                    for sc_arg in search_ranges[key].keys():
-                        search_values.append([search_ranges[key][sc_arg][0] + (
-                                (search_ranges[key][sc_arg][1] - search_ranges[key][sc_arg][0]) / (
-                                1 / search_interval)) * i for i in range(int(1 / search_interval))])
-                        parameter_ordering[order] = key + ',' + sc_arg
-                else:
-                    search_values.append([search_ranges[key][0] + (
-                            (search_ranges[key][1] - search_ranges[key][0]) / (1 / search_interval)) * i for i in
-                                          range(int(1 / search_interval))])
-                    parameter_ordering[order] = key
+        search_values = list()
+        parameter_ordering = dict()
+        for order, key in enumerate(search_ranges):
+            if key == 'planet_sc_args' or key == 'ring_sc_args':
+                for sc_arg in search_ranges[key].keys():
+                    search_values.append([search_ranges[key][sc_arg][0] + (
+                            (search_ranges[key][sc_arg][1] - search_ranges[key][sc_arg][0]) / (
+                            1 / search_interval)) * i for i in range(int(1 / search_interval))])
+                    parameter_ordering[order] = key + ',' + sc_arg
+            else:
+                search_values.append([search_ranges[key][0] + (
+                        (search_ranges[key][1] - search_ranges[key][0]) / (1 / search_interval)) * i for i in
+                                      range(int(1 / search_interval))])
+                parameter_ordering[order] = key
         grid = np.meshgrid(*search_values)
         positions = np.vstack(list(map(np.ravel, grid)))
         init_guesses = list()
@@ -405,6 +405,78 @@ class PerformFit():
                                                  'Planet_sc_function': best_result[2].__name__}
                 with open('best_fit_planet.json', 'w') as f:
                     json.dump(json_serializable_best_result, f, indent=4)
+
+    def run_ringless_model(self, planet_sc_law, model_parameters):
+        fig, ax = exoring_functions.generate_plot_style()
+        plt.style.use('the_usual.mplstyle')
+        I = self.data[1]
+        I_errs = self.data[2]
+        if model_parameters['n_x'] < 0:
+            print('n_x was inputted to be <0')
+        model_ringless_planet = FittingPlanet(planet_sc_law, self.star, model_parameters)
+        alphas = np.linspace(-np.pi, np.pi, 10000)
+        resulting_lightcurve = model_ringless_planet.light_curve(alphas)
+        ax.errorbar(self.data[0] / np.pi, I, I_errs, fmt='.')
+        ax.plot(alphas / np.pi, resulting_lightcurve)
+        plt.savefig('images/Ringless_Model', dpi=600)
+
+    def run_ringed_model(self, planet_sc_law, ring_sc_law, model_parameters):
+        fig, ax = exoring_functions.generate_plot_style()
+        plt.style.use('the_usual.mplstyle')
+        model_parameters['n_x'], model_parameters['n_y'], model_parameters['n_z'] = model_parameters['ring_normal'][0], \
+            model_parameters['ring_normal'][1], model_parameters['ring_normal'][2]
+        I = self.data[1]
+        I_errs = self.data[2]
+        if model_parameters['n_x'] < 0:
+            print('n_x was inputted to be <0')
+        model_ringed_planet = FittingRingedPlanet(planet_sc_law, ring_sc_law, self.star, model_parameters)
+        alphas = np.linspace(-np.pi, np.pi, 10000)
+        resulting_lightcurve = model_ringed_planet.light_curve(alphas)
+        ax.errorbar(self.data[0] / np.pi, I, I_errs, fmt='.')
+        ax.plot(alphas / np.pi, resulting_lightcurve)
+        plt.savefig('images/Ringed_Model', dpi=600)
+
+    def run_many_ringless_models(self, planet_sc_law, multiple_model_parameters):
+        length = len(multiple_model_parameters)
+        nrows = np.sqrt(length)
+        if nrows.is_integer():
+            ncols = nrows
+            fig, axs = plt.subplots(int(nrows), int(ncols), sharex=True, sharey=True)
+            plt.style.use('the_usual.mplstyle')
+        else:
+            if length % 2 == 0:
+                nrows = math.ceil(nrows)
+                while True:
+                    ncols = length / nrows
+                    if ncols.is_integer():
+                        nrows, ncols = min((nrows, ncols)), max((nrows, ncols))
+                        fig, axs = plt.subplots(int(nrows), int(ncols), sharex=True, sharey=True)
+                        plt.style.use('the_usual.mplstyle')
+                        break
+                    else:
+                        nrows += 1
+        for model_parameters, ax in zip(multiple_model_parameters, [j for sub in axs for j in sub]):
+            I = self.data[1]
+            I_errs = self.data[2]
+            model_ringed_planet = FittingPlanet(planet_sc_law, self.star, model_parameters)
+            alphas = np.linspace(-np.pi, np.pi, 10000)
+            resulting_lightcurve = model_ringed_planet.light_curve(alphas)
+            ax.errorbar(self.data[0] / np.pi, I, I_errs, fmt='.')
+            ax.plot(alphas / np.pi, resulting_lightcurve)
+            ax.set_title(
+                f'R:{model_parameters['radius']} S:{model_parameters['disk_gap']} W:{model_parameters['ring_width']}',
+                fontsize=8, pad=2)
+
+        for ax in axs.flat:
+            ax.xaxis.set_major_formatter(FuncFormatter(exoring_functions.format_fraction_with_pi))
+            ax.xaxis.set_major_locator(tck.MultipleLocator(base=1 / 2))
+            ax.set_xlabel(r'Phase angle $\alpha$')
+            ax.set_ylabel(r'Intensity ($L_{\odot}$)')
+
+        # Hide x labels and tick labels for top plots and y ticks for right plots.
+        for ax in axs.flat:
+            ax.label_outer()
+        plt.savefig('images/Multiples', dpi=1000)
 
     def plot_best_ringfit(self):
         self.plot_ring_result(self.best_result_ring[1], self.best_result_ring[2], self.best_result_ring[3])

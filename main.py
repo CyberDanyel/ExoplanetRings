@@ -68,13 +68,19 @@ if __name__ == '__main__':
                    'ring_normal': [(0, 1), (0, 1), (0, 1)],
                    'planet_sc_args': {'albedo': (0, 1)},
                    'ring_sc_args': {'albedo': (0, 1)}}
-    search_ranges_planet = {'radius': (0.1, 1.9), 'planet_sc_args': {'albedo': (0.1, 1)}, }
+    search_ranges_planet = {'radius': (0.1, 1.9), 'planet_sc_args': {'albedo': (0.1, 1)}}
     bounds_planet = {'radius': (0, star.radius), 'planet_sc_args': {'albedo': (0, 1)}}
-
-    Fit = fitting.PerformFit(ring_data, star_obj)
-    Fit.perform_fitting(search_ranges_planet, 0.5, bounds_planet, [scattering.Lambert, scattering.Jupiter])
-    Fit.perform_fitting(search_ranges_ring, 0.5, bounds_ring, [scattering.Lambert, scattering.Jupiter], [scattering.Rayleigh])
-    Fit.plot_best_ringfit()
-    Fit.plot_best_planetfit()
+    model_parameters = {'radius': 1,
+                        'disk_gap': 1, 'ring_width': 1,
+                        'ring_normal': np.array([1., 1., 0]),
+                        'planet_sc_args': {'albedo': 1},
+                        'ring_sc_args': {'albedo': 0.9}}
+    Data = fitting.Data_Object(ring_data, star_obj)
+    #Data.run_ringed_model(scattering.Jupiter, scattering.Rayleigh, model_parameters)
+    Data.run_many_ringless_models(scattering.Jupiter,[model_parameters for i in range(9)])
+    # Data.range_search_fitting(search_ranges_planet, 0.5, bounds_planet, [scattering.Lambert, scattering.Jupiter])
+    # Data.range_search_fitting(search_ranges_ring, 0.5, bounds_ring, [scattering.Lambert, scattering.Jupiter], [scattering.Rayleigh])
+    # Data.plot_best_ringfit()
+    # Data.plot_best_planetfit()
     end = time.time()
     print('Time taken:', end - start)
