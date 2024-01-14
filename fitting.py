@@ -5,6 +5,7 @@ import math
 import matplotlib.ticker as tck
 from matplotlib.ticker import FuncFormatter
 from matplotlib.ticker import AutoMinorLocator
+import scipy.integrate as integrate
 
 import exoring_functions
 import exoring_objects
@@ -601,6 +602,28 @@ class Data_Object():
     def plot_best_planetfit(self):
         self.plot_planet_result(self.best_result_planet[1], self.best_result_planet[2])
 
+    def likelihood_ringless_model(self, sc_law, model_parameters):  # Used for manual models
+        # Calculates log likelihood for specific planet params and scattering law
+        alpha = self.data[0]
+        I = self.data[1]
+        I_errs = self.data[2]
+        model_planet = FittingPlanet(sc_law, self.star, model_parameters)
+        x = model_planet.light_curve(alpha)
+        return np.prod(gaussian(x, I, I_errs))
+
+    def likelihood_ringed_model(self, planet_sc_law, ring_sc_law, model_parameters):  # Used for manual models
+        # Calculates log likelihood for specific ringed planet params and scattering laws
+        alpha = self.data[0]
+        I = self.data[1]
+        I_errs = self.data[2]
+        model_parameters['n_x'], model_parameters['n_y'], model_parameters['n_z'] = model_parameters['ring_normal'][0], \
+            model_parameters['ring_normal'][1], model_parameters['ring_normal'][2]
+        if model_parameters['n_x'] < 0:
+            print('n_x was inputted to be <0, possibly the minimiser not respecting bounds')
+        model_ringed_planet = FittingRingedPlanet(planet_sc_law, ring_sc_law, self.star, model_parameters)
+        x = model_ringed_planet.light_curve(alpha)
+        return np.prod(gaussian(x, I, I_errs))
+
     def log_likelihood_ringless_model(self, sc_law, model_parameters):  # Used for manual models
         # Calculates log likelihood for specific planet params and scattering law
         alpha = self.data[0]
@@ -654,50 +677,56 @@ class Data_Object():
             best_ll = self.log_likelihood_ringed_model(planet_sc_law, ring_sc_law, best_model)
         else:
             best_ll = self.log_likelihood_ringless_model(planet_sc_law, best_model)
-        mixed_keys = list()
-        for key1 in ranges.keys():
-            for key2 in ranges.keys():
-                if key1 != key2 and (key2, key1) not in mixed_keys:
-                    mixed_keys.append((key1, key2))
-        for key1, key2 in mixed_keys:
-            all_params = list()
-            key1_value_range = ranges[key1]
-            key2_value_range = ranges[key2]
-            key1_values = np.linspace(key1_value_range[0], key1_value_range[1], 50)
-            key2_values = np.linspace(key2_value_range[0], key2_value_range[1], 50)
-            all_params.append(key1_values)
-            all_params.append(key2_values)
-            X, Y = np.meshgrid(*all_params)
-            Z = np.zeros((len(X), len(X[0])))
-            for row in range(len(X)):
-                for column in range(len(X[0])):
+        keys = ranges.keys()
+        keyslist = list(keys)
+        all_params = list()
+        key1 = keyslist[0]  # Temporary
+        key2 = keyslist[1]
+        key3 = keyslist[2]
+        for key in keys:
+            key_value_range = ranges[key]
+            key_values = np.linspace(key_value_range[0], key_value_range[1], 20)
+            all_params.append(key_values)
+        X, Y, Z = np.meshgrid(*all_params)
+        xsmall, ysmall = np.meshgrid(all_params[0], all_params[1])
+        likelihood = np.zeros((len(X), len(X), len(X)))
+        for index_1 in range(len(X)):
+            for index_2 in range(len(X)):
+                for index_3 in range(len(X)):
                     altered_model = best_model.copy()
-                    altered_model[key1] = X[row][column]
-                    altered_model[key2] = Y[row][column]
+                    altered_model[key1] = X[index_1][index_2][index_3]
+                    altered_model[key2] = Y[index_1][index_2][index_3]
+                    altered_model[key3] = Z[index_1][index_2][index_3]
                     if ringed:
-                        log_likelihood = self.log_likelihood_ringed_model(planet_sc_law, ring_sc_law, altered_model)
-                        Z[row][column] = log_likelihood
+                        likelihood_val = self.likelihood_ringed_model(planet_sc_law, ring_sc_law, altered_model)
+                        likelihood[index_1][index_2][index_3] = likelihood_val
                     else:
-                        log_likelihood = self.log_likelihood_ringless_model(planet_sc_law, altered_model)
-                        Z[row][column] = log_likelihood
+                        likelihood_val = self.likelihood_ringless_model(planet_sc_law, altered_model)
+                        likelihood[index_1][index_2][index_3] = likelihood_val
+        XY_contour_vals = np.zeros((len(X),
+                                    len(Y)))  # These lengths work if all the same linspace, but probably not right if not, should debug
+        for index_1 in range(len(X)):
+            for index_2 in range(len(Y)):
+                val = np.trapz(likelihood[index_1][index_2], x=np.array(range(len(Z))))
+                XY_contour_vals[index_1][index_2] = val
 
-            plt.style.use('the_usual.mplstyle')
-            fig, ax = plt.subplots()
-            cp = ax.contourf(X, Y, Z, cmap='viridis')
-            cbar = fig.colorbar(cp)  # Add a colorbar to a plot
-            cbar.ax.tick_params(labelsize=12)
-            ax.set_title(f'log likelihood {key2} against {key1}', fontsize=13)
-            #ax.ticklabel_format(axis='y', style='sci', scilimits=(-3, -3))
-            ax.tick_params(direction='in', top=True, right=True, which='both', labelsize=12)
-            #ax.set_xticks([0.21, 0.23, 0.25, 0.27, 0.29])
-            #ax.set_yticks([1.95e-3, 2e-3, 2.05e-3, 2.1e-3, 2.15e-3, 2.2e-3, 2.25e-3])
-            ax.set_xlabel(f'{key1}', fontsize=13)
-            ax.set_ylabel(f'{key2}', fontsize=13)
-            ax.minorticks_on()
-            ax.xaxis.set_minor_locator(AutoMinorLocator(2))
-            ax.yaxis.set_minor_locator(AutoMinorLocator(2))
-            plt.savefig(f'images/contour {key1}+{key2}', dpi=600)
-            plt.show()
+        plt.style.use('the_usual.mplstyle')
+        fig, ax = plt.subplots()
+        cp = ax.contourf(xsmall, ysmall, XY_contour_vals, cmap='viridis')
+        cbar = fig.colorbar(cp)  # Add a colorbar to a plot
+        cbar.ax.tick_params(labelsize=12)
+        ax.set_title(f'likelihood {key2} against {key1}', fontsize=13)
+        # ax.ticklabel_format(axis='y', style='sci', scilimits=(-3, -3))
+        ax.tick_params(direction='in', top=True, right=True, which='both', labelsize=12)
+        # ax.set_xticks([0.21, 0.23, 0.25, 0.27, 0.29])
+        # ax.set_yticks([1.95e-3, 2e-3, 2.05e-3, 2.1e-3, 2.15e-3, 2.2e-3, 2.25e-3])
+        ax.set_xlabel(f'{key1}', fontsize=13)
+        ax.set_ylabel(f'{key2}', fontsize=13)
+        ax.minorticks_on()
+        ax.xaxis.set_minor_locator(AutoMinorLocator(2))
+        ax.yaxis.set_minor_locator(AutoMinorLocator(2))
+        plt.savefig(f'images/contour {key1}+{key2}', dpi=600)
+        plt.show()
 
 
 def generate_data(test_planet):
