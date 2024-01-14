@@ -601,6 +601,28 @@ class Data_Object():
     def plot_best_planetfit(self):
         self.plot_planet_result(self.best_result_planet[1], self.best_result_planet[2])
 
+    def likelihood_ringless_model(self, sc_law, model_parameters):  # Used for manual models
+        # Calculates log likelihood for specific planet params and scattering law
+        alpha = self.data[0]
+        I = self.data[1]
+        I_errs = self.data[2]
+        model_planet = FittingPlanet(sc_law, self.star, model_parameters)
+        x = model_planet.light_curve(alpha)
+        return np.prod(gaussian(x, I, I_errs))
+
+    def likelihood_ringed_model(self, planet_sc_law, ring_sc_law, model_parameters):  # Used for manual models
+        # Calculates log likelihood for specific ringed planet params and scattering laws
+        alpha = self.data[0]
+        I = self.data[1]
+        I_errs = self.data[2]
+        model_parameters['n_x'], model_parameters['n_y'], model_parameters['n_z'] = model_parameters['ring_normal'][0], \
+            model_parameters['ring_normal'][1], model_parameters['ring_normal'][2]
+        if model_parameters['n_x'] < 0:
+            print('n_x was inputted to be <0, possibly the minimiser not respecting bounds')
+        model_ringed_planet = FittingRingedPlanet(planet_sc_law, ring_sc_law, self.star, model_parameters)
+        x = model_ringed_planet.light_curve(alpha)
+        return np.prod(gaussian(x, I, I_errs))
+
     def log_likelihood_ringless_model(self, sc_law, model_parameters):  # Used for manual models
         # Calculates log likelihood for specific planet params and scattering law
         alpha = self.data[0]
