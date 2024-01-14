@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import math
 import matplotlib.ticker as tck
 from matplotlib.ticker import FuncFormatter
+from matplotlib.ticker import AutoMinorLocator
 
 import exoring_functions
 import exoring_objects
@@ -12,7 +13,10 @@ import scipy.optimize as op
 import time
 from multiprocessing import Pool, freeze_support
 
+primes_to_100 = [3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97]
 
+
+# 2 not included because it does fit nicely on a graph
 class FittingPlanet(exoring_objects.Planet):
     def __init__(self, sc_law, star, parameters):
         radius = parameters['radius']
@@ -55,7 +59,7 @@ class Data_Object():
         self.data = data
         self.star = star
 
-    def log_likelihood_planet(self, sc_law, planet_sc_args_order, *params):
+    def log_likelihood_planet(self, sc_law, planet_sc_args_order, *params):  # used for fitting
         # Calculates log likelihood for specific planet params and scattering law
         alpha = self.data[0]
         I = self.data[1]
@@ -80,7 +84,8 @@ class Data_Object():
                     # print(-np.sum(logs))
                     return -np.sum(logs)
 
-    def log_likelihood_ring(self, planet_sc_law, ring_sc_law, planet_sc_args_order, ring_sc_args_order, *params):
+    def log_likelihood_ring(self, planet_sc_law, ring_sc_law, planet_sc_args_order, ring_sc_args_order,
+                            *params):  # used for fitting
         # Calculates log likelihood for specific ringed planet params and scattering laws
         alpha = self.data[0]
         I = self.data[1]
@@ -264,8 +269,8 @@ class Data_Object():
 
     # should turn fitting results into their own class later
     def plot_planet_result(self, result, planet_sc):
-        fig, ax = exoring_functions.generate_plot_style()
         plt.style.use('the_usual.mplstyle')
+        fig, ax = exoring_functions.generate_plot_style()
         fitted_planet = FittingPlanet(planet_sc, self.star, result)
         alphas = np.linspace(-np.pi, np.pi, 10000)
         ax.errorbar(self.data[0] / np.pi, self.data[1], self.data[2], fmt='.')
@@ -273,8 +278,8 @@ class Data_Object():
         plt.savefig('images/PlanetFit', dpi=600)
 
     def plot_ring_result(self, result, planet_sc, ring_sc):
-        fig, ax = exoring_functions.generate_plot_style()
         plt.style.use('the_usual.mplstyle')
+        fig, ax = exoring_functions.generate_plot_style()
         result['n_x'] = result['ring_normal'][0]
         result['n_y'] = result['ring_normal'][1]
         result['n_z'] = result['ring_normal'][2]
@@ -407,8 +412,8 @@ class Data_Object():
                     json.dump(json_serializable_best_result, f, indent=4)
 
     def run_ringless_model(self, planet_sc_law, model_parameters):
-        fig, ax = exoring_functions.generate_plot_style()
         plt.style.use('the_usual.mplstyle')
+        fig, ax = exoring_functions.generate_plot_style()
         I = self.data[1]
         I_errs = self.data[2]
         if model_parameters['n_x'] < 0:
@@ -421,8 +426,8 @@ class Data_Object():
         plt.savefig('images/Ringless_Model', dpi=600)
 
     def run_ringed_model(self, planet_sc_law, ring_sc_law, model_parameters):
-        fig, ax = exoring_functions.generate_plot_style()
         plt.style.use('the_usual.mplstyle')
+        fig, ax = exoring_functions.generate_plot_style()
         model_parameters['n_x'], model_parameters['n_y'], model_parameters['n_z'] = model_parameters['ring_normal'][0], \
             model_parameters['ring_normal'][1], model_parameters['ring_normal'][2]
         I = self.data[1]
@@ -436,26 +441,40 @@ class Data_Object():
         ax.plot(alphas / np.pi, resulting_lightcurve)
         plt.savefig('images/Ringed_Model', dpi=600)
 
-    def run_many_ringless_models(self, planet_sc_law, multiple_model_parameters):
+    def run_many_ringless_models(self, planet_sc_law, multiple_model_parameters, sharex=True, sharey=False):
         length = len(multiple_model_parameters)
         nrows = np.sqrt(length)
         if nrows.is_integer():
             ncols = nrows
-            fig, axs = plt.subplots(int(nrows), int(ncols), sharex=True, sharey=True)
             plt.style.use('the_usual.mplstyle')
+            fig, axs = plt.subplots(int(nrows), int(ncols), sharex=sharex, sharey=sharey)
         else:
-            if length % 2 == 0:
+            if length not in primes_to_100:
                 nrows = math.ceil(nrows)
                 while True:
                     ncols = length / nrows
                     if ncols.is_integer():
                         nrows, ncols = min((nrows, ncols)), max((nrows, ncols))
-                        fig, axs = plt.subplots(int(nrows), int(ncols), sharex=True, sharey=True)
                         plt.style.use('the_usual.mplstyle')
+                        fig, axs = plt.subplots(int(nrows), int(ncols), sharex=sharex, sharey=sharey)
                         break
                     else:
                         nrows += 1
-        for model_parameters, ax in zip(multiple_model_parameters, [j for sub in axs for j in sub]):
+            elif length in primes_to_100:
+                if length == 3:
+                    plt.style.use('the_usual.mplstyle')
+                    fig, axs = plt.subplots(1, 3, sharex=sharex, sharey=sharey)
+                elif length == 5:
+                    plt.style.use('the_usual.mplstyle')
+                    fig, axs = plt.subplots(2, 3, sharex=sharex, sharey=sharey)
+                elif length == 7:
+                    plt.style.use('the_usual.mplstyle')
+                    fig, axs = plt.subplots(3, 3, sharex=sharex, sharey=sharey)
+                else:
+                    raise NotImplementedError('This is too many models to fit nicely')
+            else:
+                raise NotImplementedError('Number is prime and too large')
+        for model_parameters, ax in zip(multiple_model_parameters, axs.flat):
             I = self.data[1]
             I_errs = self.data[2]
             model_ringed_planet = FittingPlanet(planet_sc_law, self.star, model_parameters)
@@ -464,25 +483,221 @@ class Data_Object():
             ax.errorbar(self.data[0] / np.pi, I, I_errs, fmt='.')
             ax.plot(alphas / np.pi, resulting_lightcurve)
             ax.set_title(
-                f'R:{model_parameters['radius']} S:{model_parameters['disk_gap']} W:{model_parameters['ring_width']}',
-                fontsize=8, pad=2)
+                f'R:{round(model_parameters['radius'])}', fontsize=8, pad=2)
+        if int(nrows) == 1:
+            for ax in axs:
+                ax.xaxis.set_major_formatter(FuncFormatter(exoring_functions.format_fraction_with_pi))
+                ax.xaxis.set_major_locator(tck.MultipleLocator(base=1 / 2))
+                ax.set_xlabel(r'Phase angle $\alpha$')
+                for row in range(int(nrows)):
+                    if ax == axs[0]:  # If in the first column
+                        ax.set_ylabel(r'Intensity ($L_{\odot}$)')
+        else:
+            for ax in axs.flat:
+                ax.xaxis.set_major_formatter(FuncFormatter(exoring_functions.format_fraction_with_pi))
+                ax.xaxis.set_major_locator(tck.MultipleLocator(base=1 / 2))
+                if ax in axs[int(nrows) - 1]:  # If in the last row
+                    ax.set_xlabel(r'Phase angle $\alpha$')
+                for row in range(int(nrows)):
+                    if ax == axs[row][0]:  # If in the first column
+                        ax.set_ylabel(r'Intensity ($L_{\odot}$)')
 
-        for ax in axs.flat:
-            ax.xaxis.set_major_formatter(FuncFormatter(exoring_functions.format_fraction_with_pi))
-            ax.xaxis.set_major_locator(tck.MultipleLocator(base=1 / 2))
-            ax.set_xlabel(r'Phase angle $\alpha$')
-            ax.set_ylabel(r'Intensity ($L_{\odot}$)')
-
-        # Hide x labels and tick labels for top plots and y ticks for right plots.
-        for ax in axs.flat:
-            ax.label_outer()
         plt.savefig('images/Multiples', dpi=1000)
+
+    def run_many_ringed_models(self, planet_sc_law, ring_sc_law, multiple_model_parameters, sharex=True, sharey=False):
+        length = len(multiple_model_parameters)
+        nrows = np.sqrt(length)
+        if nrows.is_integer():
+            ncols = nrows
+            plt.style.use('the_usual.mplstyle')
+            fig, axs = plt.subplots(int(nrows), int(ncols), sharex=sharex, sharey=sharey)
+        else:
+            if length not in primes_to_100:
+                nrows = math.ceil(nrows)
+                while True:
+                    ncols = length / nrows
+                    if ncols.is_integer():
+                        nrows, ncols = min((nrows, ncols)), max((nrows, ncols))
+                        plt.style.use('the_usual.mplstyle')
+                        fig, axs = plt.subplots(int(nrows), int(ncols), sharex=sharex, sharey=sharey)
+                        break
+                    else:
+                        nrows += 1
+            elif length in primes_to_100:
+                if length == 3:
+                    plt.style.use('the_usual.mplstyle')
+                    fig, axs = plt.subplots(1, 3, sharex=sharex, sharey=sharey)
+                elif length == 5:
+                    plt.style.use('the_usual.mplstyle')
+                    fig, axs = plt.subplots(2, 3, sharex=sharex, sharey=sharey)
+                elif length == 7:
+                    plt.style.use('the_usual.mplstyle')
+                    fig, axs = plt.subplots(3, 3, sharex=sharex, sharey=sharey)
+                else:
+                    raise NotImplementedError('This is too many models to fit nicely')
+            else:
+                raise NotImplementedError('Number is prime and too large')
+        for model_parameters, ax in zip(multiple_model_parameters, axs.flat):
+            I = self.data[1]
+            I_errs = self.data[2]
+            model_parameters['n_x'], model_parameters['n_y'], model_parameters['n_z'] = model_parameters['ring_normal'][
+                0], model_parameters['ring_normal'][1], model_parameters['ring_normal'][2]
+            model_ringed_planet = FittingRingedPlanet(planet_sc_law, ring_sc_law, self.star, model_parameters)
+            alphas = np.linspace(-np.pi, np.pi, 10000)
+            resulting_lightcurve = model_ringed_planet.light_curve(alphas)
+            ax.errorbar(self.data[0] / np.pi, I, I_errs, fmt='.')
+            ax.plot(alphas / np.pi, resulting_lightcurve)
+            ax.set_title(
+                f'R:{round(model_parameters['radius'])} S:{round(model_parameters['disk_gap'])} W:{round(model_parameters['ring_width'])}',
+                fontsize=8, pad=2)
+        if int(nrows) == 1:
+            for ax in axs:
+                ax.xaxis.set_major_formatter(FuncFormatter(exoring_functions.format_fraction_with_pi))
+                ax.xaxis.set_major_locator(tck.MultipleLocator(base=1 / 2))
+                ax.set_xlabel(r'Phase angle $\alpha$')
+                for row in range(int(nrows)):
+                    if ax == axs[0]:  # If in the first column
+                        ax.set_ylabel(r'Intensity ($L_{\odot}$)')
+        else:
+            for ax in axs.flat:
+                ax.xaxis.set_major_formatter(FuncFormatter(exoring_functions.format_fraction_with_pi))
+                ax.xaxis.set_major_locator(tck.MultipleLocator(base=1 / 2))
+                if ax in axs[int(nrows) - 1]:  # If in the last row
+                    ax.set_xlabel(r'Phase angle $\alpha$')
+                for row in range(int(nrows)):
+                    if ax == axs[row][0]:  # If in the first column
+                        ax.set_ylabel(r'Intensity ($L_{\odot}$)')
+
+        plt.savefig('images/Multiples', dpi=1000)
+
+    def create_various_model_parameters(self, **kwargs):
+        # Changing albedos not implemented
+        all_dicts = list()
+        all_params = list()
+        order_dictionary = dict()
+        default = {'radius': 1,
+                   'disk_gap': 0.01, 'ring_width': 1,
+                   'ring_normal': np.array([1., 1., 0]),
+                   'planet_sc_args': {'albedo': 1},
+                   'ring_sc_args': {'albedo': 0.01}}
+        for order, key in enumerate(kwargs):
+            param_list = list()
+            param_list.append(kwargs[key])
+            all_params.append(param_list)
+            order_dictionary[order] = key
+        grid = np.meshgrid(*all_params)
+        positions = np.vstack(list(map(np.ravel, grid)))
+        for iteration in range(len(positions[0])):
+            for order in range(len(positions)):
+                key = order_dictionary[order]
+                new_dict = default.copy()
+                new_dict[key] = positions[order][iteration]
+            all_dicts.append(new_dict)
+        return all_dicts
 
     def plot_best_ringfit(self):
         self.plot_ring_result(self.best_result_ring[1], self.best_result_ring[2], self.best_result_ring[3])
 
     def plot_best_planetfit(self):
         self.plot_planet_result(self.best_result_planet[1], self.best_result_planet[2])
+
+    def log_likelihood_ringless_model(self, sc_law, model_parameters):  # Used for manual models
+        # Calculates log likelihood for specific planet params and scattering law
+        alpha = self.data[0]
+        I = self.data[1]
+        I_errs = self.data[2]
+        model_planet = FittingPlanet(sc_law, self.star, model_parameters)
+        x = model_planet.light_curve(alpha)
+        with np.errstate(divide='raise'):
+            try:
+                # print(-np.sum(np.log(gaussian(x, I, I_errs))))
+                return np.sum(np.log(gaussian(x, I, I_errs)))
+            except:  # The gaussian has returned 0 for at least 1 data point
+                with np.errstate(divide='ignore'):
+                    # print('Triggered')
+                    logs = np.log(gaussian(x, I, I_errs))
+                    for index, element in enumerate(logs):
+                        if np.isinf(element):
+                            logs[index] = -1000
+                    # print(-np.sum(logs))
+                    return np.sum(logs)
+
+    def log_likelihood_ringed_model(self, planet_sc_law, ring_sc_law, model_parameters):  # Used for manual models
+        # Calculates log likelihood for specific ringed planet params and scattering laws
+        alpha = self.data[0]
+        I = self.data[1]
+        I_errs = self.data[2]
+        model_parameters['n_x'], model_parameters['n_y'], model_parameters['n_z'] = model_parameters['ring_normal'][0], \
+            model_parameters['ring_normal'][1], model_parameters['ring_normal'][2]
+        if model_parameters['n_x'] < 0:
+            print('n_x was inputted to be <0, possibly the minimiser not respecting bounds')
+        model_ringed_planet = FittingRingedPlanet(planet_sc_law, ring_sc_law, self.star, model_parameters)
+        x = model_ringed_planet.light_curve(alpha)
+        with np.errstate(divide='raise'):
+            try:
+                # print(-np.sum(np.log(gaussian(x, I, I_errs))))
+                return np.sum(np.log(gaussian(x, I, I_errs)))
+            except:  # The gaussian has returned 0 for at least 1 data point
+                with np.errstate(divide='ignore'):
+                    # print('Triggered')
+                    logs = np.log(gaussian(x, I, I_errs))
+                    for index, element in enumerate(logs):
+                        if np.isinf(element):
+                            logs[index] = -1000
+                    # print(-np.sum(logs))
+                    return np.sum(logs)
+
+    def produce_corner_plot(self, best_model, ranges, ringed, **kwargs):
+        planet_sc_law = kwargs['planet_sc_law']
+        if ringed:
+            ring_sc_law = kwargs['ring_sc_law']
+            best_ll = self.log_likelihood_ringed_model(planet_sc_law, ring_sc_law, best_model)
+        else:
+            best_ll = self.log_likelihood_ringless_model(planet_sc_law, best_model)
+        mixed_keys = list()
+        for key1 in ranges.keys():
+            for key2 in ranges.keys():
+                if key1 != key2 and (key2, key1) not in mixed_keys:
+                    mixed_keys.append((key1, key2))
+        for key1, key2 in mixed_keys:
+            all_params = list()
+            key1_value_range = ranges[key1]
+            key2_value_range = ranges[key2]
+            key1_values = np.linspace(key1_value_range[0], key1_value_range[1], 50)
+            key2_values = np.linspace(key2_value_range[0], key2_value_range[1], 50)
+            all_params.append(key1_values)
+            all_params.append(key2_values)
+            X, Y = np.meshgrid(*all_params)
+            Z = np.zeros((len(X), len(X[0])))
+            for row in range(len(X)):
+                for column in range(len(X[0])):
+                    altered_model = best_model.copy()
+                    altered_model[key1] = X[row][column]
+                    altered_model[key2] = Y[row][column]
+                    if ringed:
+                        log_likelihood = self.log_likelihood_ringed_model(planet_sc_law, ring_sc_law, altered_model)
+                        Z[row][column] = log_likelihood
+                    else:
+                        log_likelihood = self.log_likelihood_ringless_model(planet_sc_law, altered_model)
+                        Z[row][column] = log_likelihood
+
+            plt.style.use('the_usual.mplstyle')
+            fig, ax = plt.subplots()
+            cp = ax.contourf(X, Y, Z, cmap='viridis')
+            cbar = fig.colorbar(cp)  # Add a colorbar to a plot
+            cbar.ax.tick_params(labelsize=12)
+            ax.set_title(f'log likelihood {key2} against {key1}', fontsize=13)
+            #ax.ticklabel_format(axis='y', style='sci', scilimits=(-3, -3))
+            ax.tick_params(direction='in', top=True, right=True, which='both', labelsize=12)
+            #ax.set_xticks([0.21, 0.23, 0.25, 0.27, 0.29])
+            #ax.set_yticks([1.95e-3, 2e-3, 2.05e-3, 2.1e-3, 2.15e-3, 2.2e-3, 2.25e-3])
+            ax.set_xlabel(f'{key1}', fontsize=13)
+            ax.set_ylabel(f'{key2}', fontsize=13)
+            ax.minorticks_on()
+            ax.xaxis.set_minor_locator(AutoMinorLocator(2))
+            ax.yaxis.set_minor_locator(AutoMinorLocator(2))
+            plt.savefig(f'images/contour {key1}+{key2}', dpi=600)
+            plt.show()
 
 
 def generate_data(test_planet):
