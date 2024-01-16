@@ -2,6 +2,10 @@ import numpy as np
 import pandas as pd
 import scipy.interpolate as spint
 import scipy.integrate as spi
+import platon
+from platon.TP_profile import Profile
+from platon.eclipse_depth_calculator import EclipseDepthCalculator
+
 
 class _MatPhaseFuncs:
     'phase function interpolated for scattering angle but not wavelength'
@@ -76,5 +80,22 @@ class RingMaterial:
 # would use radmc and include forward scattering
 
 
+class Atmosphere:
+    def __init__(self, platon_params, sc_class, planet_mass, planet_radius, star):
+        T_0, P_1, alpha_1, alpha_2, P_3, P_3, T_3 = platon_params
+        self.p = Profile()
+        self.p.set_parametric(*platon_params)
+        self.calc = EclipseDepthCalculator()
+        self.wavelengths, self.depths = self.calc.compute_depths(self.p, star.radius, planet_mass, planet_radius, star.T)
+        self.albedos = {}
+        for i, wavelength in enumerate(self.wavelengths):
+            sc_law = sc_class(albedo=1)
+            A_g = 2/3 * sc_law(0)
+            depth_albedo1 = planet_radius**2/(4*star.distance**2)*A_g
+            self.albedos[wavelength] = self.depths[i]/depth_albedo1
+        self.albedo_func = spint.CubicSpline(self.wavelengths, list(self.albedos.values()))
     
-        
+    def albedo(self, wavelength):
+        'The wavelength dependent albedo'
+        return self.albedo_func(wavelength)
+    

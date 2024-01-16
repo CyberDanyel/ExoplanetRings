@@ -11,6 +11,7 @@ import time
 
 # everything also assumes circular orbits
 
+s = 5.67037e-8  # stefan boltzmann constant
 
 class Planet:
     def __init__(self, sc_law, radius, star):
@@ -25,7 +26,8 @@ class Planet:
         self.phase_curve = np.vectorize(self.phase_curve_single)  # vectorizing so that arrays of phase angles can be
         # input more easily than with a Python for loop
         self.star = star
-
+        self.T = 0.5*(star.luminosity/(np.pi*s))**0.25 * star.distance ** -0.5
+        
     def get_mu_star(self, theta, phi, alpha):
         """
         Parameters
