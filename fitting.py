@@ -815,7 +815,7 @@ def generate_data(test_planet):
         np.linspace(.3, np.pi, 10))
     test_alphas = np.array(test_alphas)
     I = test_planet.light_curve(test_alphas)
-    errs = 0.02 * I + 1e-8
+    errs = 0 * I + 1e-7
     noise_vals = np.random.normal(size=len(test_alphas))
     data_vals = errs * noise_vals + I
     data = np.array([test_alphas, data_vals, errs])
