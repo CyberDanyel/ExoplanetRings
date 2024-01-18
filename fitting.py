@@ -679,40 +679,47 @@ class Data_Object():
             best_ll = self.log_likelihood_ringless_model(planet_sc_law, best_model)
         keys = ranges.keys()
         keyslist = list(keys)
+        indices = list(range(len(keyslist)))
         all_params = list()
-        key1 = keyslist[0]  # Temporary
+        key1 = keyslist[0]
         key2 = keyslist[1]
         key3 = keyslist[2]
         for key in keys:
             key_value_range = ranges[key]
             if key == key1:
-                key_values = np.linspace(key_value_range[0], key_value_range[1], 15)
+                key_values = np.linspace(key_value_range[0], key_value_range[1], 2)
             if key == key2:
-                key_values = np.linspace(key_value_range[0], key_value_range[1], 15)
+                key_values = np.linspace(key_value_range[0], key_value_range[1], 4)
             if key == key3:
-                key_values = np.linspace(key_value_range[0], key_value_range[1], 15)
+                key_values = np.linspace(key_value_range[0], key_value_range[1], 6)
             all_params.append(key_values)
-        X, Y, Z = np.meshgrid(*all_params)
-        XsYs = np.meshgrid(all_params[0],all_params[1])
-        XsZs = np.meshgrid(all_params[0], all_params[2])
-        YsZs = np.meshgrid(all_params[1], all_params[2])
-        X = np.swapaxes(X, 0, 1)
-        Y = np.swapaxes(Y, 0, 1)
-        Z = np.swapaxes(Z, 0, 1)
-        likelihood = np.zeros((len(X), len(X[0]), len(X[0][0])))
-        for index_1 in range(len(X)):
-            for index_2 in range(len(X)):
-                for index_3 in range(len(X)):
-                    altered_model = best_model.copy()
-                    altered_model[key1] = X[index_1][index_2][index_3]
-                    altered_model[key2] = Y[index_1][index_2][index_3]
-                    altered_model[key3] = Z[index_1][index_2][index_3]
-                    if ringed:
-                        likelihood_val = self.likelihood_ringed_model(planet_sc_law, ring_sc_law, altered_model)
-                        likelihood[index_1][index_2][index_3] = likelihood_val
-                    else:
-                        likelihood_val = self.likelihood_ringless_model(planet_sc_law, altered_model)
-                        likelihood[index_1][index_2][index_3] = likelihood_val
+        mixed_indices = list()
+        for index1 in indices:
+            for index2 in indices:
+                if index1 != index2 and (index2, index1) not in mixed_indices:
+                    mixed_indices.append((index1, index2))
+        meshes = np.meshgrid(*all_params)
+        plotmeshes = dict()
+        for index1, index2 in mixed_indices:
+            plotmeshes[f'{index1}+{index2}'] = np.meshgrid(all_params[index1],all_params[index2])
+        flipped_axes_meshes = list()
+        for mesh in meshes:
+            flipped_axes_meshes.append(np.swapaxes(mesh, 0, 1))
+        meshes = flipped_axes_meshes
+        likelihood = np.zeros(meshes[0].shape)
+        indices_meshes = np.meshgrid(*[[i for i in range(likelihood.shape[j])] for j in range(len(likelihood.shape))])
+        positions = np.vstack(list(map(np.ravel, indices_meshes)))
+        positions = np.transpose(positions)
+        for indexes in positions:
+            altered_model = best_model.copy()
+            for i, key in enumerate(keyslist):
+                altered_model[key] = meshes[i][*indexes]
+            if ringed:
+                likelihood_val = self.likelihood_ringed_model(planet_sc_law, ring_sc_law, altered_model)
+                likelihood[*indexes] = likelihood_val
+            else:
+                likelihood_val = self.likelihood_ringless_model(planet_sc_law, altered_model)
+                likelihood[*indexes] = likelihood_val
 
         integral_over_Z = np.zeros((len(X),
                                     len(X[0])))
@@ -749,13 +756,13 @@ class Data_Object():
             for index_3 in range(len(X)):
                 val = np.trapz(likelihood_2_3_1[index_2][index_3], x=np.array(range(len(X[0][0]))))
                 YZ_contour_vals[index_2][index_3] = val
-        step = 0.01
+        step = 0.001
         levels = np.arange(start=0, stop=XY_contour_vals.max()+step, step=step)
         plt.style.use('the_usual.mplstyle')
         fig, ax = plt.subplots()
-        cp = ax.contourf(np.swapaxes(XsYs[0], 0, 1), np.swapaxes(XsYs[1], 0, 1), XY_contour_vals, levels, cmap='viridis')
-        cbar = fig.colorbar(cp)  # Add a colorbar to a plot
-        cbar.ax.tick_params(labelsize=12)
+        cp1 = ax.contourf(np.swapaxes(XsYs[0], 0, 1), np.swapaxes(XsYs[1], 0, 1), XY_contour_vals, levels, cmap='viridis')
+        cbar1 = fig.colorbar(cp1)  # Add a colorbar to a plot
+        cbar1.ax.tick_params(labelsize=12)
         ax.set_title(f'likelihood {key2} against {key1}', fontsize=13)
         # ax.ticklabel_format(axis='y', style='sci', scilimits=(-3, -3))
         ax.tick_params(direction='in', top=True, right=True, which='both', labelsize=12)
@@ -813,7 +820,7 @@ def generate_data(test_planet):
         np.linspace(.3, np.pi, 10))
     test_alphas = np.array(test_alphas)
     I = test_planet.light_curve(test_alphas)
-    errs = 0.02 * I + 1e-8
+    errs = 0 * I + 1e-7
     noise_vals = np.random.normal(size=len(test_alphas))
     data_vals = errs * noise_vals + I
     data = np.array([test_alphas, data_vals, errs])
