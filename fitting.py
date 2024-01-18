@@ -717,6 +717,8 @@ class Data_Object():
             if ringed:
                 likelihood_val = self.likelihood_ringed_model(planet_sc_law, ring_sc_law, altered_model)
                 likelihood[*indexes] = likelihood_val
+                if likelihood_val > 0:
+                    print('here')
             else:
                 likelihood_val = self.likelihood_ringless_model(planet_sc_law, altered_model)
                 likelihood[*indexes] = likelihood_val
