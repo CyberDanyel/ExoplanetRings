@@ -686,11 +686,11 @@ class Data_Object():
         for key in keys:
             key_value_range = ranges[key]
             if key == key1:
-                key_values = np.linspace(key_value_range[0], key_value_range[1], 4)
+                key_values = np.linspace(key_value_range[0], key_value_range[1], 2)
             if key == key2:
-                key_values = np.linspace(key_value_range[0], key_value_range[1], 6)
+                key_values = np.linspace(key_value_range[0], key_value_range[1], 4)
             if key == key3:
-                key_values = np.linspace(key_value_range[0], key_value_range[1], 8)
+                key_values = np.linspace(key_value_range[0], key_value_range[1], 6)
             all_params.append(key_values)
         X, Y, Z = np.meshgrid(*all_params)
         XsYs = np.meshgrid(all_params[0],all_params[1])
