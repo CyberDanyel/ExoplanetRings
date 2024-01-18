@@ -707,8 +707,10 @@ class Data_Object():
             json.dump(Z.tolist(), f, indent=4)
         likelihood = np.zeros((len(X), len(X[0]), len(X[0][0])))
         for index_1 in range(len(X)):
-            for index_2 in range(len(X)):
-                for index_3 in range(len(X)):
+            for index_2 in range(len(X[0])):
+                for index_3 in range(len(X[0][0])):
+                    if [index_1, index_2, index_3] == [0, 1, 4]:
+                        print('here')
                     altered_model = best_model.copy()
                     altered_model[key1] = X[index_1][index_2][index_3]
                     altered_model[key2] = Y[index_1][index_2][index_3]
