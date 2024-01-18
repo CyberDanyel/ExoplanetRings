@@ -693,18 +693,18 @@ class Data_Object():
                 key_values = np.linspace(key_value_range[0], key_value_range[1], 6)
             all_params.append(key_values)
         X, Y, Z = np.meshgrid(*all_params)
-        with open('old_X.json', 'w') as f:
-            json.dump(X.tolist(), f, indent=4)
-        with open('old_Y.json', 'w') as f:
-            json.dump(Y.tolist(), f, indent=4)
-        with open('old_Z.json', 'w') as f:
-            json.dump(Z.tolist(), f, indent=4)
         XsYs = np.meshgrid(all_params[0],all_params[1])
         XsZs = np.meshgrid(all_params[0], all_params[2])
         YsZs = np.meshgrid(all_params[1], all_params[2])
         X = np.swapaxes(X, 0, 1)
         Y = np.swapaxes(Y, 0, 1)
         Z = np.swapaxes(Z, 0, 1)
+        with open('old_X.json', 'w') as f:
+            json.dump(X.tolist(), f, indent=4)
+        with open('old_Y.json', 'w') as f:
+            json.dump(Y.tolist(), f, indent=4)
+        with open('old_Z.json', 'w') as f:
+            json.dump(Z.tolist(), f, indent=4)
         likelihood = np.zeros((len(X), len(X[0]), len(X[0][0])))
         for index_1 in range(len(X)):
             for index_2 in range(len(X)):
