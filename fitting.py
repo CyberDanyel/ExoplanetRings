@@ -706,6 +706,12 @@ class Data_Object():
         for mesh in meshes:
             flipped_axes_meshes.append(np.swapaxes(mesh, 0, 1))
         meshes = flipped_axes_meshes
+        with open('new_X.json', 'w') as f:
+            json.dump(meshes[0].tolist(), f, indent=4)
+        with open('new_Y.json', 'w') as f:
+            json.dump(meshes[1].tolist(), f, indent=4)
+        with open('new_Z.json', 'w') as f:
+            json.dump(meshes[2].tolist(), f, indent=4)
         likelihood = np.zeros(meshes[0].shape)
         indices_meshes = np.meshgrid(*[[i for i in range(likelihood.shape[j])] for j in range(len(likelihood.shape))])
         positions = np.vstack(list(map(np.ravel, indices_meshes)))
