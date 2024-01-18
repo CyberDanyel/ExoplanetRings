@@ -686,11 +686,11 @@ class Data_Object():
         for key in keys:
             key_value_range = ranges[key]
             if key == key1:
-                key_values = np.linspace(key_value_range[0], key_value_range[1], 15)
+                key_values = np.linspace(key_value_range[0], key_value_range[1], 11)
             if key == key2:
-                key_values = np.linspace(key_value_range[0], key_value_range[1], 15)
+                key_values = np.linspace(key_value_range[0], key_value_range[1], 10)
             if key == key3:
-                key_values = np.linspace(key_value_range[0], key_value_range[1], 15)
+                key_values = np.linspace(key_value_range[0], key_value_range[1], 11)
             all_params.append(key_values)
         X, Y, Z = np.meshgrid(*all_params)
         XsYs = np.meshgrid(all_params[0],all_params[1])
@@ -701,8 +701,8 @@ class Data_Object():
         Z = np.swapaxes(Z, 0, 1)
         likelihood = np.zeros((len(X), len(X[0]), len(X[0][0])))
         for index_1 in range(len(X)):
-            for index_2 in range(len(X)):
-                for index_3 in range(len(X)):
+            for index_2 in range(len(X[0])):
+                for index_3 in range(len(X[0][0])):
                     altered_model = best_model.copy()
                     altered_model[key1] = X[index_1][index_2][index_3]
                     altered_model[key2] = Y[index_1][index_2][index_3]
@@ -745,8 +745,8 @@ class Data_Object():
                 val = np.trapz(likelihood_1_3_2[index_1][index_3], x=np.array(range(len(X[0]))))
                 XZ_contour_vals[index_1][index_3] = val
         likelihood_2_3_1 = np.swapaxes(likelihood_1_3_2, 2, 0)
-        for index_2 in range(len(X)):
-            for index_3 in range(len(X)):
+        for index_2 in range(len(X[0])):
+            for index_3 in range(len(X[0][0])):
                 val = np.trapz(likelihood_2_3_1[index_2][index_3], x=np.array(range(len(X[0][0]))))
                 YZ_contour_vals[index_2][index_3] = val
         step = 0.01
