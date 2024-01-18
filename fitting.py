@@ -717,6 +717,8 @@ class Data_Object():
         positions = np.vstack(list(map(np.ravel, indices_meshes)))
         positions = np.transpose(positions)
         for indexes in positions:
+            if list(indexes) == [0,1,4]:
+                print('here')
             altered_model = best_model.copy()
             for i, key in enumerate(keyslist):
                 altered_model[key] = meshes[i][*indexes]
