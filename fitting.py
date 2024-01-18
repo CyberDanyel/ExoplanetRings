@@ -686,11 +686,11 @@ class Data_Object():
         for key in keys:
             key_value_range = ranges[key]
             if key == key1:
-                key_values = np.linspace(key_value_range[0], key_value_range[1], 2)
-            if key == key2:
                 key_values = np.linspace(key_value_range[0], key_value_range[1], 4)
-            if key == key3:
+            if key == key2:
                 key_values = np.linspace(key_value_range[0], key_value_range[1], 6)
+            if key == key3:
+                key_values = np.linspace(key_value_range[0], key_value_range[1], 8)
             all_params.append(key_values)
         X, Y, Z = np.meshgrid(*all_params)
         XsYs = np.meshgrid(all_params[0],all_params[1])
@@ -729,8 +729,8 @@ class Data_Object():
             integral_over_Y[index_1] = val
 
         total_integral = np.trapz(integral_over_Y, x=np.array(range(len(X))))
-
-        likelihood = likelihood / total_integral
+        if total_integral != 0:
+            likelihood = likelihood / total_integral
         XY_contour_vals = np.zeros((len(X),
                                     len(X[0])))
         XZ_contour_vals = np.zeros((len(X),
@@ -749,7 +749,7 @@ class Data_Object():
         likelihood_2_3_1 = np.swapaxes(likelihood_1_3_2, 2, 0)
         for index_2 in range(len(X[0])):
             for index_3 in range(len(X[0][0])):
-                val = np.trapz(likelihood_2_3_1[index_2][index_3], x=np.array(range(len(X[0][0]))))
+                val = np.trapz(likelihood_2_3_1[index_2][index_3], x=np.array(range(len(X))))
                 YZ_contour_vals[index_2][index_3] = val
         step = 0.01
         levels = np.arange(start=0, stop=XY_contour_vals.max()+step, step=step)
