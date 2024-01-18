@@ -722,7 +722,8 @@ class Data_Object():
             else:
                 likelihood_val = self.likelihood_ringless_model(planet_sc_law, altered_model)
                 likelihood[*indexes] = likelihood_val
-
+        with open('likelihood_new.json', 'w') as f:
+            json.dump(likelihood.tolist(), f, indent=4)
         integral_over_Z = np.zeros((len(X),
                                     len(X[0])))
         for index_1 in range(len(X)):
@@ -818,6 +819,7 @@ class Data_Object():
 
 
 def generate_data(test_planet):
+    np.random.seed(seed=5)
     test_alphas = list(np.linspace(-np.pi, -.3, 10)) + list(np.linspace(-.29, .29, 10)) + list(
         np.linspace(.3, np.pi, 10))
     test_alphas = np.array(test_alphas)
@@ -826,4 +828,6 @@ def generate_data(test_planet):
     noise_vals = np.random.normal(size=len(test_alphas))
     data_vals = errs * noise_vals + I
     data = np.array([test_alphas, data_vals, errs])
+    with open('new_data.json', 'w') as f:
+        json.dump(data.tolist(), f, indent=4)
     return data
