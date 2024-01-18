@@ -50,7 +50,7 @@ class FittingRingedPlanet(exoring_objects.RingedPlanet, FittingPlanet):
 
 def gaussian(x, mu, sigma):
     with np.errstate(under='ignore'):
-        return (1 / np.sqrt(2 * np.pi * sigma)) * np.exp(-0.5 * ((x - mu) / sigma) ** 2)
+        return (1 / (sigma*np.sqrt(2 * np.pi))) * np.exp(-0.5 * ((x - mu) / sigma) ** 2)
 
 
 class Data_Object():
@@ -685,11 +685,21 @@ class Data_Object():
         key3 = keyslist[2]
         for key in keys:
             key_value_range = ranges[key]
-            key_values = np.linspace(key_value_range[0], key_value_range[1], 20)
+            if key == key1:
+                key_values = np.linspace(key_value_range[0], key_value_range[1], 15)
+            if key == key2:
+                key_values = np.linspace(key_value_range[0], key_value_range[1], 15)
+            if key == key3:
+                key_values = np.linspace(key_value_range[0], key_value_range[1], 15)
             all_params.append(key_values)
         X, Y, Z = np.meshgrid(*all_params)
-        xsmall, ysmall = np.meshgrid(all_params[0], all_params[1])
-        likelihood = np.zeros((len(X), len(X), len(X)))
+        XsYs = np.meshgrid(all_params[0],all_params[1])
+        XsZs = np.meshgrid(all_params[0], all_params[2])
+        YsZs = np.meshgrid(all_params[1], all_params[2])
+        X = np.swapaxes(X, 0, 1)
+        Y = np.swapaxes(Y, 0, 1)
+        Z = np.swapaxes(Z, 0, 1)
+        likelihood = np.zeros((len(X), len(X[0]), len(X[0][0])))
         for index_1 in range(len(X)):
             for index_2 in range(len(X)):
                 for index_3 in range(len(X)):
@@ -703,16 +713,47 @@ class Data_Object():
                     else:
                         likelihood_val = self.likelihood_ringless_model(planet_sc_law, altered_model)
                         likelihood[index_1][index_2][index_3] = likelihood_val
-        XY_contour_vals = np.zeros((len(X),
-                                    len(Y)))  # These lengths work if all the same linspace, but probably not right if not, should debug
-        for index_1 in range(len(X)):
-            for index_2 in range(len(Y)):
-                val = np.trapz(likelihood[index_1][index_2], x=np.array(range(len(Z))))
-                XY_contour_vals[index_1][index_2] = val
 
+        integral_over_Z = np.zeros((len(X),
+                                    len(X[0])))
+        for index_1 in range(len(X)):
+            for index_2 in range(len(X[0])):
+                val = np.trapz(likelihood[index_1][index_2], x=np.array(range(len(X[0][0]))))
+                integral_over_Z[index_1][index_2] = val
+
+        integral_over_Y = np.zeros(len(X))
+        for index_1 in range(len(X)):
+            val = np.trapz(integral_over_Z[index_1], x=np.array(range(len(X[0]))))
+            integral_over_Y[index_1] = val
+
+        total_integral = np.trapz(integral_over_Y, x=np.array(range(len(X))))
+
+        likelihood = likelihood / total_integral
+        XY_contour_vals = np.zeros((len(X),
+                                    len(X[0])))
+        XZ_contour_vals = np.zeros((len(X),
+                                    len(X[0][0])))
+        YZ_contour_vals = np.zeros((len(X[0]),
+                                    len(X[0][0])))
+        for index_1 in range(len(X)):
+            for index_2 in range(len(X[0])):
+                val = np.trapz(likelihood[index_1][index_2], x=np.array(range(len(X[0][0]))))
+                XY_contour_vals[index_1][index_2] = val
+        likelihood_1_3_2 = np.swapaxes(likelihood, 1, 2)
+        for index_1 in range(len(X)):
+            for index_3 in range(len(X[0][0])):
+                val = np.trapz(likelihood_1_3_2[index_1][index_3], x=np.array(range(len(X[0]))))
+                XZ_contour_vals[index_1][index_3] = val
+        likelihood_2_3_1 = np.swapaxes(likelihood_1_3_2, 2, 0)
+        for index_2 in range(len(X)):
+            for index_3 in range(len(X)):
+                val = np.trapz(likelihood_2_3_1[index_2][index_3], x=np.array(range(len(X[0][0]))))
+                YZ_contour_vals[index_2][index_3] = val
+        step = 0.01
+        levels = np.arange(start=0, stop=XY_contour_vals.max()+step, step=step)
         plt.style.use('the_usual.mplstyle')
         fig, ax = plt.subplots()
-        cp = ax.contourf(xsmall, ysmall, XY_contour_vals, cmap='viridis')
+        cp = ax.contourf(np.swapaxes(XsYs[0], 0, 1), np.swapaxes(XsYs[1], 0, 1), XY_contour_vals, levels, cmap='viridis')
         cbar = fig.colorbar(cp)  # Add a colorbar to a plot
         cbar.ax.tick_params(labelsize=12)
         ax.set_title(f'likelihood {key2} against {key1}', fontsize=13)
@@ -726,6 +767,44 @@ class Data_Object():
         ax.xaxis.set_minor_locator(AutoMinorLocator(2))
         ax.yaxis.set_minor_locator(AutoMinorLocator(2))
         plt.savefig(f'images/contour {key1}+{key2}', dpi=600)
+        plt.show()
+
+        levels = np.arange(start=0, stop=XZ_contour_vals.max()+step, step=step)
+        plt.style.use('the_usual.mplstyle')
+        fig, ax = plt.subplots()
+        cp = ax.contourf(np.swapaxes(XsZs[0], 0, 1), np.swapaxes(XsZs[1], 0, 1), XZ_contour_vals, cmap='viridis', levels=levels)
+        cbar = fig.colorbar(cp)  # Add a colorbar to a plot
+        cbar.ax.tick_params(labelsize=12)
+        ax.set_title(f'likelihood {key3} against {key1}', fontsize=13)
+        # ax.ticklabel_format(axis='y', style='sci', scilimits=(-3, -3))
+        ax.tick_params(direction='in', top=True, right=True, which='both', labelsize=12)
+        # ax.set_xticks([0.21, 0.23, 0.25, 0.27, 0.29])
+        # ax.set_yticks([1.95e-3, 2e-3, 2.05e-3, 2.1e-3, 2.15e-3, 2.2e-3, 2.25e-3])
+        ax.set_xlabel(f'{key1}', fontsize=13)
+        ax.set_ylabel(f'{key3}', fontsize=13)
+        ax.minorticks_on()
+        ax.xaxis.set_minor_locator(AutoMinorLocator(2))
+        ax.yaxis.set_minor_locator(AutoMinorLocator(2))
+        plt.savefig(f'images/contour {key1}+{key3}', dpi=600)
+        plt.show()
+
+        levels = np.arange(start=0, stop=YZ_contour_vals.max()+step, step=step)
+        plt.style.use('the_usual.mplstyle')
+        fig, ax = plt.subplots()
+        cp = ax.contourf(np.swapaxes(YsZs[0], 0, 1), np.swapaxes(YsZs[1], 0, 1), YZ_contour_vals, cmap='viridis', levels=levels)
+        cbar = fig.colorbar(cp)  # Add a colorbar to a plot
+        cbar.ax.tick_params(labelsize=12)
+        ax.set_title(f'likelihood {key3} against {key2}', fontsize=13)
+        # ax.ticklabel_format(axis='y', style='sci', scilimits=(-3, -3))
+        ax.tick_params(direction='in', top=True, right=True, which='both', labelsize=12)
+        # ax.set_xticks([0.21, 0.23, 0.25, 0.27, 0.29])
+        # ax.set_yticks([1.95e-3, 2e-3, 2.05e-3, 2.1e-3, 2.15e-3, 2.2e-3, 2.25e-3])
+        ax.set_xlabel(f'{key2}', fontsize=13)
+        ax.set_ylabel(f'{key3}', fontsize=13)
+        ax.minorticks_on()
+        ax.xaxis.set_minor_locator(AutoMinorLocator(2))
+        ax.yaxis.set_minor_locator(AutoMinorLocator(2))
+        plt.savefig(f'images/contour {key2}+{key3}', dpi=600)
         plt.show()
 
 
