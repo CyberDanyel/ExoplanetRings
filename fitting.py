@@ -686,11 +686,11 @@ class Data_Object():
         for key in keys:
             key_value_range = ranges[key]
             if key == key1:
-                key_values = np.linspace(key_value_range[0], key_value_range[1], 11)
+                key_values = np.linspace(key_value_range[0], key_value_range[1], 2)
             if key == key2:
-                key_values = np.linspace(key_value_range[0], key_value_range[1], 10)
+                key_values = np.linspace(key_value_range[0], key_value_range[1], 4)
             if key == key3:
-                key_values = np.linspace(key_value_range[0], key_value_range[1], 11)
+                key_values = np.linspace(key_value_range[0], key_value_range[1], 6)
             all_params.append(key_values)
         X, Y, Z = np.meshgrid(*all_params)
         XsYs = np.meshgrid(all_params[0],all_params[1])
@@ -701,13 +701,15 @@ class Data_Object():
         Z = np.swapaxes(Z, 0, 1)
         likelihood = np.zeros((len(X), len(X[0]), len(X[0][0])))
         for index_1 in range(len(X)):
-            for index_2 in range(len(X[0])):
-                for index_3 in range(len(X[0][0])):
+            for index_2 in range(len(X)):
+                for index_3 in range(len(X)):
                     altered_model = best_model.copy()
                     altered_model[key1] = X[index_1][index_2][index_3]
                     altered_model[key2] = Y[index_1][index_2][index_3]
                     altered_model[key3] = Z[index_1][index_2][index_3]
                     if ringed:
+                        if altered_model['radius'] == 1.5 and altered_model['disk_gap'] == 0.01 and altered_model['ring_width'] == 0.01:
+                            print('here')
                         likelihood_val = self.likelihood_ringed_model(planet_sc_law, ring_sc_law, altered_model)
                         likelihood[index_1][index_2][index_3] = likelihood_val
                     else:
