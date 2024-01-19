@@ -20,11 +20,12 @@ star = exoring_objects.Star(L_SUN, R_SUN, 0.1*AU, 1.)
 
 ice = materials.RingMaterial('materials/saturn_small_ice.inp', 361, 500)
 silicate = materials.RingMaterial('materials/silicate_small.inp', 361, 500)
+atmos = materials.Atmosphere([500, 0.5, 0.6, 1e6], [scattering.Rayleigh, M_JUP, R_JUP], star)
 
 sc_ice = scattering.WavelengthDependentScattering(ice, bandpass, star.planck_function)
 sc_sil = scattering.WavelengthDependentScattering(silicate, bandpass, star.planck_function)
 sc_ring_diffuse = scattering.Lambert(sc_sil.albedo)
-sc_planet = scattering.Jupiter(1.)
+sc_planet = scattering.WavelengthDependentScattering(atmos, bandpass, star.planck_function)
 sc_mie = scattering.Mie(1., 10, 1.5+.1j)
 
 ring_params = [1.2*R_JUP, 2*R_JUP, [1., 0.5, 0.1], star]
@@ -33,6 +34,7 @@ sil_rplanet = exoring_objects.RingedPlanet(sc_planet, R_JUP, sc_sil, *ring_param
 ice_rplanet = exoring_objects.RingedPlanet(sc_planet, R_JUP, sc_ice, *ring_params)
 diffuse_rplanet = exoring_objects.RingedPlanet(sc_planet, R_JUP, sc_ring_diffuse, *ring_params)
 mie_rplanet = exoring_objects.RingedPlanet(sc_planet, R_JUP, sc_mie, *ring_params)
+
 
 alphas = list(np.linspace(-np.pi, -0.1, 1000)) + list(np.linspace(-.1, .1, 1000)) + list(np.linspace(0.1, np.pi, 1000))
 alphas = np.array(alphas)

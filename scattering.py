@@ -106,7 +106,7 @@ class RandJ(Rayleigh, Jupiter):
     def randj_func(self, theta):
         return self.ray_to_jup_ratio[0]*self.rayleigh_func(theta) + self.ray_to_jup_ratio[1]*self.jupiter_func(theta)
 
-class WavelengthDependentScattering(SingleScatteringLaw):
+class WavelengthDependentScattering(Jupiter, Rayleigh, Lambert, Mie, SingleEmpirical):
     def __init__(self, material, bandpass, inc_spec):
         self.material = material
         self.bandpass = bandpass
