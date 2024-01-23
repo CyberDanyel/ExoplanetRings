@@ -79,7 +79,7 @@ if __name__ == '__main__':
     bounds_planet = {'radius': (0, star.radius), 'planet_sc_args': {'albedo': (0, 1)}}
 
     Data = fitting.Data_Object(ring_data, star_obj)
-    Data.produce_corner_plot(model_parameters,{'radius':(0.01,1.5), 'disk_gap':(0.01,3), 'ring_width':(0.01,1.3)},ringed=True,planet_sc_law=scattering.Jupiter, ring_sc_law=scattering.Rayleigh)
+    Data.produce_corner_plot(model_parameters,{'radius':(0.01,1.5), 'disk_gap':(0.01,3), 'ring_width':(0.01,1.5)},ringed=True,planet_sc_law=scattering.Jupiter, ring_sc_law=scattering.Rayleigh)
     #Data.run_ringed_model(scattering.Jupiter, scattering.Rayleigh, model_parameters)
     #param_sets1 = Data.create_various_model_parameters(radius = (0.09, 0.83, 1), ring_width = (JUP_SATURN_LIKE_RING, 10, (1/3)*JUP_HILL_RAD), disk_gap = (0.01))
     #param_sets2 = Data.create_various_model_parameters(radius = (0.09, 0.83, 1), disk_gap = (JUP_SATURN_LIKE_RING, 10, (1/3)*JUP_HILL_RAD), ring_width = (1))

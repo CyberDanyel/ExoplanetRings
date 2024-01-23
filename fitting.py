@@ -772,6 +772,8 @@ class Data_Object():
         for i, mesh in enumerate(meshes[::-1]):
             if len(meshes)-i-1 == 0: # Last variable to integrate through
                 integral_over_mesh = np.trapz(previous_integral, x=all_params[-(i + 1)])
+                with open(f'integral{i}.json', 'w') as f:
+                    json.dump(integral_over_mesh.tolist(), f, indent=4)
             else:
                 integral_over_mesh = np.zeros(mesh.shape[0:len(meshes)-i-1])
                 indices_meshes = np.meshgrid(
@@ -784,6 +786,8 @@ class Data_Object():
                 for indices in positions:
                     val = np.trapz(previous_integral[*indices], x=all_params[-(i+1)]) # Not sure if x is right here, figure this out
                     integral_over_mesh[*indices] = val
+                with open(f'integral{i}.json', 'w') as f:
+                    json.dump(integral_over_mesh.tolist(), f, indent=4)
                 previous_integral = integral_over_mesh
 
         print('previous', integral_over_mesh)
