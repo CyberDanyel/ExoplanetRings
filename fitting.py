@@ -732,12 +732,18 @@ class Data_Object():
                 val = np.trapz(likelihood[index_1][index_2], x=np.array(range(len(X[0][0]))))
                 integral_over_Z[index_1][index_2] = val
 
+        with open(f'integral0old.json', 'w') as f:
+            json.dump(integral_over_Z.tolist(), f, indent=4)
+
         integral_over_Y = np.zeros(len(X))
         for index_1 in range(len(X)):
             val = np.trapz(integral_over_Z[index_1], x=np.array(range(len(X[0]))))
             integral_over_Y[index_1] = val
-
+        with open(f'integral1old.json', 'w') as f:
+            json.dump(integral_over_Y.tolist(), f, indent=4)
         total_integral = np.trapz(integral_over_Y, x=np.array(range(len(X))))
+        with open(f'integral2old.json', 'w') as f:
+            json.dump(total_integral.tolist(), f, indent=4)
         if total_integral != 0:
             likelihood = likelihood / total_integral
         XY_contour_vals = np.zeros((len(X),
