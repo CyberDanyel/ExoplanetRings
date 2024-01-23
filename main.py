@@ -79,12 +79,17 @@ if __name__ == '__main__':
     bounds_planet = {'radius': (0, star.radius), 'planet_sc_args': {'albedo': (0, 1)}}
 
     Data = fitting.Data_Object(ring_data, star_obj)
-    Data.produce_corner_plot(model_parameters,{'radius':(0.01,1.5), 'disk_gap':(0.01,3), 'ring_width':(0.01,1.5)},ringed=True,planet_sc_law=scattering.Jupiter, ring_sc_law=scattering.Rayleigh)
+    Data.produce_corner_plot(model_parameters,{'radius':(0.01,1.5), 'disk_gap':(0.01,3), 'ring_width':(0.01,1.3)},ringed=True,planet_sc_law=scattering.Jupiter, ring_sc_law=scattering.Rayleigh)
     #Data.run_ringed_model(scattering.Jupiter, scattering.Rayleigh, model_parameters)
-    #param_sets = Data.create_various_model_parameters(ring_width = (JUP_SATURN_LIKE_RING, 10, (1/3)*JUP_HILL_RAD))
+    #param_sets1 = Data.create_various_model_parameters(radius = (0.09, 0.83, 1), ring_width = (JUP_SATURN_LIKE_RING, 10, (1/3)*JUP_HILL_RAD), disk_gap = (0.01))
+    #param_sets2 = Data.create_various_model_parameters(radius = (0.09, 0.83, 1), disk_gap = (JUP_SATURN_LIKE_RING, 10, (1/3)*JUP_HILL_RAD), ring_width = (1))
+    #param_sets3 = Data.create_various_model_parameters(ring_width=(JUP_SATURN_LIKE_RING, 10, 50),
+                                                       #disk_gap=(JUP_SATURN_LIKE_RING, 10, 50),
+                                                       #radius=(1))
     #Data.run_many_ringless_models(scattering.Jupiter, param_sets)
-    #Data.run_many_ringless_models(scattering.Jupiter, [model_parameters for i in range(9)])
-    #Data.run_many_ringed_models(scattering.Jupiter, scattering.Rayleigh, param_sets)
+    #Data.run_many_ringed_models(scattering.Jupiter, scattering.Rayleigh, param_sets1, changing_parms=('radius','ring_width'), static_param=('G', 0.01))
+    #Data.run_many_ringed_models(scattering.Jupiter, scattering.Rayleigh, param_sets2, changing_parms=('radius','disk_gap'), static_param=('W', 1))
+    #Data.run_many_ringed_models(scattering.Jupiter, scattering.Rayleigh, param_sets3, changing_parms=('ring_width','disk_gap'), static_param=('R', 1))
     #Data.run_many_ringed_models(scattering.Jupiter, scattering.Rayleigh, [model_parameters for i in range(9)])
     # Data.range_search_fitting(search_ranges_planet, 0.5, bounds_planet, [scattering.Lambert, scattering.Jupiter])
     # Data.range_search_fitting(search_ranges_ring, 0.5, bounds_ring, [scattering.Lambert, scattering.Jupiter], [scattering.Rayleigh])

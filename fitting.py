@@ -505,9 +505,11 @@ class Data_Object():
 
         plt.savefig('images/Multiples', dpi=1000)
 
-    def run_many_ringed_models(self, planet_sc_law, ring_sc_law, multiple_model_parameters, sharex=True, sharey=False):
+    def run_many_ringed_models(self, planet_sc_law, ring_sc_law, multiple_model_parameters, static_param, changing_parms, sharex=True, sharey=False):
         length = len(multiple_model_parameters)
         nrows = np.sqrt(length)
+        row_parms = list()
+        col_parms = list()
         if nrows.is_integer():
             ncols = nrows
             plt.style.use('the_usual.mplstyle')
@@ -538,21 +540,52 @@ class Data_Object():
                     raise NotImplementedError('This is too many models to fit nicely')
             else:
                 raise NotImplementedError('Number is prime and too large')
+        #fig.tight_layout()
+        fig.suptitle(f'Planet: {planet_sc_law.__name__} | Ring: {ring_sc_law.__name__} | {static_param[0]}: {static_param[1]}', y = 0.995)
         for model_parameters, ax in zip(multiple_model_parameters, axs.flat):
             I = self.data[1]
             I_errs = self.data[2]
             model_parameters['n_x'], model_parameters['n_y'], model_parameters['n_z'] = model_parameters['ring_normal'][
                 0], model_parameters['ring_normal'][1], model_parameters['ring_normal'][2]
+            model_ringless_planet = FittingPlanet(planet_sc_law, self.star, model_parameters)
             model_ringed_planet = FittingRingedPlanet(planet_sc_law, ring_sc_law, self.star, model_parameters)
             alphas = np.linspace(-np.pi, np.pi, 10000)
             resulting_lightcurve = model_ringed_planet.light_curve(alphas)
-            ax.errorbar(self.data[0] / np.pi, I, I_errs, fmt='.')
+            planet_lightcurve = model_ringless_planet.light_curve(alphas)
+            #ax.errorbar(self.data[0] / np.pi, I, I_errs, fmt='.')
+            ax.plot(alphas / np.pi, planet_lightcurve, 'orange')
             ax.plot(alphas / np.pi, resulting_lightcurve)
-            ax.set_title(
-                f'R:{round(model_parameters['radius'])} S:{round(model_parameters['disk_gap'])} W:{round(model_parameters['ring_width'])}',
-                fontsize=8, pad=2)
+            #ax.set_title(
+            #    f'R:{round(model_parameters['radius'],3)} G:{round(model_parameters['disk_gap'],3)} W:{round(model_parameters['ring_width'],3)}',
+            #    fontsize=8, pad=2)
+            if ax in axs[0]:  # If in the first row
+                col_parms.append(model_parameters[changing_parms[0]])
+                if changing_parms[0] == 'radius':
+                    ax.set_title(f'R: {model_parameters[changing_parms[0]]}', color='b')
+                elif changing_parms[0] == 'ring_width':
+                    if changing_parms[1] == 'radius':
+                        ax.set_title(f'W: {model_parameters[changing_parms[0]]}', color='b')
+                elif changing_parms[0] == 'disk_gap':
+                    ax.set_title(f'G: {model_parameters[changing_parms[0]]}', color='b')
+                else:
+                    ax.set_title(f'{changing_parms[0]}: {model_parameters[changing_parms[0]]}', color='b')
+            for row in range(len(axs)): # If in the last column
+                if ax == axs[row][int(ncols) - 1]:
+                    row_parms.append(model_parameters[changing_parms[1]])
+                    ax2 = ax.twinx()
+                    if changing_parms[1] == 'ring_width':
+                        ax2.set_ylabel(f'W: {round(model_parameters[changing_parms[1]],3)}', color='b', loc = 'center')
+                    elif changing_parms[1] == 'radius':
+                        ax2.set_ylabel(f'R: {round(model_parameters[changing_parms[1]],3)}', color='b', loc = 'center')
+                    elif changing_parms[1] == 'disk_gap':
+                        ax2.set_ylabel(f'G: {round(model_parameters[changing_parms[1]],3)}', color='b', loc = 'center')
+                    else:
+                        ax2.set_ylabel(f'{changing_parms[1]}: {model_parameters[changing_parms[1]]}', color='b')
+                    #ax.set_title
+
         if int(nrows) == 1:
             for ax in axs:
+                ax.ticklabel_format(axis='y', style='sci', scilimits=(0, 0))  # force scientific notation
                 ax.xaxis.set_major_formatter(FuncFormatter(exoring_functions.format_fraction_with_pi))
                 ax.xaxis.set_major_locator(tck.MultipleLocator(base=1 / 2))
                 ax.set_xlabel(r'Phase angle $\alpha$')
@@ -561,15 +594,18 @@ class Data_Object():
                         ax.set_ylabel(r'Intensity ($L_{\odot}$)')
         else:
             for ax in axs.flat:
+                ax.ticklabel_format(axis = 'y', style = 'sci', scilimits=(0,0)) # force scientific notation
                 ax.xaxis.set_major_formatter(FuncFormatter(exoring_functions.format_fraction_with_pi))
                 ax.xaxis.set_major_locator(tck.MultipleLocator(base=1 / 2))
                 if ax in axs[int(nrows) - 1]:  # If in the last row
                     ax.set_xlabel(r'Phase angle $\alpha$')
+                #elif ax in axs[0]: # If in the first row
+                #    ax.set_title(R)
                 for row in range(int(nrows)):
                     if ax == axs[row][0]:  # If in the first column
                         ax.set_ylabel(r'Intensity ($L_{\odot}$)')
 
-        plt.savefig('images/Multiples', dpi=1000)
+        plt.savefig(f'images/Multiples3', dpi=1000)
 
     def create_various_model_parameters(self, **kwargs):
         # Changing albedos not implemented
@@ -577,7 +613,7 @@ class Data_Object():
         all_params = list()
         order_dictionary = dict()
         default = {'radius': 1,
-                   'disk_gap': 0.01, 'ring_width': 1,
+                   'disk_gap': 1, 'ring_width': 1,
                    'ring_normal': np.array([1., 1., 0]),
                    'planet_sc_args': {'albedo': 1},
                    'ring_sc_args': {'albedo': 0.01}}
@@ -589,9 +625,9 @@ class Data_Object():
         grid = np.meshgrid(*all_params)
         positions = np.vstack(list(map(np.ravel, grid)))
         for iteration in range(len(positions[0])):
+            new_dict = default.copy()
             for order in range(len(positions)):
                 key = order_dictionary[order]
-                new_dict = default.copy()
                 new_dict[key] = positions[order][iteration]
             all_dicts.append(new_dict)
         return all_dicts
@@ -732,6 +768,25 @@ class Data_Object():
                 likelihood[*indexes] = likelihood_val
         with open('likelihood_new.json', 'w') as f:
             json.dump(likelihood.tolist(), f, indent=4)
+        previous_integral = likelihood
+        for i, mesh in enumerate(meshes[::-1]):
+            if len(meshes)-i-1 == 0: # Last variable to integrate through
+                integral_over_mesh = np.trapz(previous_integral, x=all_params[-(i + 1)])
+            else:
+                integral_over_mesh = np.zeros(mesh.shape[0:len(meshes)-i-1])
+                indices_meshes = np.meshgrid(
+                    *[[i for i in range(integral_over_mesh.shape[j])] for j in range(len(integral_over_mesh.shape))])
+                if indices_meshes: # If not empty
+                    positions = np.vstack(list(map(np.ravel, indices_meshes)))
+                else:
+                    positions = np.array([0])
+                positions = np.transpose(positions)
+                for indices in positions:
+                    val = np.trapz(previous_integral[*indices], x=all_params[-(i+1)]) # Not sure if x is right here, figure this out
+                    integral_over_mesh[*indices] = val
+                previous_integral = integral_over_mesh
+
+        print('previous', integral_over_mesh)
         integral_over_Z = np.zeros((len(X),
                                     len(X[0])))
         for index_1 in range(len(X)):
