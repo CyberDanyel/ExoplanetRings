@@ -716,19 +716,21 @@ class Data_Object():
         keys = ranges.keys()
         keyslist = list(keys)
         indices = list(range(len(keyslist)))
+        keys_order = dict()
         all_params = list()
         key1 = keyslist[0]
         key2 = keyslist[1]
         key3 = keyslist[2]
-        for key in keys:
+        for i, key in enumerate(keys):
             key_value_range = ranges[key]
             if key == key1:
-                key_values = np.linspace(key_value_range[0], key_value_range[1], 2)
+                key_values = np.linspace(key_value_range[0], key_value_range[1], 15)
             if key == key2:
-                key_values = np.linspace(key_value_range[0], key_value_range[1], 4)
+                key_values = np.linspace(key_value_range[0], key_value_range[1], 15)
             if key == key3:
-                key_values = np.linspace(key_value_range[0], key_value_range[1], 6)
+                key_values = np.linspace(key_value_range[0], key_value_range[1], 15)
             all_params.append(key_values)
+            keys_order[key] = i
         mixed_indices = list()
         for index1 in indices:
             for index2 in indices:
@@ -753,31 +755,27 @@ class Data_Object():
         positions = np.vstack(list(map(np.ravel, indices_meshes)))
         positions = np.transpose(positions)
         for indexes in positions:
-            if list(indexes) == [0,1,4]:
-                print('here')
             altered_model = best_model.copy()
             for i, key in enumerate(keyslist):
                 altered_model[key] = meshes[i][*indexes]
             if ringed:
                 likelihood_val = self.likelihood_ringed_model(planet_sc_law, ring_sc_law, altered_model)
                 likelihood[*indexes] = likelihood_val
-                if likelihood_val > 0:
-                    print('here')
             else:
                 likelihood_val = self.likelihood_ringless_model(planet_sc_law, altered_model)
                 likelihood[*indexes] = likelihood_val
         with open('likelihood_new.json', 'w') as f:
             json.dump(likelihood.tolist(), f, indent=4)
         previous_integral = likelihood
-        for i, mesh in enumerate(meshes[::-1]):
+        for i in range(len(meshes)):
             if len(meshes)-i-1 == 0: # Last variable to integrate through
-                integral_over_mesh = np.trapz(previous_integral, x=all_params[-(i + 1)])
+                total_integral = np.trapz(previous_integral, x=all_params[-(i + 1)])
                 with open(f'integral{i}.json', 'w') as f:
-                    json.dump(integral_over_mesh.tolist(), f, indent=4)
+                    json.dump(total_integral.tolist(), f, indent=4)
             else:
-                integral_over_mesh = np.zeros(mesh.shape[0:len(meshes)-i-1])
+                integral_over_mesh = np.zeros(likelihood.shape[0:len(meshes)-i-1])
                 indices_meshes = np.meshgrid(
-                    *[[i for i in range(integral_over_mesh.shape[j])] for j in range(len(integral_over_mesh.shape))])
+                    *[[i for i in range(integral_over_mesh.shape[j])] for j in range(len(integral_over_mesh.shape))]) # list comprehension creates lists of possible index values.e.g. for ndarray:(2,4) --> [[0, 1], [0, 1, 2, 3]]
                 if indices_meshes: # If not empty
                     positions = np.vstack(list(map(np.ravel, indices_meshes)))
                 else:
@@ -790,100 +788,61 @@ class Data_Object():
                     json.dump(integral_over_mesh.tolist(), f, indent=4)
                 previous_integral = integral_over_mesh
 
-        print('previous', integral_over_mesh)
-        integral_over_Z = np.zeros((len(X),
-                                    len(X[0])))
-        for index_1 in range(len(X)):
-            for index_2 in range(len(X[0])):
-                val = np.trapz(likelihood[index_1][index_2], x=np.array(range(len(X[0][0]))))
-                integral_over_Z[index_1][index_2] = val
-
-        integral_over_Y = np.zeros(len(X))
-        for index_1 in range(len(X)):
-            val = np.trapz(integral_over_Z[index_1], x=np.array(range(len(X[0]))))
-            integral_over_Y[index_1] = val
-
-        total_integral = np.trapz(integral_over_Y, x=np.array(range(len(X))))
+        print('previous', total_integral)
 
         likelihood = likelihood / total_integral
-        XY_contour_vals = np.zeros((len(X),
-                                    len(X[0])))
-        XZ_contour_vals = np.zeros((len(X),
-                                    len(X[0][0])))
-        YZ_contour_vals = np.zeros((len(X[0]),
-                                    len(X[0][0])))
-        for index_1 in range(len(X)):
-            for index_2 in range(len(X[0])):
-                val = np.trapz(likelihood[index_1][index_2], x=np.array(range(len(X[0][0]))))
-                XY_contour_vals[index_1][index_2] = val
-        likelihood_1_3_2 = np.swapaxes(likelihood, 1, 2)
-        for index_1 in range(len(X)):
-            for index_3 in range(len(X[0][0])):
-                val = np.trapz(likelihood_1_3_2[index_1][index_3], x=np.array(range(len(X[0]))))
-                XZ_contour_vals[index_1][index_3] = val
-        likelihood_2_3_1 = np.swapaxes(likelihood_1_3_2, 2, 0)
-        for index_2 in range(len(X)):
-            for index_3 in range(len(X)):
-                val = np.trapz(likelihood_2_3_1[index_2][index_3], x=np.array(range(len(X[0][0]))))
-                YZ_contour_vals[index_2][index_3] = val
-        step = 0.001
-        levels = np.arange(start=0, stop=XY_contour_vals.max()+step, step=step)
-        plt.style.use('the_usual.mplstyle')
-        fig, ax = plt.subplots()
-        cp1 = ax.contourf(np.swapaxes(XsYs[0], 0, 1), np.swapaxes(XsYs[1], 0, 1), XY_contour_vals, levels, cmap='viridis')
-        cbar1 = fig.colorbar(cp1)  # Add a colorbar to a plot
-        cbar1.ax.tick_params(labelsize=12)
-        ax.set_title(f'likelihood {key2} against {key1}', fontsize=13)
-        # ax.ticklabel_format(axis='y', style='sci', scilimits=(-3, -3))
-        ax.tick_params(direction='in', top=True, right=True, which='both', labelsize=12)
-        # ax.set_xticks([0.21, 0.23, 0.25, 0.27, 0.29])
-        # ax.set_yticks([1.95e-3, 2e-3, 2.05e-3, 2.1e-3, 2.15e-3, 2.2e-3, 2.25e-3])
-        ax.set_xlabel(f'{key1}', fontsize=13)
-        ax.set_ylabel(f'{key2}', fontsize=13)
-        ax.minorticks_on()
-        ax.xaxis.set_minor_locator(AutoMinorLocator(2))
-        ax.yaxis.set_minor_locator(AutoMinorLocator(2))
-        plt.savefig(f'images/contour {key1}+{key2}', dpi=600)
-        plt.show()
+        mixed_keys = list()
+        for key1 in ranges.keys():
+            for key2 in ranges.keys():
+                if key1 != key2 and (key2, key1) not in mixed_keys:
+                    mixed_keys.append((key1, key2))
 
-        levels = np.arange(start=0, stop=XZ_contour_vals.max()+step, step=step)
-        plt.style.use('the_usual.mplstyle')
-        fig, ax = plt.subplots()
-        cp = ax.contourf(np.swapaxes(XsZs[0], 0, 1), np.swapaxes(XsZs[1], 0, 1), XZ_contour_vals, cmap='viridis', levels=levels)
-        cbar = fig.colorbar(cp)  # Add a colorbar to a plot
-        cbar.ax.tick_params(labelsize=12)
-        ax.set_title(f'likelihood {key3} against {key1}', fontsize=13)
-        # ax.ticklabel_format(axis='y', style='sci', scilimits=(-3, -3))
-        ax.tick_params(direction='in', top=True, right=True, which='both', labelsize=12)
-        # ax.set_xticks([0.21, 0.23, 0.25, 0.27, 0.29])
-        # ax.set_yticks([1.95e-3, 2e-3, 2.05e-3, 2.1e-3, 2.15e-3, 2.2e-3, 2.25e-3])
-        ax.set_xlabel(f'{key1}', fontsize=13)
-        ax.set_ylabel(f'{key3}', fontsize=13)
-        ax.minorticks_on()
-        ax.xaxis.set_minor_locator(AutoMinorLocator(2))
-        ax.yaxis.set_minor_locator(AutoMinorLocator(2))
-        plt.savefig(f'images/contour {key1}+{key3}', dpi=600)
-        plt.show()
-
-        levels = np.arange(start=0, stop=YZ_contour_vals.max()+step, step=step)
-        plt.style.use('the_usual.mplstyle')
-        fig, ax = plt.subplots()
-        cp = ax.contourf(np.swapaxes(YsZs[0], 0, 1), np.swapaxes(YsZs[1], 0, 1), YZ_contour_vals, cmap='viridis', levels=levels)
-        cbar = fig.colorbar(cp)  # Add a colorbar to a plot
-        cbar.ax.tick_params(labelsize=12)
-        ax.set_title(f'likelihood {key3} against {key2}', fontsize=13)
-        # ax.ticklabel_format(axis='y', style='sci', scilimits=(-3, -3))
-        ax.tick_params(direction='in', top=True, right=True, which='both', labelsize=12)
-        # ax.set_xticks([0.21, 0.23, 0.25, 0.27, 0.29])
-        # ax.set_yticks([1.95e-3, 2e-3, 2.05e-3, 2.1e-3, 2.15e-3, 2.2e-3, 2.25e-3])
-        ax.set_xlabel(f'{key2}', fontsize=13)
-        ax.set_ylabel(f'{key3}', fontsize=13)
-        ax.minorticks_on()
-        ax.xaxis.set_minor_locator(AutoMinorLocator(2))
-        ax.yaxis.set_minor_locator(AutoMinorLocator(2))
-        plt.savefig(f'images/contour {key2}+{key3}', dpi=600)
-        plt.show()
-
+        for key1, key2 in mixed_keys:
+            first_rearranged_likelihood = np.swapaxes(likelihood, 0, keys_order[key1])
+            rearranged_likelihood = np.swapaxes(first_rearranged_likelihood, 1, keys_order[key2])
+            param_values = all_params.copy()
+            param_values[0], param_values[1], param_values[keys_order[key1]], param_values[keys_order[key2]] = \
+            param_values[keys_order[key1]], param_values[keys_order[key2]], param_values[0], param_values[1]
+            previous_integral = rearranged_likelihood
+            for i, mesh in enumerate(meshes[::-1]):
+                if len(meshes) - i - 1 == 1:  # Penultimate variable
+                    integral_over_mesh = previous_integral
+                    break
+                else:
+                    integral_over_mesh = np.zeros(rearranged_likelihood.shape[0:len(meshes) - i - 1])
+                    indices_meshes = np.meshgrid(
+                        *[[i for i in range(integral_over_mesh.shape[j])] for j in range(
+                            len(integral_over_mesh.shape))])  # list comprehension creates lists of possible index values.e.g. for ndarray:(2,4) --> [[0, 1], [0, 1, 2, 3]]
+                    positions = np.vstack(list(map(np.ravel, indices_meshes)))
+                    positions = np.transpose(positions)
+                    for indices in positions:
+                        val = np.trapz(previous_integral[*indices],
+                                       x=param_values[-(i + 1)])  # Not sure if x is right here, figure this out
+                        integral_over_mesh[*indices] = val
+                    with open(f'integral{i}.json', 'w') as f:
+                        json.dump(integral_over_mesh.tolist(), f, indent=4)
+                    previous_integral = integral_over_mesh
+            contour_array = integral_over_mesh
+            step = 0.001
+            levels = np.arange(start=0, stop=contour_array.max() + step, step=step)
+            plt.style.use('the_usual.mplstyle')
+            fig, ax = plt.subplots()
+            cp1 = ax.contourf(np.swapaxes(plotmeshes[f'{keys_order[key1]}+{keys_order[key2]}'][0], 0, 1), np.swapaxes(plotmeshes[f'{keys_order[key1]}+{keys_order[key2]}'][1], 0, 1), contour_array, levels,
+                              cmap='viridis')
+            cbar1 = fig.colorbar(cp1)  # Add a colorbar to a plot
+            cbar1.ax.tick_params(labelsize=12)
+            ax.set_title(f'likelihood {key2} against {key1}', fontsize=13)
+            # ax.ticklabel_format(axis='y', style='sci', scilimits=(-3, -3))
+            ax.tick_params(direction='in', top=True, right=True, which='both', labelsize=12)
+            # ax.set_xticks([0.21, 0.23, 0.25, 0.27, 0.29])
+            # ax.set_yticks([1.95e-3, 2e-3, 2.05e-3, 2.1e-3, 2.15e-3, 2.2e-3, 2.25e-3])
+            ax.set_xlabel(f'{key1}', fontsize=13)
+            ax.set_ylabel(f'{key2}', fontsize=13)
+            ax.minorticks_on()
+            ax.xaxis.set_minor_locator(AutoMinorLocator(2))
+            ax.yaxis.set_minor_locator(AutoMinorLocator(2))
+            plt.savefig(f'images/contour {key1}+{key2}', dpi=600)
+            plt.show()
 
 def generate_data(test_planet):
     np.random.seed(seed=5)
