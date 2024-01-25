@@ -391,8 +391,6 @@ class Data_Object():
                                                  'Result': best_result[1],
                                                  'Planet_sc_function': best_result[2].__name__,
                                                  'Ring_sc_function': best_result[3].__name__}
-                with open('best_fit_ring.json', 'w') as f:
-                    json.dump(json_serializable_best_result, f, indent=4)
 
         else:
             with Pool(16) as pool:
@@ -409,8 +407,6 @@ class Data_Object():
                 json_serializable_best_result = {'NLL': best_result[0],
                                                  'Result': best_result[1],
                                                  'Planet_sc_function': best_result[2].__name__}
-                with open('best_fit_planet.json', 'w') as f:
-                    json.dump(json_serializable_best_result, f, indent=4)
 
     def run_ringless_model(self, planet_sc_law, model_parameters):
         plt.style.use('the_usual.mplstyle')
@@ -742,12 +738,6 @@ class Data_Object():
         for mesh in meshes:
             flipped_axes_meshes.append(np.swapaxes(mesh, 0, 1))
         meshes = flipped_axes_meshes
-        with open('new_X.json', 'w') as f:
-            json.dump(meshes[0].tolist(), f, indent=4)
-        with open('new_Y.json', 'w') as f:
-            json.dump(meshes[1].tolist(), f, indent=4)
-        with open('new_Z.json', 'w') as f:
-            json.dump(meshes[2].tolist(), f, indent=4)
         likelihood = np.zeros(meshes[0].shape)
         #saved = dict() # Used to check whether x in np.trapz was correct
         indices_meshes = np.meshgrid(*[[i for i in range(likelihood.shape[j])] for j in range(len(likelihood.shape))])
@@ -765,14 +755,10 @@ class Data_Object():
             else:
                 likelihood_val = self.likelihood_ringless_model(planet_sc_law, altered_model)
                 likelihood[*indexes] = likelihood_val
-        with open('likelihood_new.json', 'w') as f:
-            json.dump(likelihood.tolist(), f, indent=4)
         previous_integral = likelihood
         for i in range(len(meshes)):
             if len(meshes)-i-1 == 0: # Last variable to integrate through
                 total_integral = np.trapz(previous_integral, x=range(len(all_params[-(i + 1)])))
-                with open(f'integral{i}.json', 'w') as f:
-                    json.dump(total_integral.tolist(), f, indent=4)
             else:
                 integral_over_mesh = np.zeros(likelihood.shape[0:len(meshes)-i-1])
                 indices_meshes = np.meshgrid(
@@ -785,8 +771,6 @@ class Data_Object():
                 for indices in positions:
                     val = np.trapz(previous_integral[*indices], x=range(len(all_params[-(i+1)]))) # Not sure if x is right here, figure this out
                     integral_over_mesh[*indices] = val
-                with open(f'integral{i}.json', 'w') as f:
-                    json.dump(integral_over_mesh.tolist(), f, indent=4)
                 previous_integral = integral_over_mesh
 
         if total_integral != 0:
@@ -819,8 +803,6 @@ class Data_Object():
                         val = np.trapz(previous_integral[*indices],
                                        x=param_values[-(i + 1)])  # Not sure if x is right here, figure this out
                         integral_over_mesh[*indices] = val
-                    with open(f'integral{i}.json', 'w') as f:
-                        json.dump(integral_over_mesh.tolist(), f, indent=4)
                     previous_integral = integral_over_mesh
             contour_array = integral_over_mesh
             step = contour_array.max()/1000
@@ -854,6 +836,4 @@ def generate_data(test_planet):
     noise_vals = np.random.normal(size=len(test_alphas))
     data_vals = errs * noise_vals + I
     data = np.array([test_alphas, data_vals, errs])
-    with open('new_data.json', 'w') as f:
-        json.dump(data.tolist(), f, indent=4)
     return data
