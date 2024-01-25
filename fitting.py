@@ -669,7 +669,7 @@ class Data_Object():
                     # print(-np.sum(logs))
                     return np.sum(logs)
 
-    def produce_corner_plot(self, best_model, ranges, ringed, **kwargs):
+    def produce_slice_plot(self, best_model, ranges, ringed, **kwargs):
         planet_sc_law = kwargs['planet_sc_law']
         if ringed:
             ring_sc_law = kwargs['ring_sc_law']
