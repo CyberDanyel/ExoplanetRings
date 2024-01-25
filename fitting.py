@@ -674,32 +674,6 @@ class Data_Object():
                             logs[index] = -1000
                     # print(-np.sum(logs))
                     return np.sum(logs)
-
-    def log_likelihood_ringed_model(self, planet_sc_law, ring_sc_law, model_parameters):  # Used for manual models
-        # Calculates log likelihood for specific ringed planet params and scattering laws
-        alpha = self.data[0]
-        I = self.data[1]
-        I_errs = self.data[2]
-        model_parameters['n_x'], model_parameters['n_y'], model_parameters['n_z'] = model_parameters['ring_normal'][0], \
-            model_parameters['ring_normal'][1], model_parameters['ring_normal'][2]
-        if model_parameters['n_x'] < 0:
-            print('n_x was inputted to be <0, possibly the minimiser not respecting bounds')
-        model_ringed_planet = FittingRingedPlanet(planet_sc_law, ring_sc_law, self.star, model_parameters)
-        x = model_ringed_planet.light_curve(alpha)
-        with np.errstate(divide='raise'):
-            try:
-                # print(-np.sum(np.log(gaussian(x, I, I_errs))))
-                return np.sum(np.log(gaussian(x, I, I_errs)))
-            except:  # The gaussian has returned 0 for at least 1 data point
-                with np.errstate(divide='ignore'):
-                    # print('Triggered')
-                    logs = np.log(gaussian(x, I, I_errs))
-                    for index, element in enumerate(logs):
-                        if np.isinf(element):
-                            logs[index] = -1000
-                    # print(-np.sum(logs))
-                    return np.sum(logs)
-
     def produce_corner_plot(self, best_model, ranges, ringed, **kwargs):
         planet_sc_law = kwargs['planet_sc_law']
         if ringed:
@@ -825,6 +799,30 @@ class Data_Object():
             ax.yaxis.set_minor_locator(AutoMinorLocator(2))
             plt.savefig(f'images/contour {key1}+{key2}', dpi=600)
             plt.show()
+    def log_likelihood_ringed_model(self, planet_sc_law, ring_sc_law, model_parameters):  # Used for manual models
+        # Calculates log likelihood for specific ringed planet params and scattering laws
+        alpha = self.data[0]
+        I = self.data[1]
+        I_errs = self.data[2]
+        model_parameters['n_x'], model_parameters['n_y'], model_parameters['n_z'] = model_parameters['ring_normal'][0], \
+            model_parameters['ring_normal'][1], model_parameters['ring_normal'][2]
+        if model_parameters['n_x'] < 0:
+            print('n_x was inputted to be <0, possibly the minimiser not respecting bounds')
+        model_ringed_planet = FittingRingedPlanet(planet_sc_law, ring_sc_law, self.star, model_parameters)
+        x = model_ringed_planet.light_curve(alpha)
+        with np.errstate(divide='raise'):
+            try:
+                # print(-np.sum(np.log(gaussian(x, I, I_errs))))
+                return np.sum(np.log(gaussian(x, I, I_errs)))
+            except:  # The gaussian has returned 0 for at least 1 data point
+                with np.errstate(divide='ignore'):
+                    # print('Triggered')
+                    logs = np.log(gaussian(x, I, I_errs))
+                    for index, element in enumerate(logs):
+                        if np.isinf(element):
+                            logs[index] = -1000
+                    # print(-np.sum(logs))
+                    return np.sum(logs)
 
 def generate_data(test_planet):
     np.random.seed(seed=4) # conflict?
