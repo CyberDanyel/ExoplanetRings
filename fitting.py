@@ -774,11 +774,11 @@ class Data_Object():
         for i, key in enumerate(keys):
             key_value_range = ranges[key]
             if key == key1:
-                key_values = np.linspace(key_value_range[0], key_value_range[1], 50)
+                key_values = np.linspace(key_value_range[0], key_value_range[1], 30)
             if key == key2:
-                key_values = np.linspace(key_value_range[0], key_value_range[1], 50)
+                key_values = np.linspace(key_value_range[0], key_value_range[1], 30)
             if key == key3:
-                key_values = np.linspace(key_value_range[0], key_value_range[1], 50)
+                key_values = np.linspace(key_value_range[0], key_value_range[1], 30)
             all_params.append(key_values)
             keys_order[key] = i
         mixed_indices = list()
