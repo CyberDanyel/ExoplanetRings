@@ -3,7 +3,7 @@ import scipy.special as spe
 import scipy.interpolate as spip
 import scipy.integrate as spi
 import PyMieScatt as msc
-
+import materials
 
 def lambert_phase_func(alpha):
     # important enough to make its own thing
@@ -27,9 +27,9 @@ class Lambert(SingleScatteringLaw):
 
 class Rayleigh(SingleScatteringLaw):
     def __init__(self, albedo):
-        SingleScatteringLaw.__init__(self, albedo, self.rayleigh_func)
+        SingleScatteringLaw.__init__(self, albedo, Rayleigh.rayleigh_func)
 
-    def rayleigh_func(self, theta):
+    def rayleigh_func(theta):
         return (1 + np.cos(theta) ** 2)
 
 
@@ -106,7 +106,7 @@ class RandJ(Rayleigh, Jupiter):
     def randj_func(self, theta):
         return self.ray_to_jup_ratio[0]*self.rayleigh_func(theta) + self.ray_to_jup_ratio[1]*self.jupiter_func(theta)
 
-class WavelengthDependentScattering(SingleScatteringLaw):
+class WavelengthDependentScattering(Jupiter, Rayleigh, Lambert, Mie, SingleEmpirical):
     def __init__(self, material, bandpass, inc_spec):
         self.material = material
         self.bandpass = bandpass
@@ -114,23 +114,27 @@ class WavelengthDependentScattering(SingleScatteringLaw):
         self.inc_spec = inc_spec  # spectrum of the incident light for weighting scattering functions
         self.spec_norm = spi.quad(inc_spec, bandpass[0], bandpass[1], limit=100)[0]
         albedo = spi.quad(lambda wav: material.albedo(wav) * self.wavelength_weighting(wav), bandpass[0], bandpass[1], limit=1000)[0] / self.bandwidth
-        angles = np.linspace(0, np.pi, 1000)
-        vals = []
-        for angle in angles:
-            # int_val = spi.quad(lambda lam:material.phase_func(angle, lam), bandpass[0], bandpass[1])[0]
-            # this integral is incredibly slow, the following code is a simpler but quicker Riemann sum
-            lams = material.wavelengths
-            lams = lams[(lams >= bandpass[0]) * (lams <= bandpass[1])]
-            dlams = (lams - np.roll(lams, 1))[1:]
-            integrand = []
-            for i, dlam in enumerate(dlams):
-                integrand.append(
-                    material.phase_funcs[lams[i]](angle) * dlam * self.wavelength_weighting(lams[i]) * material.albedo(lams[i]))
-            int_val = np.sum(integrand)
-            avg_val = int_val / self.bandwidth
-            vals.append(avg_val)
-        func = spip.CubicSpline(angles, vals)
-        SingleScatteringLaw.__init__(self, albedo, func)
+        if isinstance(material, materials.RingMaterial):
+            angles = np.linspace(0, np.pi, 1000)
+            vals = []
+            for angle in angles:
+                # int_val = spi.quad(lambda lam:material.phase_func(angle, lam), bandpass[0], bandpass[1])[0]
+                # this integral is incredibly slow, the following code is a simpler but quicker Riemann sum
+                lams = material.wavelengths
+                lams = lams[(lams >= bandpass[0]) * (lams <= bandpass[1])]
+                dlams = (lams - np.roll(lams, 1))[1:]
+                integrand = []
+                for i, dlam in enumerate(dlams):
+                    integrand.append(
+                        material.phase_funcs[lams[i]](angle) * dlam * self.wavelength_weighting(lams[i]) * material.albedo(lams[i]))
+                int_val = np.sum(integrand)
+                avg_val = int_val / self.bandwidth
+                vals.append(avg_val)
+            func = spip.CubicSpline(angles, vals)
+            SingleScatteringLaw.__init__(self, albedo, func)
+        elif isinstance(material, materials.Atmosphere):
+            material.sc_class.__init__(self, albedo)
+        
 
     def wavelength_weighting(self, wavelength):
         return self.inc_spec(wavelength) * self.bandwidth / self.spec_norm

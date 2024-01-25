@@ -11,7 +11,6 @@ import time
 
 # everything also assumes circular orbits
 
-
 class Planet:
     def __init__(self, sc_law, radius, star):
         """
@@ -25,7 +24,7 @@ class Planet:
         self.phase_curve = np.vectorize(self.phase_curve_single)  # vectorizing so that arrays of phase angles can be
         # input more easily than with a Python for loop
         self.star = star
-
+        
     def get_mu_star(self, theta, phi, alpha):
         """
         Parameters
