@@ -505,9 +505,11 @@ class Data_Object():
 
         plt.savefig('images/Multiples', dpi=1000)
 
-    def run_many_ringed_models(self, planet_sc_law, ring_sc_law, multiple_model_parameters, sharex=True, sharey=False):
+    def run_many_ringed_models(self, planet_sc_law, ring_sc_law, multiple_model_parameters, static_param, changing_parms, sharex=True, sharey=False):
         length = len(multiple_model_parameters)
         nrows = np.sqrt(length)
+        row_parms = list()
+        col_parms = list()
         if nrows.is_integer():
             ncols = nrows
             plt.style.use('the_usual.mplstyle')
@@ -538,21 +540,52 @@ class Data_Object():
                     raise NotImplementedError('This is too many models to fit nicely')
             else:
                 raise NotImplementedError('Number is prime and too large')
+        #fig.tight_layout()
+        fig.suptitle(f'Planet: {planet_sc_law.__name__} | Ring: {ring_sc_law.__name__} | {static_param[0]}: {static_param[1]}', y = 0.995)
         for model_parameters, ax in zip(multiple_model_parameters, axs.flat):
             I = self.data[1]
             I_errs = self.data[2]
             model_parameters['n_x'], model_parameters['n_y'], model_parameters['n_z'] = model_parameters['ring_normal'][
                 0], model_parameters['ring_normal'][1], model_parameters['ring_normal'][2]
+            model_ringless_planet = FittingPlanet(planet_sc_law, self.star, model_parameters)
             model_ringed_planet = FittingRingedPlanet(planet_sc_law, ring_sc_law, self.star, model_parameters)
             alphas = np.linspace(-np.pi, np.pi, 10000)
             resulting_lightcurve = model_ringed_planet.light_curve(alphas)
-            ax.errorbar(self.data[0] / np.pi, I, I_errs, fmt='.')
+            planet_lightcurve = model_ringless_planet.light_curve(alphas)
+            #ax.errorbar(self.data[0] / np.pi, I, I_errs, fmt='.')
+            ax.plot(alphas / np.pi, planet_lightcurve, 'orange')
             ax.plot(alphas / np.pi, resulting_lightcurve)
-            ax.set_title(
-                f'R:{round(model_parameters['radius'])} S:{round(model_parameters['disk_gap'])} W:{round(model_parameters['ring_width'])}',
-                fontsize=8, pad=2)
+            #ax.set_title(
+            #    f'R:{round(model_parameters['radius'],3)} G:{round(model_parameters['disk_gap'],3)} W:{round(model_parameters['ring_width'],3)}',
+            #    fontsize=8, pad=2)
+            if ax in axs[0]:  # If in the first row
+                col_parms.append(model_parameters[changing_parms[0]])
+                if changing_parms[0] == 'radius':
+                    ax.set_title(f'R: {model_parameters[changing_parms[0]]}', color='b')
+                elif changing_parms[0] == 'ring_width':
+                    if changing_parms[1] == 'radius':
+                        ax.set_title(f'W: {model_parameters[changing_parms[0]]}', color='b')
+                elif changing_parms[0] == 'disk_gap':
+                    ax.set_title(f'G: {model_parameters[changing_parms[0]]}', color='b')
+                else:
+                    ax.set_title(f'{changing_parms[0]}: {model_parameters[changing_parms[0]]}', color='b')
+            for row in range(len(axs)): # If in the last column
+                if ax == axs[row][int(ncols) - 1]:
+                    row_parms.append(model_parameters[changing_parms[1]])
+                    ax2 = ax.twinx()
+                    if changing_parms[1] == 'ring_width':
+                        ax2.set_ylabel(f'W: {round(model_parameters[changing_parms[1]],3)}', color='b', loc = 'center')
+                    elif changing_parms[1] == 'radius':
+                        ax2.set_ylabel(f'R: {round(model_parameters[changing_parms[1]],3)}', color='b', loc = 'center')
+                    elif changing_parms[1] == 'disk_gap':
+                        ax2.set_ylabel(f'G: {round(model_parameters[changing_parms[1]],3)}', color='b', loc = 'center')
+                    else:
+                        ax2.set_ylabel(f'{changing_parms[1]}: {model_parameters[changing_parms[1]]}', color='b')
+                    #ax.set_title
+
         if int(nrows) == 1:
             for ax in axs:
+                ax.ticklabel_format(axis='y', style='sci', scilimits=(0, 0))  # force scientific notation
                 ax.xaxis.set_major_formatter(FuncFormatter(exoring_functions.format_fraction_with_pi))
                 ax.xaxis.set_major_locator(tck.MultipleLocator(base=1 / 2))
                 ax.set_xlabel(r'Phase angle $\alpha$')
@@ -561,6 +594,7 @@ class Data_Object():
                         ax.set_ylabel(r'Intensity ($L_{\odot}$)')
         else:
             for ax in axs.flat:
+                ax.ticklabel_format(axis = 'y', style = 'sci', scilimits=(0,0)) # force scientific notation
                 ax.xaxis.set_major_formatter(FuncFormatter(exoring_functions.format_fraction_with_pi))
                 ax.xaxis.set_major_locator(tck.MultipleLocator(base=1 / 2))
                 if ax in axs[int(nrows) - 1]:  # If in the last row
@@ -577,7 +611,7 @@ class Data_Object():
         all_params = list()
         order_dictionary = dict()
         default = {'radius': 1,
-                   'disk_gap': 0.01, 'ring_width': 1,
+                   'disk_gap': 1, 'ring_width': 1,
                    'ring_normal': np.array([1., 1., 0]),
                    'planet_sc_args': {'albedo': 1},
                    'ring_sc_args': {'albedo': 0.01}}
@@ -589,9 +623,9 @@ class Data_Object():
         grid = np.meshgrid(*all_params)
         positions = np.vstack(list(map(np.ravel, grid)))
         for iteration in range(len(positions[0])):
+            new_dict = default.copy()
             for order in range(len(positions)):
                 key = order_dictionary[order]
-                new_dict = default.copy()
                 new_dict[key] = positions[order][iteration]
             all_dicts.append(new_dict)
         return all_dicts
@@ -679,147 +713,136 @@ class Data_Object():
             best_ll = self.log_likelihood_ringless_model(planet_sc_law, best_model)
         keys = ranges.keys()
         keyslist = list(keys)
+        indices = list(range(len(keyslist)))
+        keys_order = dict()
         all_params = list()
-        key1 = keyslist[0]  # Temporary
+        key1 = keyslist[0]
         key2 = keyslist[1]
         key3 = keyslist[2]
-        for key in keys:
+        for i, key in enumerate(keys):
             key_value_range = ranges[key]
             if key == key1:
-                key_values = np.linspace(key_value_range[0], key_value_range[1], 30)
+                key_values = np.linspace(key_value_range[0], key_value_range[1], 50)
             if key == key2:
-                key_values = np.linspace(key_value_range[0], key_value_range[1], 30)
+                key_values = np.linspace(key_value_range[0], key_value_range[1], 50)
             if key == key3:
-                key_values = np.linspace(key_value_range[0], key_value_range[1], 30)
+                key_values = np.linspace(key_value_range[0], key_value_range[1], 50)
             all_params.append(key_values)
-        X, Y, Z = np.meshgrid(*all_params)
-        XsYs = np.meshgrid(all_params[0],all_params[1])
-        XsZs = np.meshgrid(all_params[0], all_params[2])
-        YsZs = np.meshgrid(all_params[1], all_params[2])
-        X = np.swapaxes(X, 0, 1)
-        Y = np.swapaxes(Y, 0, 1)
-        Z = np.swapaxes(Z, 0, 1)
-        with open('old_X.json', 'w') as f:
-            json.dump(X.tolist(), f, indent=4)
-        with open('old_Y.json', 'w') as f:
-            json.dump(Y.tolist(), f, indent=4)
-        with open('old_Z.json', 'w') as f:
-            json.dump(Z.tolist(), f, indent=4)
-        likelihood = np.zeros((len(X), len(X[0]), len(X[0][0])))
-        for index_1 in range(len(X)):
-            for index_2 in range(len(X[0])):
-                for index_3 in range(len(X[0][0])):
-                    altered_model = best_model.copy()
-                    altered_model[key1] = X[index_1][index_2][index_3]
-                    altered_model[key2] = Y[index_1][index_2][index_3]
-                    altered_model[key3] = Z[index_1][index_2][index_3]
-                    if ringed:
-                        likelihood_val = self.likelihood_ringed_model(planet_sc_law, ring_sc_law, altered_model)
-                        likelihood[index_1][index_2][index_3] = likelihood_val
-                    else:
-                        likelihood_val = self.likelihood_ringless_model(planet_sc_law, altered_model)
-                        likelihood[index_1][index_2][index_3] = likelihood_val
-        with open('likelihood_old.json', 'w') as f:
+            keys_order[key] = i
+        mixed_indices = list()
+        for index1 in indices:
+            for index2 in indices:
+                if index1 != index2 and (index2, index1) not in mixed_indices:
+                    mixed_indices.append((index1, index2))
+        meshes = np.meshgrid(*all_params)
+        plotmeshes = dict()
+        for index1, index2 in mixed_indices:
+            plotmeshes[f'{index1}+{index2}'] = np.meshgrid(all_params[index1],all_params[index2])
+        flipped_axes_meshes = list()
+        for mesh in meshes:
+            flipped_axes_meshes.append(np.swapaxes(mesh, 0, 1))
+        meshes = flipped_axes_meshes
+        with open('new_X.json', 'w') as f:
+            json.dump(meshes[0].tolist(), f, indent=4)
+        with open('new_Y.json', 'w') as f:
+            json.dump(meshes[1].tolist(), f, indent=4)
+        with open('new_Z.json', 'w') as f:
+            json.dump(meshes[2].tolist(), f, indent=4)
+        likelihood = np.zeros(meshes[0].shape)
+        #saved = dict() # Used to check whether x in np.trapz was correct
+        indices_meshes = np.meshgrid(*[[i for i in range(likelihood.shape[j])] for j in range(len(likelihood.shape))])
+        positions = np.vstack(list(map(np.ravel, indices_meshes)))
+        positions = np.transpose(positions)
+        for indexes in positions:
+            altered_model = best_model.copy()
+            for i, key in enumerate(keyslist):
+                altered_model[key] = meshes[i][*indexes]
+            if ringed:
+                likelihood_val = self.likelihood_ringed_model(planet_sc_law, ring_sc_law, altered_model)
+                likelihood[*indexes] = likelihood_val
+                #saved[f'{indexes}'] = f'radius:{meshes[0][*indexes]} disk_gap:{meshes[1][*indexes]} ring_width:{meshes[2][*indexes]}' #Used to check whether x in np.trapz was correct
+
+            else:
+                likelihood_val = self.likelihood_ringless_model(planet_sc_law, altered_model)
+                likelihood[*indexes] = likelihood_val
+        with open('likelihood_new.json', 'w') as f:
             json.dump(likelihood.tolist(), f, indent=4)
-        integral_over_Z = np.zeros((len(X),
-                                    len(X[0])))
-        for index_1 in range(len(X)):
-            for index_2 in range(len(X[0])):
-                val = np.trapz(likelihood[index_1][index_2], x=np.array(all_params[2]))
-                integral_over_Z[index_1][index_2] = val
+        previous_integral = likelihood
+        for i in range(len(meshes)):
+            if len(meshes)-i-1 == 0: # Last variable to integrate through
+                total_integral = np.trapz(previous_integral, x=range(len(all_params[-(i + 1)])))
+                with open(f'integral{i}.json', 'w') as f:
+                    json.dump(total_integral.tolist(), f, indent=4)
+            else:
+                integral_over_mesh = np.zeros(likelihood.shape[0:len(meshes)-i-1])
+                indices_meshes = np.meshgrid(
+                    *[[i for i in range(integral_over_mesh.shape[j])] for j in range(len(integral_over_mesh.shape))]) # list comprehension creates lists of possible index values.e.g. for ndarray:(2,4) --> [[0, 1], [0, 1, 2, 3]]
+                if indices_meshes: # If not empty
+                    positions = np.vstack(list(map(np.ravel, indices_meshes)))
+                else:
+                    positions = np.array([0])
+                positions = np.transpose(positions)
+                for indices in positions:
+                    val = np.trapz(previous_integral[*indices], x=range(len(all_params[-(i+1)]))) # Not sure if x is right here, figure this out
+                    integral_over_mesh[*indices] = val
+                with open(f'integral{i}.json', 'w') as f:
+                    json.dump(integral_over_mesh.tolist(), f, indent=4)
+                previous_integral = integral_over_mesh
 
-        with open(f'integral0old.json', 'w') as f:
-            json.dump(integral_over_Z.tolist(), f, indent=4)
-
-        integral_over_Y = np.zeros(len(X))
-        for index_1 in range(len(X)):
-            val = np.trapz(integral_over_Z[index_1], x=np.array(all_params[1]))
-            integral_over_Y[index_1] = val
-        with open(f'integral1old.json', 'w') as f:
-            json.dump(integral_over_Y.tolist(), f, indent=4)
-        total_integral = np.trapz(integral_over_Y, x=np.array(all_params[0]))
-        with open(f'integral2old.json', 'w') as f:
-            json.dump(total_integral.tolist(), f, indent=4)
         if total_integral != 0:
             likelihood = likelihood / total_integral
-        XY_contour_vals = np.zeros((len(X),
-                                    len(X[0])))
-        XZ_contour_vals = np.zeros((len(X),
-                                    len(X[0][0])))
-        YZ_contour_vals = np.zeros((len(X[0]),
-                                    len(X[0][0])))
-        for index_1 in range(len(X)):
-            for index_2 in range(len(X[0])):
-                val = np.trapz(likelihood[index_1][index_2], x=np.array(range(len(X[0][0]))))
-                XY_contour_vals[index_1][index_2] = val
-        likelihood_1_3_2 = np.swapaxes(likelihood, 1, 2)
-        for index_1 in range(len(X)):
-            for index_3 in range(len(X[0][0])):
-                val = np.trapz(likelihood_1_3_2[index_1][index_3], x=np.array(range(len(X[0]))))
-                XZ_contour_vals[index_1][index_3] = val
-        likelihood_2_3_1 = np.swapaxes(likelihood_1_3_2, 2, 0)
-        for index_2 in range(len(X[0])):
-            for index_3 in range(len(X[0][0])):
-                val = np.trapz(likelihood_2_3_1[index_2][index_3], x=np.array(range(len(X))))
-                YZ_contour_vals[index_2][index_3] = val
-        step = 0.01
-        levels = np.arange(start=0, stop=XY_contour_vals.max()+step, step=step)
-        plt.style.use('the_usual.mplstyle')
-        fig, ax = plt.subplots()
-        cp = ax.contourf(np.swapaxes(XsYs[0], 0, 1), np.swapaxes(XsYs[1], 0, 1), XY_contour_vals, levels, cmap='viridis')
-        cbar = fig.colorbar(cp)  # Add a colorbar to a plot
-        cbar.ax.tick_params(labelsize=12)
-        ax.set_title(f'likelihood {key2} against {key1}', fontsize=13)
-        # ax.ticklabel_format(axis='y', style='sci', scilimits=(-3, -3))
-        ax.tick_params(direction='in', top=True, right=True, which='both', labelsize=12)
-        # ax.set_xticks([0.21, 0.23, 0.25, 0.27, 0.29])
-        # ax.set_yticks([1.95e-3, 2e-3, 2.05e-3, 2.1e-3, 2.15e-3, 2.2e-3, 2.25e-3])
-        ax.set_xlabel(f'{key1}', fontsize=13)
-        ax.set_ylabel(f'{key2}', fontsize=13)
-        ax.minorticks_on()
-        ax.xaxis.set_minor_locator(AutoMinorLocator(2))
-        ax.yaxis.set_minor_locator(AutoMinorLocator(2))
-        plt.savefig(f'images/contourold {key1}+{key2}', dpi=600)
-        plt.show()
+        mixed_keys = list()
+        for key1 in ranges.keys():
+            for key2 in ranges.keys():
+                if key1 != key2 and (key2, key1) not in mixed_keys:
+                    mixed_keys.append((key1, key2))
 
-        levels = np.arange(start=0, stop=XZ_contour_vals.max()+step, step=step)
-        plt.style.use('the_usual.mplstyle')
-        fig, ax = plt.subplots()
-        cp = ax.contourf(np.swapaxes(XsZs[0], 0, 1), np.swapaxes(XsZs[1], 0, 1), XZ_contour_vals, cmap='viridis', levels=levels)
-        cbar = fig.colorbar(cp)  # Add a colorbar to a plot
-        cbar.ax.tick_params(labelsize=12)
-        ax.set_title(f'likelihood {key3} against {key1}', fontsize=13)
-        # ax.ticklabel_format(axis='y', style='sci', scilimits=(-3, -3))
-        ax.tick_params(direction='in', top=True, right=True, which='both', labelsize=12)
-        # ax.set_xticks([0.21, 0.23, 0.25, 0.27, 0.29])
-        # ax.set_yticks([1.95e-3, 2e-3, 2.05e-3, 2.1e-3, 2.15e-3, 2.2e-3, 2.25e-3])
-        ax.set_xlabel(f'{key1}', fontsize=13)
-        ax.set_ylabel(f'{key3}', fontsize=13)
-        ax.minorticks_on()
-        ax.xaxis.set_minor_locator(AutoMinorLocator(2))
-        ax.yaxis.set_minor_locator(AutoMinorLocator(2))
-        plt.savefig(f'images/contourold {key1}+{key3}', dpi=600)
-        plt.show()
-
-        levels = np.arange(start=0, stop=YZ_contour_vals.max()+step, step=step)
-        plt.style.use('the_usual.mplstyle')
-        fig, ax = plt.subplots()
-        cp = ax.contourf(np.swapaxes(YsZs[0], 0, 1), np.swapaxes(YsZs[1], 0, 1), YZ_contour_vals, cmap='viridis', levels=levels)
-        cbar = fig.colorbar(cp)  # Add a colorbar to a plot
-        cbar.ax.tick_params(labelsize=12)
-        ax.set_title(f'likelihood {key3} against {key2}', fontsize=13)
-        # ax.ticklabel_format(axis='y', style='sci', scilimits=(-3, -3))
-        ax.tick_params(direction='in', top=True, right=True, which='both', labelsize=12)
-        # ax.set_xticks([0.21, 0.23, 0.25, 0.27, 0.29])
-        # ax.set_yticks([1.95e-3, 2e-3, 2.05e-3, 2.1e-3, 2.15e-3, 2.2e-3, 2.25e-3])
-        ax.set_xlabel(f'{key2}', fontsize=13)
-        ax.set_ylabel(f'{key3}', fontsize=13)
-        ax.minorticks_on()
-        ax.xaxis.set_minor_locator(AutoMinorLocator(2))
-        ax.yaxis.set_minor_locator(AutoMinorLocator(2))
-        plt.savefig(f'images/contourold {key2}+{key3}', dpi=600)
-        plt.show()
-
+        for key1, key2 in mixed_keys: # Creating the contour plots by integrating out every other variable
+            first_rearranged_likelihood = np.swapaxes(likelihood, 0, keys_order[key1])
+            rearranged_likelihood = np.swapaxes(first_rearranged_likelihood, 1, keys_order[key2])
+            param_values = all_params.copy()
+            param_values[0], param_values[1], param_values[keys_order[key1]], param_values[keys_order[key2]] = \
+            param_values[keys_order[key1]], param_values[keys_order[key2]], param_values[0], param_values[1]
+            previous_integral = rearranged_likelihood
+            for i in range(len(meshes)):
+                if len(meshes) - i - 1 == 1:  # Penultimate variable
+                    integral_over_mesh = previous_integral
+                    break
+                else:
+                    integral_over_mesh = np.zeros(rearranged_likelihood.shape[0:len(meshes) - i - 1])
+                    indices_meshes = np.meshgrid(
+                        *[[i for i in range(integral_over_mesh.shape[j])] for j in range(
+                            len(integral_over_mesh.shape))])  # list comprehension creates lists of possible index values.e.g. for ndarray:(2,4) --> [[0, 1], [0, 1, 2, 3]]
+                    positions = np.vstack(list(map(np.ravel, indices_meshes)))
+                    positions = np.transpose(positions)
+                    for indices in positions:
+                        val = np.trapz(previous_integral[*indices],
+                                       x=param_values[-(i + 1)])  # Not sure if x is right here, figure this out
+                        integral_over_mesh[*indices] = val
+                    with open(f'integral{i}.json', 'w') as f:
+                        json.dump(integral_over_mesh.tolist(), f, indent=4)
+                    previous_integral = integral_over_mesh
+            contour_array = integral_over_mesh
+            step = contour_array.max()/1000
+            levels = np.arange(start=0, stop=contour_array.max() + step, step=step)
+            plt.style.use('the_usual.mplstyle')
+            fig, ax = plt.subplots()
+            cp1 = ax.contourf(np.swapaxes(plotmeshes[f'{keys_order[key1]}+{keys_order[key2]}'][0], 0, 1), np.swapaxes(plotmeshes[f'{keys_order[key1]}+{keys_order[key2]}'][1], 0, 1), contour_array, levels,
+                              cmap='viridis')
+            cbar1 = fig.colorbar(cp1)  # Add a colorbar to a plot
+            cbar1.ax.tick_params(labelsize=12)
+            ax.set_title(f'likelihood {key2} against {key1}', fontsize=13)
+            # ax.ticklabel_format(axis='y', style='sci', scilimits=(-3, -3))
+            ax.tick_params(direction='in', top=True, right=True, which='both', labelsize=12)
+            # ax.set_xticks([0.21, 0.23, 0.25, 0.27, 0.29])
+            # ax.set_yticks([1.95e-3, 2e-3, 2.05e-3, 2.1e-3, 2.15e-3, 2.2e-3, 2.25e-3])
+            ax.set_xlabel(f'{key1}', fontsize=13)
+            ax.set_ylabel(f'{key2}', fontsize=13)
+            ax.minorticks_on()
+            ax.xaxis.set_minor_locator(AutoMinorLocator(2))
+            ax.yaxis.set_minor_locator(AutoMinorLocator(2))
+            plt.savefig(f'images/contour {key1}+{key2}', dpi=600)
+            plt.show()
 
 def generate_data(test_planet):
     np.random.seed(seed=5)
@@ -831,6 +854,6 @@ def generate_data(test_planet):
     noise_vals = np.random.normal(size=len(test_alphas))
     data_vals = errs * noise_vals + I
     data = np.array([test_alphas, data_vals, errs])
-    with open('old_data.json', 'w') as f:
+    with open('new_data.json', 'w') as f:
         json.dump(data.tolist(), f, indent=4)
     return data
