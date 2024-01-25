@@ -756,7 +756,7 @@ class Data_Object():
             plt.savefig(f'images/contour {key1}+{key2}', dpi=600)
             plt.show()
 
-    def produce_corner_plot(self, best_model, ranges, ringed, **kwargs):
+    def produce_corner_plot(self, best_model, ranges, ringed, log = False, **kwargs):
         planet_sc_law = kwargs['planet_sc_law']
         if ringed:
             ring_sc_law = kwargs['ring_sc_law']
@@ -774,11 +774,11 @@ class Data_Object():
         for i, key in enumerate(keys):
             key_value_range = ranges[key]
             if key == key1:
-                key_values = np.linspace(key_value_range[0], key_value_range[1], 30)
+                key_values = np.linspace(key_value_range[0], key_value_range[1], 20)
             if key == key2:
-                key_values = np.linspace(key_value_range[0], key_value_range[1], 30)
+                key_values = np.linspace(key_value_range[0], key_value_range[1], 20)
             if key == key3:
-                key_values = np.linspace(key_value_range[0], key_value_range[1], 30)
+                key_values = np.linspace(key_value_range[0], key_value_range[1], 20)
             all_params.append(key_values)
             keys_order[key] = i
         mixed_indices = list()
@@ -811,6 +811,7 @@ class Data_Object():
             else:
                 likelihood_val = self.likelihood_ringless_model(planet_sc_law, altered_model)
                 likelihood[*indexes] = likelihood_val
+        '''
         previous_integral = likelihood
         for i in range(len(meshes)):
             if len(meshes)-i-1 == 0: # Last variable to integrate through
@@ -831,6 +832,7 @@ class Data_Object():
 
         if total_integral != 0:
             likelihood = likelihood / total_integral
+        '''
         mixed_keys = list()
         for key1 in ranges.keys():
             for key2 in ranges.keys():
@@ -861,19 +863,33 @@ class Data_Object():
                         integral_over_mesh[*indices] = val
                     previous_integral = integral_over_mesh
             contour_array = integral_over_mesh
-            step = contour_array.max()/1000
-            levels = np.arange(start=0, stop=contour_array.max() + step, step=step)
+            normalisation = contour_array.sum() # Made up normalisation, check with V & A
+            contour_array /= normalisation
+            number_of_steps = 1000
+            if log == True:
+                with np.errstate(divide='ignore'):
+                    contour_array = np.log(contour_array)
+                if contour_array[contour_array != -np.inf].min() < 0:
+                    contour_array[np.isinf(contour_array)] = 1.1*contour_array[contour_array != -np.inf].min()
+                elif contour_array[contour_array != -np.inf].min() > 0:
+                    contour_array[np.isinf(contour_array)] = contour_array[contour_array != -np.inf].min()/10
+                else:
+                    raise NotImplementedError
+                number_of_steps = 10000
+
+            step = (contour_array.max()-contour_array.min())/number_of_steps
+            levels = np.arange(start=contour_array.min(), stop=contour_array.max(), step=step)
             plt.style.use('the_usual.mplstyle')
             fig, ax = plt.subplots()
             cp = ax.contourf(np.swapaxes(plotmeshes[f'{keys_order[key1]}+{keys_order[key2]}'][0], 0, 1), np.swapaxes(plotmeshes[f'{keys_order[key1]}+{keys_order[key2]}'][1], 0, 1), contour_array, levels,
                               cmap='viridis')
             cbar = fig.colorbar(cp)  # Add a colorbar to a plot
             cbar.ax.tick_params(labelsize=12)
-            ax.set_title(f'likelihood {key2} against {key1}', fontsize=13)
-            # ax.ticklabel_format(axis='y', style='sci', scilimits=(-3, -3))
+            if log == True:
+                ax.set_title(f'log likelihood {key2} against {key1}', fontsize=13)
+            else:
+                ax.set_title(f'likelihood {key2} against {key1}', fontsize=13)
             ax.tick_params(direction='in', top=True, right=True, which='both', labelsize=12)
-            # ax.set_xticks([0.21, 0.23, 0.25, 0.27, 0.29])
-            # ax.set_yticks([1.95e-3, 2e-3, 2.05e-3, 2.1e-3, 2.15e-3, 2.2e-3, 2.25e-3])
             ax.set_xlabel(f'{key1}', fontsize=13)
             ax.set_ylabel(f'{key2}', fontsize=13)
             ax.minorticks_on()
