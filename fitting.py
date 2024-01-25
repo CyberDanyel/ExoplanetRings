@@ -724,11 +724,11 @@ class Data_Object():
         for i, key in enumerate(keys):
             key_value_range = ranges[key]
             if key == key1:
-                key_values = np.linspace(key_value_range[0], key_value_range[1], 1)
+                key_values = np.linspace(key_value_range[0], key_value_range[1], 30)
             if key == key2:
-                key_values = np.linspace(key_value_range[0], key_value_range[1], 1)
+                key_values = np.linspace(key_value_range[0], key_value_range[1], 30)
             if key == key3:
-                key_values = np.linspace(key_value_range[0], key_value_range[1], 1)
+                key_values = np.linspace(key_value_range[0], key_value_range[1], 30)
             all_params.append(key_values)
             keys_order[key] = i
         mixed_indices = list()
@@ -751,6 +751,7 @@ class Data_Object():
         with open('new_Z.json', 'w') as f:
             json.dump(meshes[2].tolist(), f, indent=4)
         likelihood = np.zeros(meshes[0].shape)
+        #saved = dict() # Used to check whether x in np.trapz was correct
         indices_meshes = np.meshgrid(*[[i for i in range(likelihood.shape[j])] for j in range(len(likelihood.shape))])
         positions = np.vstack(list(map(np.ravel, indices_meshes)))
         positions = np.transpose(positions)
@@ -761,6 +762,8 @@ class Data_Object():
             if ringed:
                 likelihood_val = self.likelihood_ringed_model(planet_sc_law, ring_sc_law, altered_model)
                 likelihood[*indexes] = likelihood_val
+                #saved[f'{indexes}'] = f'radius:{meshes[0][*indexes]} disk_gap:{meshes[1][*indexes]} ring_width:{meshes[2][*indexes]}' #Used to check whether x in np.trapz was correct
+
             else:
                 likelihood_val = self.likelihood_ringless_model(planet_sc_law, altered_model)
                 likelihood[*indexes] = likelihood_val
@@ -769,7 +772,7 @@ class Data_Object():
         previous_integral = likelihood
         for i in range(len(meshes)):
             if len(meshes)-i-1 == 0: # Last variable to integrate through
-                total_integral = np.trapz(previous_integral, x=all_params[-(i + 1)])
+                total_integral = np.trapz(previous_integral, x=range(len(all_params[-(i + 1)])))
                 with open(f'integral{i}.json', 'w') as f:
                     json.dump(total_integral.tolist(), f, indent=4)
             else:
@@ -782,22 +785,21 @@ class Data_Object():
                     positions = np.array([0])
                 positions = np.transpose(positions)
                 for indices in positions:
-                    val = np.trapz(previous_integral[*indices], x=all_params[-(i+1)]) # Not sure if x is right here, figure this out
+                    val = np.trapz(previous_integral[*indices], x=range(len(all_params[-(i+1)]))) # Not sure if x is right here, figure this out
                     integral_over_mesh[*indices] = val
                 with open(f'integral{i}.json', 'w') as f:
                     json.dump(integral_over_mesh.tolist(), f, indent=4)
                 previous_integral = integral_over_mesh
 
-        print('previous', total_integral)
-
-        likelihood = likelihood / total_integral
+        if total_integral != 0:
+            likelihood = likelihood / total_integral
         mixed_keys = list()
         for key1 in ranges.keys():
             for key2 in ranges.keys():
                 if key1 != key2 and (key2, key1) not in mixed_keys:
                     mixed_keys.append((key1, key2))
 
-        for key1, key2 in mixed_keys:
+        for key1, key2 in mixed_keys: # Creating the contour plots by integrating out every other variable
             first_rearranged_likelihood = np.swapaxes(likelihood, 0, keys_order[key1])
             rearranged_likelihood = np.swapaxes(first_rearranged_likelihood, 1, keys_order[key2])
             param_values = all_params.copy()
