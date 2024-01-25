@@ -827,7 +827,7 @@ class Data_Object():
             plt.show()
 
 def generate_data(test_planet):
-    np.random.seed(seed=5)
+    np.random.seed(seed=4) # conflict?
     test_alphas = list(np.linspace(-np.pi, -.3, 10)) + list(np.linspace(-.29, .29, 10)) + list(
         np.linspace(.3, np.pi, 10))
     test_alphas = np.array(test_alphas)
@@ -836,4 +836,5 @@ def generate_data(test_planet):
     noise_vals = np.random.normal(size=len(test_alphas))
     data_vals = errs * noise_vals + I
     data = np.array([test_alphas, data_vals, errs])
+    print('will this not cause a conflict')
     return data
