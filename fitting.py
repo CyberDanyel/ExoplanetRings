@@ -724,11 +724,11 @@ class Data_Object():
         for i, key in enumerate(keys):
             key_value_range = ranges[key]
             if key == key1:
-                key_values = np.linspace(key_value_range[0], key_value_range[1], 15)
+                key_values = np.linspace(key_value_range[0], key_value_range[1], 1)
             if key == key2:
-                key_values = np.linspace(key_value_range[0], key_value_range[1], 15)
+                key_values = np.linspace(key_value_range[0], key_value_range[1], 1)
             if key == key3:
-                key_values = np.linspace(key_value_range[0], key_value_range[1], 15)
+                key_values = np.linspace(key_value_range[0], key_value_range[1], 1)
             all_params.append(key_values)
             keys_order[key] = i
         mixed_indices = list()
@@ -804,7 +804,7 @@ class Data_Object():
             param_values[0], param_values[1], param_values[keys_order[key1]], param_values[keys_order[key2]] = \
             param_values[keys_order[key1]], param_values[keys_order[key2]], param_values[0], param_values[1]
             previous_integral = rearranged_likelihood
-            for i, mesh in enumerate(meshes[::-1]):
+            for i in range(len(meshes)):
                 if len(meshes) - i - 1 == 1:  # Penultimate variable
                     integral_over_mesh = previous_integral
                     break
