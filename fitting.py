@@ -686,11 +686,11 @@ class Data_Object():
         for key in keys:
             key_value_range = ranges[key]
             if key == key1:
-                key_values = np.linspace(key_value_range[0], key_value_range[1], 2)
+                key_values = np.linspace(key_value_range[0], key_value_range[1], 15)
             if key == key2:
-                key_values = np.linspace(key_value_range[0], key_value_range[1], 4)
+                key_values = np.linspace(key_value_range[0], key_value_range[1], 15)
             if key == key3:
-                key_values = np.linspace(key_value_range[0], key_value_range[1], 6)
+                key_values = np.linspace(key_value_range[0], key_value_range[1], 15)
             all_params.append(key_values)
         X, Y, Z = np.meshgrid(*all_params)
         XsYs = np.meshgrid(all_params[0],all_params[1])
@@ -783,7 +783,7 @@ class Data_Object():
         ax.minorticks_on()
         ax.xaxis.set_minor_locator(AutoMinorLocator(2))
         ax.yaxis.set_minor_locator(AutoMinorLocator(2))
-        plt.savefig(f'images/contour {key1}+{key2}', dpi=600)
+        plt.savefig(f'images/contourold {key1}+{key2}', dpi=600)
         plt.show()
 
         levels = np.arange(start=0, stop=XZ_contour_vals.max()+step, step=step)
@@ -802,7 +802,7 @@ class Data_Object():
         ax.minorticks_on()
         ax.xaxis.set_minor_locator(AutoMinorLocator(2))
         ax.yaxis.set_minor_locator(AutoMinorLocator(2))
-        plt.savefig(f'images/contour {key1}+{key3}', dpi=600)
+        plt.savefig(f'images/contourold {key1}+{key3}', dpi=600)
         plt.show()
 
         levels = np.arange(start=0, stop=YZ_contour_vals.max()+step, step=step)
@@ -821,7 +821,7 @@ class Data_Object():
         ax.minorticks_on()
         ax.xaxis.set_minor_locator(AutoMinorLocator(2))
         ax.yaxis.set_minor_locator(AutoMinorLocator(2))
-        plt.savefig(f'images/contour {key2}+{key3}', dpi=600)
+        plt.savefig(f'images/contourold {key2}+{key3}', dpi=600)
         plt.show()
 
 
