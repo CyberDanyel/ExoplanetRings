@@ -724,11 +724,11 @@ class Data_Object():
         for i, key in enumerate(keys):
             key_value_range = ranges[key]
             if key == key1:
-                key_values = np.linspace(key_value_range[0], key_value_range[1], 30)
+                key_values = np.linspace(key_value_range[0], key_value_range[1], 50)
             if key == key2:
-                key_values = np.linspace(key_value_range[0], key_value_range[1], 30)
+                key_values = np.linspace(key_value_range[0], key_value_range[1], 50)
             if key == key3:
-                key_values = np.linspace(key_value_range[0], key_value_range[1], 30)
+                key_values = np.linspace(key_value_range[0], key_value_range[1], 50)
             all_params.append(key_values)
             keys_order[key] = i
         mixed_indices = list()
@@ -825,7 +825,7 @@ class Data_Object():
                         json.dump(integral_over_mesh.tolist(), f, indent=4)
                     previous_integral = integral_over_mesh
             contour_array = integral_over_mesh
-            step = 0.001
+            step = contour_array.max()/1000
             levels = np.arange(start=0, stop=contour_array.max() + step, step=step)
             plt.style.use('the_usual.mplstyle')
             fig, ax = plt.subplots()
