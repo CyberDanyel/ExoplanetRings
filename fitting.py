@@ -6,13 +6,14 @@ import matplotlib.ticker as tck
 from matplotlib.ticker import FuncFormatter
 from matplotlib.ticker import AutoMinorLocator
 import scipy.integrate as integrate
+import tqdm
+import scipy.optimize as op
+import time
+from multiprocessing import Pool, freeze_support
 
 import exoring_functions
 import exoring_objects
 import scattering
-import scipy.optimize as op
-import time
-from multiprocessing import Pool, freeze_support
 
 primes_to_100 = [3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97]
 
@@ -379,7 +380,7 @@ class Data_Object():
                 for planet_sc in planet_sc_functions:
                     for ring_sc in ring_sc_functions:
                         args = [(planet_sc, ring_sc, guess) for guess in init_guesses]
-                        results = pool.map(self.fitwrap_ring, args)
+                        results = list(tqdm.tqdm(pool.imap(self.fitwrap_ring, args), total = len(args), desc='Running Models'))
                         best_NLL, best_fit = exoring_functions.select_best_result(results)
                         if best_NLL < lowest_NLL:
                             best_result = (best_NLL, best_fit, planet_sc, ring_sc)
@@ -398,7 +399,8 @@ class Data_Object():
             with Pool(16) as pool:
                 for planet_sc in planet_sc_functions:
                     args = [(planet_sc, guess) for guess in init_guesses]
-                    results = pool.map(self.fitwrap_planet, args)
+                    results = list(
+                        tqdm.tqdm(pool.imap(self.fitwrap_planet, args), total=len(args), desc='Running Models'))
                     best_NLL, best_fit = exoring_functions.select_best_result(results)
                     if best_NLL < lowest_NLL:
                         best_result = (best_NLL, best_fit, planet_sc)
@@ -645,6 +647,11 @@ class Data_Object():
         x = model_planet.light_curve(alpha)
         return np.prod(gaussian(x, I, I_errs))
 
+    def wrapped_likelihood_ringless_model(self,args):
+        likelihood = self.likelihood_ringless_model(*args[1:])
+        indices = args[0]
+        return indices, likelihood
+
     def likelihood_ringed_model(self, planet_sc_law, ring_sc_law, model_parameters):  # Used for manual models
         # Calculates log likelihood for specific ringed planet params and scattering laws
         alpha = self.data[0]
@@ -657,6 +664,11 @@ class Data_Object():
         model_ringed_planet = FittingRingedPlanet(planet_sc_law, ring_sc_law, self.star, model_parameters)
         x = model_ringed_planet.light_curve(alpha)
         return np.prod(gaussian(x, I, I_errs))
+
+    def wrapped_likelihood_ringed_model(self,args):
+        likelihood = self.likelihood_ringed_model(*args[1:])
+        indices = args[0]
+        return indices, likelihood
 
     def log_likelihood_ringless_model(self, sc_law, model_parameters):  # Used for manual models
         # Calculates log likelihood for specific planet params and scattering law
@@ -756,7 +768,7 @@ class Data_Object():
             plt.savefig(f'images/contour {key1}+{key2}', dpi=600)
             plt.show()
 
-    def produce_corner_plot(self, best_model, ranges, ringed, log = False, **kwargs):
+    def produce_corner_plot(self, best_model, ranges, ringed, log = False, multiprocessing = True, **kwargs):
         planet_sc_law = kwargs['planet_sc_law']
         if ringed:
             ring_sc_law = kwargs['ring_sc_law']
@@ -773,12 +785,7 @@ class Data_Object():
         key3 = keyslist[2]
         for i, key in enumerate(keys):
             key_value_range = ranges[key]
-            if key == key1:
-                key_values = np.linspace(key_value_range[0], key_value_range[1], 20)
-            if key == key2:
-                key_values = np.linspace(key_value_range[0], key_value_range[1], 20)
-            if key == key3:
-                key_values = np.linspace(key_value_range[0], key_value_range[1], 20)
+            key_values = np.linspace(key_value_range[0], key_value_range[1], 50)
             all_params.append(key_values)
             keys_order[key] = i
         mixed_indices = list()
@@ -799,18 +806,43 @@ class Data_Object():
         indices_meshes = np.meshgrid(*[[i for i in range(likelihood.shape[j])] for j in range(len(likelihood.shape))])
         positions = np.vstack(list(map(np.ravel, indices_meshes)))
         positions = np.transpose(positions)
-        for indexes in positions:
-            altered_model = best_model.copy()
-            for i, key in enumerate(keyslist):
-                altered_model[key] = meshes[i][*indexes]
-            if ringed:
-                likelihood_val = self.likelihood_ringed_model(planet_sc_law, ring_sc_law, altered_model)
-                likelihood[*indexes] = likelihood_val
-                #saved[f'{indexes}'] = f'radius:{meshes[0][*indexes]} disk_gap:{meshes[1][*indexes]} ring_width:{meshes[2][*indexes]}' #Used to check whether x in np.trapz was correct
+        start = time.time()
+        if multiprocessing:
+            args = list()
+            for indexes in positions:
+                altered_model = best_model.copy()
+                for i, key in enumerate(keyslist):
+                    altered_model[key] = meshes[i][*indexes]
+                if ringed:
+                    args.append((indexes, planet_sc_law, ring_sc_law, altered_model))
+                else:
+                    args.append((indexes, planet_sc_law, altered_model))
+            with Pool(16) as pool:
+                if ringed:
+                    results = list(tqdm.tqdm(pool.imap(self.wrapped_likelihood_ringed_model, args), total=len(args), desc='Running Models'))
+                    for result in results:
+                        likelihood[*result[0]] = result[1]
+                    #saved[f'{indexes}'] = f'radius:{meshes[0][*indexes]} disk_gap:{meshes[1][*indexes]} ring_width:{meshes[2][*indexes]}' #Used to check whether x in np.trapz was correct
 
-            else:
-                likelihood_val = self.likelihood_ringless_model(planet_sc_law, altered_model)
-                likelihood[*indexes] = likelihood_val
+                else:
+                    results = list(tqdm.tqdm(pool.imap(self.wrapped_likelihood_ringless_model, args), total=len(args), desc='Running Models'))
+                    for result in results:
+                        likelihood[*result[0]] = result[1]
+        else:
+            for indexes in tqdm.tqdm(positions, desc='Running Models'):
+                altered_model = best_model.copy()
+                for i, key in enumerate(keyslist):
+                    altered_model[key] = meshes[i][*indexes]
+                if ringed:
+                    likelihood_val = self.likelihood_ringed_model(planet_sc_law, ring_sc_law, altered_model)
+                    likelihood[*indexes] = likelihood_val
+                    # saved[f'{indexes}'] = f'radius:{meshes[0][*indexes]} disk_gap:{meshes[1][*indexes]} ring_width:{meshes[2][*indexes]}' #Used to check whether x in np.trapz was correct
+
+                else:
+                    likelihood_val = self.likelihood_ringless_model(planet_sc_law, altered_model)
+                    likelihood[*indexes] = likelihood_val
+        end = time.time()
+        print('time taken for running of models', end-start)
         '''
         previous_integral = likelihood
         for i in range(len(meshes)):
