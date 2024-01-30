@@ -15,18 +15,18 @@ SUN_TO_JUP = R_SUN / R_JUP
 AU_TO_SUN = AU / R_SUN
 AU_TO_JUP = AU / R_JUP
 M_JUP = 1.898e27
-bandpass = (2.0e-6, 3.0e-6)
+bandpass = (10e-6, 14e-6)
 star = exoring_objects.Star(L_SUN, R_SUN, 0.1*AU, 1.)
 
 ice = materials.RingMaterial('materials/saturn_small_ice.inp', 361, 500)
 silicate = materials.RingMaterial('materials/silicate_small.inp', 361, 500)
-atmos = materials.Atmosphere([500, 0.5, 0.6, 1e6], [scattering.Rayleigh, M_JUP, R_JUP], star)
+atmos = materials.Atmosphere([500, 0.5, 0.6, 1e6], [scattering.Jupiter, M_JUP, R_JUP], star)
 
 sc_ice = scattering.WavelengthDependentScattering(ice, bandpass, star.planck_function)
 sc_sil = scattering.WavelengthDependentScattering(silicate, bandpass, star.planck_function)
 sc_ring_diffuse = scattering.Lambert(sc_sil.albedo)
 sc_planet = scattering.WavelengthDependentScattering(atmos, bandpass, star.planck_function)
-sc_mie = scattering.Mie(1., 10, 1.5+.1j)
+sc_mie = scattering.Mie(1., 100e-6/np.mean(bandpass), 1.5+.1j)
 
 ring_params = [1.2*R_JUP, 2*R_JUP, [1., 0.5, 0.1], star]
 
@@ -63,7 +63,7 @@ ax.set_xticklabels([r'$-\pi$', r'$-\pi/2$', r'$0$', r'$\pi/2$', r'$\pi$'])
 
 plt.xlabel('Phase angle')
 plt.ylabel(r'Intensity/$L_\odot$')
-plt.title(r'Wavelength band 2$\mu$m-3$\mu$m')
+plt.title(r'Wavelength band %.1f$\mu$m-%.1f$\mu$m'%tuple(val*1e6 for val in bandpass))
 plt.tight_layout()
 plt.legend()
 

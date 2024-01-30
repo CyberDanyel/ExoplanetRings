@@ -4,7 +4,7 @@ import scipy.interpolate as spint
 import scipy.integrate as spi
 import platon
 from platon.TP_profile import Profile
-from platon.eclipse_depth_calculator import EclipseDepthCalculator
+from platon.transit_depth_calculator import TransitDepthCalculator
 
 
 class _MatPhaseFuncs:
@@ -88,17 +88,19 @@ class Atmosphere:
         T = 0.5*(star.luminosity/(np.pi*s))**0.25 * star.distance**-0.5
         self.sc_class = sc_class
         self.T = T
-        self.p = Profile()
-        self.p.set_parametric(T, P_1, alpha_1, alpha_2, P_3, T)
-        self.calc = EclipseDepthCalculator()
-        self.wavelengths, self.depths = self.calc.compute_depths(self.p, star.distance, planet_mass, planet_radius, star.T)
+        #self.p = Profile()
+        #self.p.set_parametric(T, P_1, alpha_1, alpha_2, P_3, T)
+        self.calc = TransitDepthCalculator()
+        self.wavelengths, self.depths, info_dict = self.calc.compute_depths(star.radius, planet_mass, planet_radius, self.T, add_scattering=False, stellar_blackbody=True, full_output=True)
         self.albedos = {}
+        #sc_law = sc_class(albedo=1)
+        #A_g = 2/3 * sc_law(0)
+        #eclipsedepth_unitalbedo = A_g * planet_radius**2/(4*star.distance**2)
+        depth_unitalbedo = (max(info_dict['radii'])**2 - min(info_dict['radii'])**2)/star.radius**2
+        depth_unitalbedo += np.pi*planet_radius**2 * s * T**4/star.luminosity
+        self.depth_unitalbedo = depth_unitalbedo
         for i, wavelength in enumerate(self.wavelengths):
-            sc_law = sc_class(albedo=1)
-            A_g = 2/3 * sc_law(0)
-            depth_unitalbedo = planet_radius**2/(4*star.distance**2)#*A_g
-            self.depth_unitalbedo = (depth_unitalbedo + np.pi*planet_radius**2 * s * T**4/star.luminosity)
-            self.albedos[wavelength] = self.depths[i]/depth_unitalbedo
+            self.albedos[wavelength] = (self.depths[i] - min(info_dict['radii'])**2/star.radius**2)/depth_unitalbedo
         self.albedo_func = spint.PchipInterpolator(self.wavelengths, list(self.albedos.values()))
 
     def albedo(self, wavelength):
