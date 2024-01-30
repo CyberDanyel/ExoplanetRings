@@ -5,7 +5,6 @@ import math
 import matplotlib.ticker as tck
 from matplotlib.ticker import FuncFormatter
 from matplotlib.ticker import AutoMinorLocator
-import scipy.integrate as integrate
 import tqdm
 import scipy.optimize as op
 import time
@@ -13,10 +12,9 @@ from multiprocessing import Pool, freeze_support
 
 import exoring_functions
 import exoring_objects
-import scattering
 
 primes_to_100 = [3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97]
-
+JUP_SATURN_LIKE_RING = 1.144
 
 # 2 not included because it does fit nicely on a graph
 class FittingPlanet(exoring_objects.Planet):
@@ -506,7 +504,6 @@ class Data_Object():
                         ax.set_ylabel(r'Intensity ($L_{\odot}$)')
 
         plt.savefig('images/Multiples', dpi=1000)
-
     def run_many_ringed_models(self, planet_sc_law, ring_sc_law, multiple_model_parameters, static_param, changing_parms, sharex=True, sharey=False):
         length = len(multiple_model_parameters)
         nrows = np.sqrt(length)
@@ -571,8 +568,8 @@ class Data_Object():
                     ax.set_title(f'G: {model_parameters[changing_parms[0]]}', color='b')
                 else:
                     ax.set_title(f'{changing_parms[0]}: {model_parameters[changing_parms[0]]}', color='b')
-            for row in range(len(axs)): # If in the last column
-                if ax == axs[row][int(ncols) - 1]:
+            for row in range(len(axs)):
+                if ax == axs[row][int(ncols) - 1]: # If in the last column
                     row_parms.append(model_parameters[changing_parms[1]])
                     ax2 = ax.twinx()
                     if changing_parms[1] == 'ring_width':
@@ -606,6 +603,107 @@ class Data_Object():
                         ax.set_ylabel(r'Intensity ($L_{\odot}$)')
 
         plt.savefig('images/Multiples', dpi=1000)
+
+    def disperse_models(self, planet, planet_sc_law, ring_sc_law, changing_parms, model_parameters, sharex=True, sharey=False):
+        model_parameters['n_x'], model_parameters['n_y'], model_parameters['n_z'] = model_parameters['ring_normal'][
+            0], model_parameters['ring_normal'][1], model_parameters['ring_normal'][2]
+        I = self.data[1]
+        I_errs = self.data[2]
+        parm_values = list()
+        hill_rad = self.star.distance*np.cbrt((1000*(4/3)*(np.pi*(planet.radius**3)))/self.star.mass) # Assuming density of 1 for planet
+        for parm in changing_parms:
+            if parm == 'radius':
+                parm_values.append((0.09, 0.83, 1))
+            elif parm == 'disk_gap':
+                parm_values.append((JUP_SATURN_LIKE_RING*planet.radius, 10*planet.radius, (1/3)*hill_rad))
+            elif parm == 'ring_width':
+                parm_values.append((JUP_SATURN_LIKE_RING*planet.radius, 10*planet.radius, (1/3)*hill_rad))
+            else:
+                raise NotImplementedError('Variable not implemented')
+        meshes = np.meshgrid(*parm_values)
+        flipped_axes_meshes = list()
+        for mesh in meshes:
+            flipped_axes_meshes.append(np.swapaxes(mesh, 0, 1))
+        parm1mesh, parm2mesh = flipped_axes_meshes
+        plt.style.use('the_usual.mplstyle')
+        fig, axs = plt.subplots(3,3, sharex = True)
+        fig.suptitle(
+            f'Planet: {planet_sc_law.__name__} | Ring: {ring_sc_law.__name__}',
+            y=0.995)
+        for row in range(len(parm1mesh)):
+            for col in range(len(parm1mesh[0])):
+                parm1, parm2 = parm1mesh[row][col], parm2mesh[row][col]
+                ax = axs[row][col]
+                parm1name, parm2name = changing_parms[0], changing_parms[1]
+                altered_model = model_parameters.copy()
+                altered_model[parm1name], altered_model[parm2name] = parm1, parm2
+                model_ringless_planet = FittingPlanet(planet_sc_law, self.star, altered_model)
+                model_ringed_planet = FittingRingedPlanet(planet_sc_law, ring_sc_law, self.star, altered_model)
+                alphas = np.linspace(-np.pi, np.pi, 10000)
+                ringed_lightcurve = model_ringed_planet.light_curve(alphas)
+                planet_lightcurve = model_ringless_planet.light_curve(alphas)
+                ax.plot(alphas / np.pi, planet_lightcurve, 'orange')
+                ax.plot(alphas / np.pi, ringed_lightcurve)
+                ax.errorbar(self.data[0] / np.pi, I, I_errs, fmt='.')
+                if row == 0: # first row
+                    if parm2name == 'disk_gap' or parm2name == 'ring_width':
+                        if parm2 == JUP_SATURN_LIKE_RING*planet.radius:
+                            if parm2name == 'disk_gap':
+                                ax.set_title('G: Saturn', fontsize = 14, pad = 15)
+                            elif parm2name == 'ring_width':
+                                ax.set_title('W: Saturn', fontsize = 14, pad = 15)
+                        elif parm2 == 10*planet.radius:
+                            if parm2name == 'disk_gap':
+                                ax.set_title('G: 10x Planet', fontsize = 14, pad = 15)
+                            elif parm2name == 'ring_width':
+                                ax.set_title('W: 10x Planet', fontsize = 14, pad = 15)
+                        elif parm2 == (1/3)*hill_rad:
+                            if parm2name == 'disk_gap':
+                                ax.set_title('G: 1/3 Hill', fontsize = 14, pad = 15)
+                            elif parm2name == 'ring_width':
+                                ax.set_title('W: 1/3 Hill', fontsize = 14, pad = 15)
+                    elif parm2name == 'radius':
+                        ax.set_title(f'R: {parm2}', fontsize = 14, pad = 15)
+                if col == 2: # last column
+                    ax2 = ax.twinx()
+                    if parm1name == 'disk_gap' or parm1name == 'ring_width':
+                        if parm1 == JUP_SATURN_LIKE_RING * planet.radius:
+                            if parm1name == 'disk_gap':
+                                ax2.set_ylabel('G: Saturn', loc='center', fontsize = 14, rotation=270, labelpad=20)
+                            elif parm1name == 'ring_width':
+                                ax2.set_ylabel('W: Saturn', loc='center', fontsize = 14, rotation=270, labelpad=20)
+                        elif parm1 == 10 * planet.radius:
+                            if parm1name == 'disk_gap':
+                                ax2.set_ylabel('G: 10x Planet', loc='center', fontsize = 14, rotation=270, labelpad=20)
+                            elif parm1name == 'ring_width':
+                                ax2.set_ylabel('W: 10x Planet', loc='center', fontsize = 14, rotation=270, labelpad=20)
+                        elif parm1 == (1 / 3) * hill_rad:
+                            if parm1name == 'disk_gap':
+                                ax2.set_ylabel('G: 1/3 Hill', loc='center', fontsize = 14, rotation=270, labelpad=20)
+                            elif parm1name == 'ring_width':
+                                ax2.set_ylabel('W: 1/3 Hill', loc='center', fontsize = 14, rotation=270, labelpad=20)
+                    elif parm1name == 'radius':
+                        ax2.set_ylabel(f'R: {parm1}', loc='center', fontsize = 14, rotation=270, labelpad=20)
+                    ax2.tick_params(
+                        axis='y',  # changes apply to the x-axis
+                        which='both',  # both major and minor ticks are affected
+                        right = False,
+                        left = False,
+                        labelright=False)
+        for ax in axs.flat:
+            ax.ticklabel_format(axis='y', style='sci', scilimits=(0, 0))  # force scientific notation
+            ax.yaxis.get_offset_text().set_fontsize(12)
+            ax.xaxis.set_major_formatter(FuncFormatter(exoring_functions.format_fraction_with_pi))
+            ax.xaxis.set_major_locator(tck.MultipleLocator(base=1 / 2))
+            ax.tick_params(labelsize = 13)
+            if ax in axs[2]:  # If in the last row
+                ax.set_xlabel(r'Phase angle $\alpha$', fontsize = 12)
+            for row in range(3):
+                if ax == axs[row][0]:  # If in the first column
+                    ax.set_ylabel(r'Intensity ($L_{\odot}$)', fontsize = 12)
+        fig.align_ylabels()
+        #plt.tight_layout()
+        plt.savefig('images/Disperse', dpi=1000)
 
     def create_various_model_parameters(self, **kwargs):
         # Changing albedos not implemented
@@ -768,7 +866,7 @@ class Data_Object():
             plt.savefig(f'images/contour {key1}+{key2}', dpi=600)
             plt.show()
 
-    def produce_corner_plot(self, best_model, ranges, ringed, log = False, multiprocessing = True, **kwargs):
+    def produce_corner_plot(self, best_model, ranges, ringed, number, log = False, multiprocessing = True, **kwargs):
         planet_sc_law = kwargs['planet_sc_law']
         if ringed:
             ring_sc_law = kwargs['ring_sc_law']
@@ -780,12 +878,9 @@ class Data_Object():
         indices = list(range(len(keyslist)))
         keys_order = dict()
         all_params = list()
-        key1 = keyslist[0]
-        key2 = keyslist[1]
-        key3 = keyslist[2]
         for i, key in enumerate(keys):
             key_value_range = ranges[key]
-            key_values = np.linspace(key_value_range[0], key_value_range[1], 50)
+            key_values = np.linspace(key_value_range[0], key_value_range[1], number)
             all_params.append(key_values)
             keys_order[key] = i
         mixed_indices = list()
@@ -819,13 +914,13 @@ class Data_Object():
                     args.append((indexes, planet_sc_law, altered_model))
             with Pool(16) as pool:
                 if ringed:
-                    results = list(tqdm.tqdm(pool.imap(self.wrapped_likelihood_ringed_model, args), total=len(args), desc='Running Models'))
+                    results = list(tqdm.tqdm(pool.imap(self.wrapped_likelihood_ringed_model, args), total=len(args), desc='Running Models', colour='green'))
                     for result in results:
                         likelihood[*result[0]] = result[1]
                     #saved[f'{indexes}'] = f'radius:{meshes[0][*indexes]} disk_gap:{meshes[1][*indexes]} ring_width:{meshes[2][*indexes]}' #Used to check whether x in np.trapz was correct
 
                 else:
-                    results = list(tqdm.tqdm(pool.imap(self.wrapped_likelihood_ringless_model, args), total=len(args), desc='Running Models'))
+                    results = list(tqdm.tqdm(pool.imap(self.wrapped_likelihood_ringless_model, args), total=len(args), desc='Running Models', colour='green'))
                     for result in results:
                         likelihood[*result[0]] = result[1]
         else:
@@ -842,7 +937,7 @@ class Data_Object():
                     likelihood_val = self.likelihood_ringless_model(planet_sc_law, altered_model)
                     likelihood[*indexes] = likelihood_val
         end = time.time()
-        print('time taken for running of models', end-start)
+        print('Time taken for running of models', round(end-start,2), 'seconds')
         '''
         previous_integral = likelihood
         for i in range(len(meshes)):
@@ -865,71 +960,131 @@ class Data_Object():
         if total_integral != 0:
             likelihood = likelihood / total_integral
         '''
-        mixed_keys = list()
-        for key1 in ranges.keys():
-            for key2 in ranges.keys():
-                if key1 != key2 and (key2, key1) not in mixed_keys:
-                    mixed_keys.append((key1, key2))
+        plt.style.use('the_usual.mplstyle')
+        fig, axs = plt.subplots(len(keyslist), len(keyslist), sharex='col') # share the x-axis between columns
+        for column, columnkey in zip(range(len(keyslist)), keyslist):
+            for row, rowkey in zip(range(len(keyslist)), keyslist):
+                if column > row:
+                    fig.delaxes(axs[row][column])
+                    continue
+                elif row == column: # diagonal, integrate over all variables but rowkey
+                    rearranged_likelihood = np.swapaxes(likelihood, 0, keys_order[rowkey])
+                    param_values = all_params.copy()
+                    param_values[0], param_values[keys_order[rowkey]] = param_values[keys_order[rowkey]], param_values[0]
+                    previous_integral = rearranged_likelihood
+                    for i in range(len(meshes)):
+                        if len(meshes) - i - 1 == 0:  # Penultimate variable
+                            integral_over_mesh = previous_integral
+                            normalisation = np.trapz(previous_integral, x=param_values[0])
+                            if normalisation != 0:
+                                integral_over_mesh /= normalisation
+                            break
+                        else:
+                            integral_over_mesh = np.zeros(rearranged_likelihood.shape[0:len(meshes) - i - 1])
+                            indices_meshes = np.meshgrid(
+                                *[[i for i in range(integral_over_mesh.shape[j])] for j in range(
+                                    len(integral_over_mesh.shape))])  # list comprehension creates lists of possible index values.e.g. for ndarray:(2,4) --> [[0, 1], [0, 1, 2, 3]]
+                            positions = np.vstack(list(map(np.ravel, indices_meshes)))
+                            positions = np.transpose(positions)
+                            for indices in positions:
+                                val = np.trapz(previous_integral[*indices],
+                                               x=param_values[-(i + 1)])  # Not sure if x is right here, figure this out
+                                integral_over_mesh[*indices] = val
+                            previous_integral = integral_over_mesh
+                    axs[row][column].plot(param_values[0], integral_over_mesh, color = 'black')
+                    axs[row][column].tick_params(
+                        axis='x',  # changes apply to the x-axis
+                        which='both',  # both major and minor ticks are affected
+                        bottom=True,  # ticks along the bottom edge are off
+                        top=False,  # ticks along the top edge are off
+                        labelbottom=True, labelsize=12)
+                    axs[row][column].minorticks_on()
+                    axs[row][column].xaxis.set_minor_locator(AutoMinorLocator(2))
+                    axs[row][column].set_xlim(param_values[0][0], param_values[0][-1])
+                    axs[row][column].set_ylim(0)
+                else: # contour, integrate over all variables but rowkey and columnkey
+                    first_rearranged_likelihood = np.swapaxes(likelihood, 0, keys_order[columnkey])
+                    rearranged_likelihood = np.swapaxes(first_rearranged_likelihood, 1, keys_order[rowkey])
+                    param_values = all_params.copy()
+                    param_values[0], param_values[1], param_values[keys_order[columnkey]], param_values[keys_order[rowkey]] = \
+                        param_values[keys_order[columnkey]], param_values[keys_order[rowkey]], param_values[0], param_values[1]
+                    previous_integral = rearranged_likelihood
+                    for i in range(len(meshes)):
+                        if len(meshes) - i - 1 == 1:  # Penultimate variable
+                            integral_over_mesh = previous_integral
+                            next_integral = np.zeros(len(param_values[0]))
+                            for i in range(len(param_values[0])):
+                                next_integral[i] = np.trapz(previous_integral[i], x=param_values[1])
+                            normalisation = np.trapz(next_integral, x=param_values[0])
+                            if normalisation != 0:
+                                integral_over_mesh /= normalisation
+                            break
+                        else:
+                            integral_over_mesh = np.zeros(rearranged_likelihood.shape[0:len(meshes) - i - 1])
+                            indices_meshes = np.meshgrid(
+                                *[[i for i in range(integral_over_mesh.shape[j])] for j in range(
+                                    len(integral_over_mesh.shape))])  # list comprehension creates lists of possible index values.e.g. for ndarray:(2,4) --> [[0, 1], [0, 1, 2, 3]]
+                            positions = np.vstack(list(map(np.ravel, indices_meshes)))
+                            positions = np.transpose(positions)
+                            for indices in positions:
+                                val = np.trapz(previous_integral[*indices],
+                                               x=param_values[-(i + 1)])  # Not sure if x is right here, figure this out
+                                integral_over_mesh[*indices] = val
+                            previous_integral = integral_over_mesh
+                    contour_array = integral_over_mesh
+                    number_of_steps = 1000
+                    if log == True:
+                        with np.errstate(divide='ignore'):
+                            contour_array = np.log(contour_array)
+                        if contour_array[contour_array != -np.inf].min() < 0:
+                            contour_array[np.isinf(contour_array)] = 1.1 * contour_array[contour_array != -np.inf].min()
+                        elif contour_array[contour_array != -np.inf].min() > 0:
+                            contour_array[np.isinf(contour_array)] = contour_array[contour_array != -np.inf].min() / 10
+                        else:
+                            raise NotImplementedError
+                        number_of_steps = 10000
 
-        for key1, key2 in mixed_keys: # Creating the contour plots by integrating out every other variable
-            first_rearranged_likelihood = np.swapaxes(likelihood, 0, keys_order[key1])
-            rearranged_likelihood = np.swapaxes(first_rearranged_likelihood, 1, keys_order[key2])
-            param_values = all_params.copy()
-            param_values[0], param_values[1], param_values[keys_order[key1]], param_values[keys_order[key2]] = \
-            param_values[keys_order[key1]], param_values[keys_order[key2]], param_values[0], param_values[1]
-            previous_integral = rearranged_likelihood
-            for i in range(len(meshes)):
-                if len(meshes) - i - 1 == 1:  # Penultimate variable
-                    integral_over_mesh = previous_integral
-                    break
+                    step = (contour_array.max() - contour_array.min()) / number_of_steps
+                    if not log:
+                        if contour_array.max() == 0:
+                            levels = np.linspace(0, 1, 10)
+                        else:
+                            levels = np.arange(start=contour_array.min(), stop=contour_array.max(), step=step)
+                    else:
+                        levels = np.arange(start=contour_array.min(), stop=contour_array.max(), step=step)
+                    plt.style.use('the_usual.mplstyle')
+                    axs[row][column].contourf(np.swapaxes(plotmeshes[f'{keys_order[columnkey]}+{keys_order[rowkey]}'][0], 0, 1),
+                                     np.swapaxes(plotmeshes[f'{keys_order[columnkey]}+{keys_order[rowkey]}'][1], 0, 1),
+                                     contour_array, levels,
+                                     cmap='Blues')
+                    #cbar = fig.colorbar(cp)  # Add a colorbar to a plot
+                    #cbar.ax.tick_params(labelsize=12)
+                    #axs[row][column].yaxis.set_minor_locator(AutoMinorLocator(2))
+                if axs[row][column] in axs[len(keyslist) - 1]: # If in the last row
+                    axs[row][column].set_xlabel(f'{columnkey}', loc='center')
+                    axs[row][column].tick_params(direction='in', left = False, bottom = True, top=False, right=False, which='both', labelsize=12)
+                    axs[row][column].minorticks_on()
                 else:
-                    integral_over_mesh = np.zeros(rearranged_likelihood.shape[0:len(meshes) - i - 1])
-                    indices_meshes = np.meshgrid(
-                        *[[i for i in range(integral_over_mesh.shape[j])] for j in range(
-                            len(integral_over_mesh.shape))])  # list comprehension creates lists of possible index values.e.g. for ndarray:(2,4) --> [[0, 1], [0, 1, 2, 3]]
-                    positions = np.vstack(list(map(np.ravel, indices_meshes)))
-                    positions = np.transpose(positions)
-                    for indices in positions:
-                        val = np.trapz(previous_integral[*indices],
-                                       x=param_values[-(i + 1)])  # Not sure if x is right here, figure this out
-                        integral_over_mesh[*indices] = val
-                    previous_integral = integral_over_mesh
-            contour_array = integral_over_mesh
-            normalisation = contour_array.sum() # Made up normalisation, check with V & A
-            contour_array /= normalisation
-            number_of_steps = 1000
-            if log == True:
-                with np.errstate(divide='ignore'):
-                    contour_array = np.log(contour_array)
-                if contour_array[contour_array != -np.inf].min() < 0:
-                    contour_array[np.isinf(contour_array)] = 1.1*contour_array[contour_array != -np.inf].min()
-                elif contour_array[contour_array != -np.inf].min() > 0:
-                    contour_array[np.isinf(contour_array)] = contour_array[contour_array != -np.inf].min()/10
+                    axs[row][column].tick_params(
+                        axis='x',  # changes apply to the x-axis
+                        which='both',  # both major and minor ticks are affected
+                        bottom=True,  # ticks along the bottom edge are off
+                        top=False,  # ticks along the top edge are off
+                        labelbottom=False, labelsize=12)
+                    axs[row][column].minorticks_on()
+                if column == 0 and row != 0:
+                    axs[row][column].set_ylabel(rowkey, loc='center')
+                    axs[row][column].tick_params(axis='y', direction='in', left=True, bottom=False, top=False, right=False,
+                                                 which='both', labelsize=12, colors = 'black')
                 else:
-                    raise NotImplementedError
-                number_of_steps = 10000
-
-            step = (contour_array.max()-contour_array.min())/number_of_steps
-            levels = np.arange(start=contour_array.min(), stop=contour_array.max(), step=step)
-            plt.style.use('the_usual.mplstyle')
-            fig, ax = plt.subplots()
-            cp = ax.contourf(np.swapaxes(plotmeshes[f'{keys_order[key1]}+{keys_order[key2]}'][0], 0, 1), np.swapaxes(plotmeshes[f'{keys_order[key1]}+{keys_order[key2]}'][1], 0, 1), contour_array, levels,
-                              cmap='viridis')
-            cbar = fig.colorbar(cp)  # Add a colorbar to a plot
-            cbar.ax.tick_params(labelsize=12)
-            if log == True:
-                ax.set_title(f'log likelihood {key2} against {key1}', fontsize=13)
-            else:
-                ax.set_title(f'likelihood {key2} against {key1}', fontsize=13)
-            ax.tick_params(direction='in', top=True, right=True, which='both', labelsize=12)
-            ax.set_xlabel(f'{key1}', fontsize=13)
-            ax.set_ylabel(f'{key2}', fontsize=13)
-            ax.minorticks_on()
-            ax.xaxis.set_minor_locator(AutoMinorLocator(2))
-            ax.yaxis.set_minor_locator(AutoMinorLocator(2))
-            plt.savefig(f'images/contour {key1}+{key2}', dpi=600)
-            plt.show()
-
+                    axs[row][column].tick_params(
+                        axis='y',  # changes apply to the x-axis
+                        which='both',  # both major and minor ticks are affected
+                        left=False,  # ticks along the bottom edge are off
+                        right=False,  # ticks along the top edge are off
+                        labelleft=False, labelsize=12)
+        fig.align_ylabels()
+        plt.savefig('images/corner_plot', dpi = 600)
 def generate_data(test_planet):
     np.random.seed(seed=5)
     test_alphas = list(np.linspace(-np.pi, -.3, 10)) + list(np.linspace(-.29, .29, 10)) + list(

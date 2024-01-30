@@ -254,7 +254,6 @@ def generate_plot_style():
     fig.tight_layout()
     return fig, ax
 
-
 def select_best_result(results):
     lowest_NLL = np.inf
     best_fit = None

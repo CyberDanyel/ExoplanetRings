@@ -55,19 +55,8 @@ if __name__ == '__main__':
     #ax2.legend()
     #plt.savefig('images/Full Light Curve')
     '''
-
-    star_obj = exoring_objects.Star(1, SUN_TO_JUP, 0.1 * AU_TO_JUP, 1)
-    model_parameters = {'radius': 1,
-                        'disk_gap': 0.2, 'ring_width': 1,
-                        'ring_normal': np.array([1., 1., 0]),
-                        'planet_sc_args': {'albedo': 1},
-                        'ring_sc_args': {'albedo': 0.1}}
-    test_ring_planet = exoring_objects.RingedPlanet(scattering.Jupiter(model_parameters['planet_sc_args']['albedo']), model_parameters['radius'], scattering.Rayleigh(model_parameters['ring_sc_args']['albedo']), model_parameters['radius']+model_parameters['disk_gap'], model_parameters['radius']+model_parameters['disk_gap']+model_parameters['ring_width'],
-                                                    np.array([1., 1., 0]), star_obj)
-
-    ring_data = fitting.generate_data(test_ring_planet)
-
-    search_ranges_ring = {'radius': (0.1, 1.9), 'disk_gap': (0, 3), 'ring_width': (1, 2),
+    '''
+        search_ranges_ring = {'radius': (0.1, 1.9), 'disk_gap': (0, 3), 'ring_width': (1, 2),
                           'ring_normal': [(0.1, 1), (0.1, 1), (0, 0)],
                           'planet_sc_args': {'albedo': (0.1, 1)},
                           'ring_sc_args': {'albedo': (0.1, 1)}}
@@ -76,10 +65,23 @@ if __name__ == '__main__':
                    'planet_sc_args': {'albedo': (0, 1)},
                    'ring_sc_args': {'albedo': (0, 1)}}
     search_ranges_planet = {'radius': (0.1, 1.9), 'planet_sc_args': {'albedo': (0.1, 1)}}
+    '''
+
+    star_obj = exoring_objects.Star(1, SUN_TO_JUP, 0.1 * AU_TO_JUP, 1)
+    model_parameters = {'radius': 1,
+                        'disk_gap': 1, 'ring_width': 1,
+                        'ring_normal': np.array([1., 1., 0]),
+                        'planet_sc_args': {'albedo': 1},
+                        'ring_sc_args': {'albedo': 0.1}}
+    test_ring_planet = exoring_objects.RingedPlanet(scattering.Jupiter(model_parameters['planet_sc_args']['albedo']), model_parameters['radius'], scattering.Rayleigh(model_parameters['ring_sc_args']['albedo']), model_parameters['radius']+model_parameters['disk_gap'], model_parameters['radius']+model_parameters['disk_gap']+model_parameters['ring_width'],
+                                                    np.array([1., 1., 0]), star_obj)
+
+    ring_data = fitting.generate_data(test_ring_planet)
+
     bounds_planet = {'radius': (0, star.radius), 'planet_sc_args': {'albedo': (0, 1)}}
 
     Data = fitting.Data_Object(ring_data, star_obj)
-    Data.produce_corner_plot(model_parameters,{'radius':(0.9,1.1), 'disk_gap':(0.01,3.5), 'ring_width':(0.2,1.3)},ringed = True, log = False, multiprocessing=True, planet_sc_law=scattering.Jupiter, ring_sc_law=scattering.Rayleigh)
+    Data.produce_corner_plot(model_parameters,{'radius':(0.9,1.1), 'disk_gap':(0,3), 'ring_width':(0.5,1.6)},ringed = True, number = 70, log = False, multiprocessing=True, planet_sc_law=scattering.Jupiter, ring_sc_law=scattering.Rayleigh)
     #Data.run_ringed_model(scattering.Jupiter, scattering.Rayleigh, model_parameters)
     #param_sets1 = Data.create_various_model_parameters(radius = (0.09, 0.83, 1), ring_width = (JUP_SATURN_LIKE_RING, 10, (1/3)*JUP_HILL_RAD), disk_gap = (0.01))
     #param_sets2 = Data.create_various_model_parameters(radius = (0.09, 0.83, 1), disk_gap = (JUP_SATURN_LIKE_RING, 10, (1/3)*JUP_HILL_RAD), ring_width = (1))
@@ -87,7 +89,7 @@ if __name__ == '__main__':
                                                        #disk_gap=(JUP_SATURN_LIKE_RING, 10, 50),
                                                        #radius=(1))
     #Data.run_many_ringless_models(scattering.Jupiter, param_sets)
-    #Data.run_many_ringed_models(scattering.Jupiter, scattering.Rayleigh, param_sets1, changing_parms=('radius','ring_width'), static_param=('G', 0.01))
+    #Data.disperse_models(test_ring_planet, scattering.Jupiter, scattering.Rayleigh, ('disk_gap', 'ring_width'), model_parameters)
     #Data.run_many_ringed_models(scattering.Jupiter, scattering.Rayleigh, param_sets2, changing_parms=('radius','disk_gap'), static_param=('W', 1))
     #Data.run_many_ringed_models(scattering.Jupiter, scattering.Rayleigh, param_sets3, changing_parms=('ring_width','disk_gap'), static_param=('R', 1))
     #Data.run_many_ringed_models(scattering.Jupiter, scattering.Rayleigh, [model_parameters for i in range(9)])
@@ -96,4 +98,4 @@ if __name__ == '__main__':
     # Data.plot_best_ringfit()
     # Data.plot_best_planetfit()
     end = time.time()
-    print('Time taken:', end - start)
+    print('Time taken:', round(end - start,2), 'seconds')
