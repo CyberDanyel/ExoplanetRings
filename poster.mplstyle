@@ -119,7 +119,7 @@ figure.dpi:         300       # figure dots per inch
 figure.facecolor:   white     # figure face color
 figure.edgecolor:   xkcd:white   # figure edge color
 
-image.cmap:            PuRd
+image.cmap:            magma_r
 image.origin:          upper        # {lower, upper}
 
 errorbar.capsize: 3  # length of end cap on error bars in pixels
