@@ -82,28 +82,30 @@ class RingMaterial:
 s = 5.67037e-8  # stefan boltzmann constant
 
 class Atmosphere:
-    def __init__(self, platon_params, planet_params, star):
-        P_1, alpha_1, alpha_2, P_3 = platon_params
-        sc_class, planet_mass, planet_radius = planet_params
+    def __init__(self, sc_class, planet_params, star, invert=False):
+        planet_mass, planet_radius = planet_params[:2]
         T = 0.5*(star.luminosity/(np.pi*s))**0.25 * star.distance**-0.5
         self.sc_class = sc_class
         self.T = T
-        #self.p = Profile()
-        #self.p.set_parametric(T, P_1, alpha_1, alpha_2, P_3, T)
         self.calc = TransitDepthCalculator()
-        self.wavelengths, self.depths, info_dict = self.calc.compute_depths(star.radius, planet_mass, planet_radius, self.T, add_scattering=False, stellar_blackbody=True, full_output=True)
-        self.albedos = {}
-        #sc_law = sc_class(albedo=1)
-        #A_g = 2/3 * sc_law(0)
-        #eclipsedepth_unitalbedo = A_g * planet_radius**2/(4*star.distance**2)
-        depth_unitalbedo = (max(info_dict['radii'])**2 - min(info_dict['radii'])**2)/star.radius**2
-        depth_unitalbedo += np.pi*planet_radius**2 * s * T**4/star.luminosity
-        self.depth_unitalbedo = depth_unitalbedo
-        for i, wavelength in enumerate(self.wavelengths):
-            self.albedos[wavelength] = (self.depths[i] - min(info_dict['radii'])**2/star.radius**2)/depth_unitalbedo
-        self.albedo_func = spint.PchipInterpolator(self.wavelengths, list(self.albedos.values()))
+        if invert:
+            self.wavelengths, self.depths, info_dict = self.calc.compute_depths(star.radius, planet_mass, planet_radius, self.T, CO_ratio=0.425381, logZ=-1,  add_scattering=True, stellar_blackbody=True, full_output=True)
+            self.albedos = np.zeros(np.shape(self.wavelengths))
+            depth_unitalbedo = (max(info_dict['radii'])**2 - min(info_dict['radii'])**2)/star.radius**2
+            planetless_depths = self.depths - min(info_dict['radii'])**2/star.radius**2
+            self.depth_unitalbedo = depth_unitalbedo
+            self.albedos += planetless_depths/depth_unitalbedo
+        else:
+            self.wavelengths, self.depths, info_dict = self.calc.compute_depths(star.radius, planet_mass, planet_radius, self.T, CO_ratio=0.425381, logZ=-1,  add_scattering=False, stellar_blackbody=True, full_output=True)
+            self.albedos = np.zeros(np.shape(self.wavelengths))
+            depth_unitalbedo = (max(info_dict['radii'])**2 - min(info_dict['radii'])**2)/star.radius**2
+            depth_unitalbedo += np.pi*planet_radius**2 * s * T**4/star.luminosity
+            self.depth_unitalbedo = depth_unitalbedo
+            for i, wavelength in enumerate(self.wavelengths):
+                self.albedos[i] += ((max(info_dict['radii'])**2/star.radius**2) - self.depths[i])/depth_unitalbedo
+        self.albedo_func = spint.PchipInterpolator(self.wavelengths, self.albedos)
 
     def albedo(self, wavelength):
         'The wavelength dependent albedo'
         return self.albedo_func(wavelength)
-    
+

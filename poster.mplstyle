@@ -1,0 +1,135 @@
+
+lines.linewidth: 2.              # line width in points
+lines.linestyle: -                 # solid line
+lines.color:    xkcd:black                # has no affect on plot(); see axes.prop_cycle
+lines.marker:                    # the default marker
+lines.markerfacecolor: auto        # the default marker face color
+lines.markeredgecolor: auto       # the default marker edge color
+lines.markeredgewidth: 0.5         # the line width around the marker symbol
+lines.markersize:      6           # marker size, in points
+
+
+font.family:  sans-serif
+font.style:   normal
+#font.variant: normal
+#font.weight:  normal
+#font.stretch: normal
+font.size:    10.0
+
+font.serif:      CMU Serif, Times New Roman
+font.sans-serif: SourceSans3
+font.cursive: cursive
+font.monospace: Computer Modern Typewriter
+
+text.color: 000000
+mathtext.fontset: custom
+mathtext.bf:  sans:bold
+mathtext.cal: cursive
+mathtext.it:  SourceSans3Italic
+mathtext.rm:  sans
+mathtext.sf:  sans
+mathtext.tt:  monospace
+
+axes.facecolor:     white # axes background color
+axes.edgecolor:     xkcd:black  # axes edge color
+axes.linewidth:     1.0     # edge line width
+axes.grid:          False   # display grid or not
+axes.grid.axis:     both    # which axis the grid should apply to
+axes.grid.which:    major   # grid lines at {major, minor, both} ticks
+axes.titlelocation: center  # alignment of the title: {left, right, center}
+axes.titlesize:     16   # font size of the axes title
+axes.titleweight:   normal  # font weight of title
+axes.titlecolor:    000000    # color of the axes title, auto falls back to
+                             # text.color as default value
+axes.titley:        1.0    # position title (axes relative units).  None implies auto
+axes.titlepad:      10.0     # pad between axes and title in points
+axes.labelsize:     14  # font size of the x and y labels
+axes.labelpad:      4.0     # space between label and axis
+axes.labelweight:   normal  # weight of the x and y labels
+axes.labelcolor:    xkcd:black
+
+
+axes.unicode_minus: True  # use Unicode for the minus symbol rather than hyphen.  See
+                           # https://en.wikipedia.org/wiki/Plus_and_minus_signs#Character_codes
+axes.prop_cycle: cycler('color', ['003c70', '9acaff', 'xkcd:coral', 'xkcd:greyish purple', 'xkcd:evergreen',])
+
+
+xtick.top:           True   # draw ticks on the top side
+xtick.bottom:        True    # draw ticks on the bottom side
+xtick.labeltop:      False   # draw label on the top
+xtick.labelbottom:   True    # draw label on the bottom
+xtick.major.size:    5     # major tick size in points
+xtick.minor.size:    2.7       # minor tick size in points
+xtick.major.width:   1.0     # major tick width in points
+xtick.minor.width:   0.8     # minor tick width in points
+xtick.major.pad:     4.     # distance to major tick label in points
+xtick.minor.pad:     3.5     # distance to the minor tick label in points
+xtick.color:         black  # color of the ticks
+xtick.labelcolor:    inherit # color of the tick labels or inherit from xtick.color
+xtick.labelsize:     large  # font size of the tick labels
+xtick.direction:     in     # direction: {in, out, inout}
+
+
+
+ytick.left:          True    # draw ticks on the left side
+ytick.right:         True   # draw ticks on the right side
+ytick.labelleft:     True    # draw tick labels on the left side
+ytick.labelright:    False   # draw tick labels on the right side
+ytick.major.size:    3.5     # major tick size in points
+ytick.minor.size:    2.5      # minor tick size in points
+ytick.major.width:   1.0    # major tick width in points
+ytick.minor.width:   0.8    # minor tick width in points
+ytick.major.pad:     4.     # distance to major tick label in points
+ytick.minor.pad:     3.5     # distance to the minor tick label in points
+ytick.color:         xkcd:dark grey   # color of the ticks
+ytick.labelcolor:    inherit # color of the tick labels or inherit from ytick.color
+ytick.labelsize:     large  # font size of the tick labels
+ytick.direction:     in     # direction: {in, out, inout}
+
+
+legend.loc:           best
+legend.frameon:       True     # if True, draw the legend on a background patch
+legend.framealpha:    1.0     # legend patch transparency
+legend.facecolor:     inherit  # inherit from axes.facecolor; or color spec
+legend.edgecolor:     xkcd:black     # background patch boundary color
+legend.fancybox:      True     # if True, use a rounded box for the
+                                # legend background, else a rectangle
+legend.shadow:        False    # if True, give background a shadow effect
+legend.numpoints:     1        # the number of marker points in the legend line
+legend.scatterpoints: 1        # number of scatter points
+legend.markerscale:   1.0      # the relative size of legend markers vs. original
+legend.fontsize:      large
+legend.labelcolor:    None
+legend.title_fontsize: None    # None sets to the same as the default axes.
+
+## Dimensions as fraction of font size:
+legend.borderpad:     0.4  # border whitespace
+legend.labelspacing:  0.4  # the vertical space between the legend entries
+legend.handlelength:  2.0  # the length of the legend lines
+legend.handleheight:  0.7  # the height of the legend handle
+legend.handletextpad: 0.8  # the space between the legend line and legend text
+legend.borderaxespad: 0.5  # the border between the axes and legend edge
+legend.columnspacing: 2.0  # column separation
+
+
+figure.titlesize:   large     # size of the figure title (``Figure.suptitle()``)
+figure.titleweight: heavy   # weight of the figure title
+figure.figsize:     6.5, 5.5  # figure size in inches
+figure.dpi:         300       # figure dots per inch
+figure.facecolor:   white     # figure face color
+figure.edgecolor:   xkcd:white   # figure edge color
+
+image.cmap:            PuRd
+image.origin:          upper        # {lower, upper}
+
+errorbar.capsize: 3  # length of end cap on error bars in pixels
+
+
+## ***************************************************************************
+## * HISTOGRAM PLOTS                                                         *
+## ***************************************************************************
+hist.bins: 30 
+scatter.marker: .         # The default marker type for scatter plots.
+scatter.edgecolors: face  # The default edge colors for scatter plots.
+
+

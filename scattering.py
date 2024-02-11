@@ -134,6 +134,8 @@ class WavelengthDependentScattering(Jupiter, Rayleigh, Lambert, Mie, SingleEmpir
             SingleScatteringLaw.__init__(self, albedo, func)
         elif isinstance(material, materials.Atmosphere):
             material.sc_class.__init__(self, albedo)
+        else:
+            material.sc_class.__init__(self, albedo)
         
 
     def wavelength_weighting(self, wavelength):
