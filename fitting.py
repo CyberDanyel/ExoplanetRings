@@ -9,12 +9,14 @@ import tqdm
 import scipy.optimize as op
 import time
 from multiprocessing import Pool, freeze_support
+import matplotlib.patches as mpatches
 
 import exoring_functions
 import exoring_objects
 
 primes_to_100 = [3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97]
 JUP_SATURN_LIKE_RING = 1.144
+
 
 # 2 not included because it does fit nicely on a graph
 class FittingPlanet(exoring_objects.Planet):
@@ -49,10 +51,10 @@ class FittingRingedPlanet(exoring_objects.RingedPlanet, FittingPlanet):
 
 def gaussian(x, mu, sigma):
     with np.errstate(under='ignore'):
-        return (1 / (sigma*np.sqrt(2 * np.pi))) * np.exp(-0.5 * ((x - mu) / sigma) ** 2)
+        return (1 / (sigma * np.sqrt(2 * np.pi))) * np.exp(-0.5 * ((x - mu) / sigma) ** 2)
 
 
-class Data_Object():
+class DataObject:
     def __init__(self, data, star):
         self.best_result_ring = None
         self.best_result_planet = None
@@ -378,7 +380,8 @@ class Data_Object():
                 for planet_sc in planet_sc_functions:
                     for ring_sc in ring_sc_functions:
                         args = [(planet_sc, ring_sc, guess) for guess in init_guesses]
-                        results = list(tqdm.tqdm(pool.imap(self.fitwrap_ring, args), total = len(args), desc='Running Models'))
+                        results = list(
+                            tqdm.tqdm(pool.imap(self.fitwrap_ring, args), total=len(args), desc='Running Models'))
                         best_NLL, best_fit = exoring_functions.select_best_result(results)
                         if best_NLL < lowest_NLL:
                             best_result = (best_NLL, best_fit, planet_sc, ring_sc)
@@ -426,7 +429,9 @@ class Data_Object():
         ax.plot(alphas / np.pi, resulting_lightcurve)
         plt.savefig('images/Ringless_Model', dpi=600)
 
-    def run_ringed_model(self, planet_sc_law, ring_sc_law, model_parameters):
+    def run_ringed_model(self, planet_sc_law, ring_sc_law, model_parameters, largest_diff = True, show_diff = True):
+        if show_diff and not largest_diff:
+            raise Exception('Largest_diff set to False but show_diff set to True')
         plt.style.use('the_usual.mplstyle')
         fig, ax = exoring_functions.generate_plot_style()
         model_parameters['n_x'], model_parameters['n_y'], model_parameters['n_z'] = model_parameters['ring_normal'][0], \
@@ -436,11 +441,43 @@ class Data_Object():
         if model_parameters['n_x'] < 0:
             print('n_x was inputted to be <0')
         model_ringed_planet = FittingRingedPlanet(planet_sc_law, ring_sc_law, self.star, model_parameters)
-        alphas = np.linspace(-np.pi, np.pi, 10000)
+        neg_alphas = np.linspace(-np.pi, 0, 5000)
+        pos_alphas = np.linspace(0, np.pi, 5000)[1:] # slicing to prevent repeat of alpha 0
+        alphas = np.concatenate((neg_alphas, pos_alphas))
         resulting_lightcurve = model_ringed_planet.light_curve(alphas)
         ax.errorbar(self.data[0] / np.pi, I, I_errs, fmt='.')
         ax.plot(alphas / np.pi, resulting_lightcurve)
+        if largest_diff:
+            neg_lightcurve = resulting_lightcurve[0:len(neg_alphas)-1] #-1 to ignore 0 alpha
+            pos_lightcurve = resulting_lightcurve[len(neg_alphas):len(alphas)]
+            neg_alphas, neg_lightcurve = neg_alphas[::-1], neg_lightcurve[::-1] # Flip it, so we can work from closest to 0 alpha
+            largest_diff = 0
+            for neg_alpha, pos_alpha, neg_element, pos_element in zip(neg_alphas[1:], pos_alphas, neg_lightcurve, pos_lightcurve): # slicing to prevent repeat alpha 0
+                diff = abs(neg_element-pos_element)
+                if diff > largest_diff:
+                    largest_diff = diff
+                    diff_neg_alpha = neg_alpha
+                    diff_pos_alpha = pos_alpha
+                    diff_neg_element = neg_element
+                    diff_pos_element = pos_element
+            if largest_diff != 0:
+                botx, topx = ax.get_xlim()
+                boty, topy = ax.get_ylim()
+                if show_diff:
+                    ax.vlines(np.array([diff_neg_alpha,diff_pos_alpha])/np.pi, [boty,boty], [diff_neg_element,diff_pos_element], linestyles='--')
+                    ax.hlines([diff_neg_element, diff_pos_element], [botx,botx], np.array([diff_neg_alpha,diff_pos_alpha])/np.pi,linestyles = '--')
+                    arrow = mpatches.FancyArrowPatch((-1, diff_neg_element), (-1, diff_pos_element),
+                                                 mutation_scale=20, arrowstyle='<|-|>', connectionstyle='Arc')
+                    ax.add_patch(arrow)
+                    ax.text(-1+0.2,(diff_pos_element+diff_neg_element)/2, '{:.3g}'.format(largest_diff), horizontalalignment = 'center', verticalalignment = 'center')
+                ax.set_xlim(botx, topx)
+                ax.set_ylim(boty, topy)
+                print('Largest diff', largest_diff)
+            else:
+                print('No largest diff')
+
         plt.savefig('images/Ringed_Model', dpi=600)
+        plt.show()
 
     def run_many_ringless_models(self, planet_sc_law, multiple_model_parameters, sharex=True, sharey=False):
         length = len(multiple_model_parameters)
@@ -504,7 +541,9 @@ class Data_Object():
                         ax.set_ylabel(r'Intensity ($L_{\odot}$)')
 
         plt.savefig('images/Multiples', dpi=1000)
-    def run_many_ringed_models(self, planet_sc_law, ring_sc_law, multiple_model_parameters, static_param, changing_parms, sharex=True, sharey=False):
+
+    def run_many_ringed_models(self, planet_sc_law, ring_sc_law, multiple_model_parameters, static_param,
+                               changing_parms, sharex=True, sharey=False):
         length = len(multiple_model_parameters)
         nrows = np.sqrt(length)
         row_parms = list()
@@ -539,8 +578,10 @@ class Data_Object():
                     raise NotImplementedError('This is too many models to fit nicely')
             else:
                 raise NotImplementedError('Number is prime and too large')
-        #fig.tight_layout()
-        fig.suptitle(f'Planet: {planet_sc_law.__name__} | Ring: {ring_sc_law.__name__} | {static_param[0]}: {static_param[1]}', y = 0.995)
+        # fig.tight_layout()
+        fig.suptitle(
+            f'Planet: {planet_sc_law.__name__} | Ring: {ring_sc_law.__name__} | {static_param[0]}: {static_param[1]}',
+            y=0.995)
         for model_parameters, ax in zip(multiple_model_parameters, axs.flat):
             I = self.data[1]
             I_errs = self.data[2]
@@ -551,10 +592,10 @@ class Data_Object():
             alphas = np.linspace(-np.pi, np.pi, 10000)
             resulting_lightcurve = model_ringed_planet.light_curve(alphas)
             planet_lightcurve = model_ringless_planet.light_curve(alphas)
-            #ax.errorbar(self.data[0] / np.pi, I, I_errs, fmt='.')
+            # ax.errorbar(self.data[0] / np.pi, I, I_errs, fmt='.')
             ax.plot(alphas / np.pi, planet_lightcurve, 'orange')
             ax.plot(alphas / np.pi, resulting_lightcurve)
-            #ax.set_title(
+            # ax.set_title(
             #    f'R:{round(model_parameters['radius'],3)} G:{round(model_parameters['disk_gap'],3)} W:{round(model_parameters['ring_width'],3)}',
             #    fontsize=8, pad=2)
             if ax in axs[0]:  # If in the first row
@@ -569,18 +610,18 @@ class Data_Object():
                 else:
                     ax.set_title(f'{changing_parms[0]}: {model_parameters[changing_parms[0]]}', color='b')
             for row in range(len(axs)):
-                if ax == axs[row][int(ncols) - 1]: # If in the last column
+                if ax == axs[row][int(ncols) - 1]:  # If in the last column
                     row_parms.append(model_parameters[changing_parms[1]])
                     ax2 = ax.twinx()
                     if changing_parms[1] == 'ring_width':
-                        ax2.set_ylabel(f'W: {round(model_parameters[changing_parms[1]],3)}', color='b', loc = 'center')
+                        ax2.set_ylabel(f'W: {round(model_parameters[changing_parms[1]], 3)}', color='b', loc='center')
                     elif changing_parms[1] == 'radius':
-                        ax2.set_ylabel(f'R: {round(model_parameters[changing_parms[1]],3)}', color='b', loc = 'center')
+                        ax2.set_ylabel(f'R: {round(model_parameters[changing_parms[1]], 3)}', color='b', loc='center')
                     elif changing_parms[1] == 'disk_gap':
-                        ax2.set_ylabel(f'G: {round(model_parameters[changing_parms[1]],3)}', color='b', loc = 'center')
+                        ax2.set_ylabel(f'G: {round(model_parameters[changing_parms[1]], 3)}', color='b', loc='center')
                     else:
                         ax2.set_ylabel(f'{changing_parms[1]}: {model_parameters[changing_parms[1]]}', color='b')
-                    #ax.set_title
+                    # ax.set_title
 
         if int(nrows) == 1:
             for ax in axs:
@@ -593,7 +634,7 @@ class Data_Object():
                         ax.set_ylabel(r'Intensity ($L_{\odot}$)')
         else:
             for ax in axs.flat:
-                ax.ticklabel_format(axis = 'y', style = 'sci', scilimits=(0,0)) # force scientific notation
+                ax.ticklabel_format(axis='y', style='sci', scilimits=(0, 0))  # force scientific notation
                 ax.xaxis.set_major_formatter(FuncFormatter(exoring_functions.format_fraction_with_pi))
                 ax.xaxis.set_major_locator(tck.MultipleLocator(base=1 / 2))
                 if ax in axs[int(nrows) - 1]:  # If in the last row
@@ -604,20 +645,22 @@ class Data_Object():
 
         plt.savefig('images/Multiples', dpi=1000)
 
-    def disperse_models(self, planet, planet_sc_law, ring_sc_law, changing_parms, model_parameters, sharex=True, sharey=False):
+    def disperse_models(self, planet, planet_sc_law, ring_sc_law, changing_parms, model_parameters, sharex=True,
+                        sharey=False):
         model_parameters['n_x'], model_parameters['n_y'], model_parameters['n_z'] = model_parameters['ring_normal'][
             0], model_parameters['ring_normal'][1], model_parameters['ring_normal'][2]
         I = self.data[1]
         I_errs = self.data[2]
         parm_values = list()
-        hill_rad = self.star.distance*np.cbrt((1000*(4/3)*(np.pi*(planet.radius**3)))/self.star.mass) # Assuming density of 1 for planet
+        hill_rad = self.star.distance * np.cbrt(
+            (1000 * (4 / 3) * (np.pi * (planet.radius ** 3))) / self.star.mass)  # Assuming density of 1 for planet
         for parm in changing_parms:
             if parm == 'radius':
                 parm_values.append((0.09, 0.83, 1))
             elif parm == 'disk_gap':
-                parm_values.append((JUP_SATURN_LIKE_RING*planet.radius, 10*planet.radius, (1/3)*hill_rad))
+                parm_values.append((JUP_SATURN_LIKE_RING * planet.radius, 10 * planet.radius, (1 / 3) * hill_rad))
             elif parm == 'ring_width':
-                parm_values.append((JUP_SATURN_LIKE_RING*planet.radius, 10*planet.radius, (1/3)*hill_rad))
+                parm_values.append((JUP_SATURN_LIKE_RING * planet.radius, 10 * planet.radius, (1 / 3) * hill_rad))
             else:
                 raise NotImplementedError('Variable not implemented')
         meshes = np.meshgrid(*parm_values)
@@ -626,7 +669,7 @@ class Data_Object():
             flipped_axes_meshes.append(np.swapaxes(mesh, 0, 1))
         parm1mesh, parm2mesh = flipped_axes_meshes
         plt.style.use('the_usual.mplstyle')
-        fig, axs = plt.subplots(3,3, sharex = True)
+        fig, axs = plt.subplots(3, 3, sharex=True)
         fig.suptitle(
             f'Planet: {planet_sc_law.__name__} | Ring: {ring_sc_law.__name__}',
             y=0.995)
@@ -644,65 +687,65 @@ class Data_Object():
                 planet_lightcurve = model_ringless_planet.light_curve(alphas)
                 ax.plot(alphas / np.pi, planet_lightcurve, 'orange')
                 ax.plot(alphas / np.pi, ringed_lightcurve)
-                ax.errorbar(self.data[0] / np.pi, I, I_errs, fmt='.')
-                if row == 0: # first row
+                #ax.errorbar(self.data[0] / np.pi, I, I_errs, fmt='.')
+                if row == 0:  # first row
                     if parm2name == 'disk_gap' or parm2name == 'ring_width':
-                        if parm2 == JUP_SATURN_LIKE_RING*planet.radius:
+                        if parm2 == JUP_SATURN_LIKE_RING * planet.radius:
                             if parm2name == 'disk_gap':
-                                ax.set_title('G: Saturn', fontsize = 14, pad = 15)
+                                ax.set_title('G: Saturn', fontsize=14, pad=15)
                             elif parm2name == 'ring_width':
-                                ax.set_title('W: Saturn', fontsize = 14, pad = 15)
-                        elif parm2 == 10*planet.radius:
+                                ax.set_title('W: Saturn', fontsize=14, pad=15)
+                        elif parm2 == 10 * planet.radius:
                             if parm2name == 'disk_gap':
-                                ax.set_title('G: 10x Planet', fontsize = 14, pad = 15)
+                                ax.set_title('G: 10x Planet', fontsize=14, pad=15)
                             elif parm2name == 'ring_width':
-                                ax.set_title('W: 10x Planet', fontsize = 14, pad = 15)
-                        elif parm2 == (1/3)*hill_rad:
+                                ax.set_title('W: 10x Planet', fontsize=14, pad=15)
+                        elif parm2 == (1 / 3) * hill_rad:
                             if parm2name == 'disk_gap':
-                                ax.set_title('G: 1/3 Hill', fontsize = 14, pad = 15)
+                                ax.set_title('G: 1/3 Hill', fontsize=14, pad=15)
                             elif parm2name == 'ring_width':
-                                ax.set_title('W: 1/3 Hill', fontsize = 14, pad = 15)
+                                ax.set_title('W: 1/3 Hill', fontsize=14, pad=15)
                     elif parm2name == 'radius':
-                        ax.set_title(f'R: {parm2}', fontsize = 14, pad = 15)
-                if col == 2: # last column
+                        ax.set_title(f'R: {parm2}', fontsize=14, pad=15)
+                if col == 2:  # last column
                     ax2 = ax.twinx()
                     if parm1name == 'disk_gap' or parm1name == 'ring_width':
                         if parm1 == JUP_SATURN_LIKE_RING * planet.radius:
                             if parm1name == 'disk_gap':
-                                ax2.set_ylabel('G: Saturn', loc='center', fontsize = 14, rotation=270, labelpad=20)
+                                ax2.set_ylabel('G: Saturn', loc='center', fontsize=14, rotation=270, labelpad=20)
                             elif parm1name == 'ring_width':
-                                ax2.set_ylabel('W: Saturn', loc='center', fontsize = 14, rotation=270, labelpad=20)
+                                ax2.set_ylabel('W: Saturn', loc='center', fontsize=14, rotation=270, labelpad=20)
                         elif parm1 == 10 * planet.radius:
                             if parm1name == 'disk_gap':
-                                ax2.set_ylabel('G: 10x Planet', loc='center', fontsize = 14, rotation=270, labelpad=20)
+                                ax2.set_ylabel('G: 10x Planet', loc='center', fontsize=14, rotation=270, labelpad=20)
                             elif parm1name == 'ring_width':
-                                ax2.set_ylabel('W: 10x Planet', loc='center', fontsize = 14, rotation=270, labelpad=20)
+                                ax2.set_ylabel('W: 10x Planet', loc='center', fontsize=14, rotation=270, labelpad=20)
                         elif parm1 == (1 / 3) * hill_rad:
                             if parm1name == 'disk_gap':
-                                ax2.set_ylabel('G: 1/3 Hill', loc='center', fontsize = 14, rotation=270, labelpad=20)
+                                ax2.set_ylabel('G: 1/3 Hill', loc='center', fontsize=14, rotation=270, labelpad=20)
                             elif parm1name == 'ring_width':
-                                ax2.set_ylabel('W: 1/3 Hill', loc='center', fontsize = 14, rotation=270, labelpad=20)
+                                ax2.set_ylabel('W: 1/3 Hill', loc='center', fontsize=14, rotation=270, labelpad=20)
                     elif parm1name == 'radius':
-                        ax2.set_ylabel(f'R: {parm1}', loc='center', fontsize = 14, rotation=270, labelpad=20)
+                        ax2.set_ylabel(f'R: {parm1}', loc='center', fontsize=14, rotation=270, labelpad=20)
                     ax2.tick_params(
                         axis='y',  # changes apply to the x-axis
                         which='both',  # both major and minor ticks are affected
-                        right = False,
-                        left = False,
+                        right=False,
+                        left=False,
                         labelright=False)
         for ax in axs.flat:
             ax.ticklabel_format(axis='y', style='sci', scilimits=(0, 0))  # force scientific notation
             ax.yaxis.get_offset_text().set_fontsize(12)
             ax.xaxis.set_major_formatter(FuncFormatter(exoring_functions.format_fraction_with_pi))
             ax.xaxis.set_major_locator(tck.MultipleLocator(base=1 / 2))
-            ax.tick_params(labelsize = 13)
+            ax.tick_params(labelsize=13)
             if ax in axs[2]:  # If in the last row
-                ax.set_xlabel(r'Phase angle $\alpha$', fontsize = 12)
+                ax.set_xlabel(r'Phase angle $\alpha$', fontsize=12)
             for row in range(3):
                 if ax == axs[row][0]:  # If in the first column
-                    ax.set_ylabel(r'Intensity ($L_{\odot}$)', fontsize = 12)
+                    ax.set_ylabel(r'Intensity ($L_{\odot}$)', fontsize=12)
         fig.align_ylabels()
-        #plt.tight_layout()
+        # plt.tight_layout()
         plt.savefig('images/Disperse', dpi=1000)
 
     def create_various_model_parameters(self, **kwargs):
@@ -745,7 +788,7 @@ class Data_Object():
         x = model_planet.light_curve(alpha)
         return np.prod(gaussian(x, I, I_errs))
 
-    def wrapped_likelihood_ringless_model(self,args):
+    def wrapped_likelihood_ringless_model(self, args):
         likelihood = self.likelihood_ringless_model(*args[1:])
         indices = args[0]
         return indices, likelihood
@@ -763,7 +806,7 @@ class Data_Object():
         x = model_ringed_planet.light_curve(alpha)
         return np.prod(gaussian(x, I, I_errs))
 
-    def wrapped_likelihood_ringed_model(self,args):
+    def wrapped_likelihood_ringed_model(self, args):
         likelihood = self.likelihood_ringed_model(*args[1:])
         indices = args[0]
         return indices, likelihood
@@ -854,10 +897,10 @@ class Data_Object():
             cbar = fig.colorbar(cp)  # Add a colorbar to a plot
             cbar.ax.tick_params(labelsize=12)
             ax.set_title(f'log likelihood {key2} against {key1}', fontsize=13)
-            #ax.ticklabel_format(axis='y', style='sci', scilimits=(-3, -3))
+            # ax.ticklabel_format(axis='y', style='sci', scilimits=(-3, -3))
             ax.tick_params(direction='in', top=True, right=True, which='both', labelsize=12)
-            #ax.set_xticks([0.21, 0.23, 0.25, 0.27, 0.29])
-            #ax.set_yticks([1.95e-3, 2e-3, 2.05e-3, 2.1e-3, 2.15e-3, 2.2e-3, 2.25e-3])
+            # ax.set_xticks([0.21, 0.23, 0.25, 0.27, 0.29])
+            # ax.set_yticks([1.95e-3, 2e-3, 2.05e-3, 2.1e-3, 2.15e-3, 2.2e-3, 2.25e-3])
             ax.set_xlabel(f'{key1}', fontsize=13)
             ax.set_ylabel(f'{key2}', fontsize=13)
             ax.minorticks_on()
@@ -866,7 +909,7 @@ class Data_Object():
             plt.savefig(f'images/contour {key1}+{key2}', dpi=600)
             plt.show()
 
-    def produce_corner_plot(self, best_model, ranges, ringed, number, log = False, multiprocessing = True, **kwargs):
+    def produce_corner_plot(self, best_model, ranges, number, ringed = True, log=False, multiprocessing=True, **kwargs):
         planet_sc_law = kwargs['planet_sc_law']
         if ringed:
             ring_sc_law = kwargs['ring_sc_law']
@@ -891,13 +934,13 @@ class Data_Object():
         meshes = np.meshgrid(*all_params)
         plotmeshes = dict()
         for index1, index2 in mixed_indices:
-            plotmeshes[f'{index1}+{index2}'] = np.meshgrid(all_params[index1],all_params[index2])
+            plotmeshes[f'{index1}+{index2}'] = np.meshgrid(all_params[index1], all_params[index2])
         flipped_axes_meshes = list()
         for mesh in meshes:
             flipped_axes_meshes.append(np.swapaxes(mesh, 0, 1))
         meshes = flipped_axes_meshes
         likelihood = np.zeros(meshes[0].shape)
-        #saved = dict() # Used to check whether x in np.trapz was correct
+        # saved = dict() # Used to check whether x in np.trapz was correct
         indices_meshes = np.meshgrid(*[[i for i in range(likelihood.shape[j])] for j in range(len(likelihood.shape))])
         positions = np.vstack(list(map(np.ravel, indices_meshes)))
         positions = np.transpose(positions)
@@ -914,13 +957,15 @@ class Data_Object():
                     args.append((indexes, planet_sc_law, altered_model))
             with Pool(16) as pool:
                 if ringed:
-                    results = list(tqdm.tqdm(pool.imap(self.wrapped_likelihood_ringed_model, args), total=len(args), desc='Running Models', colour='green'))
+                    results = list(tqdm.tqdm(pool.imap(self.wrapped_likelihood_ringed_model, args), total=len(args),
+                                             desc='Running Models', colour='green'))
                     for result in results:
                         likelihood[*result[0]] = result[1]
-                    #saved[f'{indexes}'] = f'radius:{meshes[0][*indexes]} disk_gap:{meshes[1][*indexes]} ring_width:{meshes[2][*indexes]}' #Used to check whether x in np.trapz was correct
+                    # saved[f'{indexes}'] = f'radius:{meshes[0][*indexes]} disk_gap:{meshes[1][*indexes]} ring_width:{meshes[2][*indexes]}' #Used to check whether x in np.trapz was correct
 
                 else:
-                    results = list(tqdm.tqdm(pool.imap(self.wrapped_likelihood_ringless_model, args), total=len(args), desc='Running Models', colour='green'))
+                    results = list(tqdm.tqdm(pool.imap(self.wrapped_likelihood_ringless_model, args), total=len(args),
+                                             desc='Running Models', colour='green'))
                     for result in results:
                         likelihood[*result[0]] = result[1]
         else:
@@ -937,7 +982,7 @@ class Data_Object():
                     likelihood_val = self.likelihood_ringless_model(planet_sc_law, altered_model)
                     likelihood[*indexes] = likelihood_val
         end = time.time()
-        print('Time taken for running of models', round(end-start,2), 'seconds')
+        print('Time taken for running of models', round(end - start, 2), 'seconds')
         '''
         previous_integral = likelihood
         for i in range(len(meshes)):
@@ -961,16 +1006,17 @@ class Data_Object():
             likelihood = likelihood / total_integral
         '''
         plt.style.use('the_usual.mplstyle')
-        fig, axs = plt.subplots(len(keyslist), len(keyslist), sharex='col') # share the x-axis between columns
+        fig, axs = plt.subplots(len(keyslist), len(keyslist), sharex='col')  # share the x-axis between columns
         for column, columnkey in zip(range(len(keyslist)), keyslist):
             for row, rowkey in zip(range(len(keyslist)), keyslist):
                 if column > row:
                     fig.delaxes(axs[row][column])
                     continue
-                elif row == column: # diagonal, integrate over all variables but rowkey
+                elif row == column:  # diagonal, integrate over all variables but rowkey
                     rearranged_likelihood = np.swapaxes(likelihood, 0, keys_order[rowkey])
                     param_values = all_params.copy()
-                    param_values[0], param_values[keys_order[rowkey]] = param_values[keys_order[rowkey]], param_values[0]
+                    param_values[0], param_values[keys_order[rowkey]] = param_values[keys_order[rowkey]], param_values[
+                        0]
                     previous_integral = rearranged_likelihood
                     for i in range(len(meshes)):
                         if len(meshes) - i - 1 == 0:  # Penultimate variable
@@ -991,7 +1037,7 @@ class Data_Object():
                                                x=param_values[-(i + 1)])  # Not sure if x is right here, figure this out
                                 integral_over_mesh[*indices] = val
                             previous_integral = integral_over_mesh
-                    axs[row][column].plot(param_values[0], integral_over_mesh, color = 'black')
+                    axs[row][column].plot(param_values[0], integral_over_mesh, color='#084d96')
                     axs[row][column].tick_params(
                         axis='x',  # changes apply to the x-axis
                         which='both',  # both major and minor ticks are affected
@@ -1002,12 +1048,14 @@ class Data_Object():
                     axs[row][column].xaxis.set_minor_locator(AutoMinorLocator(2))
                     axs[row][column].set_xlim(param_values[0][0], param_values[0][-1])
                     axs[row][column].set_ylim(0)
-                else: # contour, integrate over all variables but rowkey and columnkey
+                else:  # contour, integrate over all variables but rowkey and columnkey
                     first_rearranged_likelihood = np.swapaxes(likelihood, 0, keys_order[columnkey])
                     rearranged_likelihood = np.swapaxes(first_rearranged_likelihood, 1, keys_order[rowkey])
                     param_values = all_params.copy()
-                    param_values[0], param_values[1], param_values[keys_order[columnkey]], param_values[keys_order[rowkey]] = \
-                        param_values[keys_order[columnkey]], param_values[keys_order[rowkey]], param_values[0], param_values[1]
+                    param_values[0], param_values[1], param_values[keys_order[columnkey]], param_values[
+                        keys_order[rowkey]] = \
+                        param_values[keys_order[columnkey]], param_values[keys_order[rowkey]], param_values[0], \
+                        param_values[1]
                     previous_integral = rearranged_likelihood
                     for i in range(len(meshes)):
                         if len(meshes) - i - 1 == 1:  # Penultimate variable
@@ -1053,16 +1101,18 @@ class Data_Object():
                     else:
                         levels = np.arange(start=contour_array.min(), stop=contour_array.max(), step=step)
                     plt.style.use('the_usual.mplstyle')
-                    axs[row][column].contourf(np.swapaxes(plotmeshes[f'{keys_order[columnkey]}+{keys_order[rowkey]}'][0], 0, 1),
-                                     np.swapaxes(plotmeshes[f'{keys_order[columnkey]}+{keys_order[rowkey]}'][1], 0, 1),
-                                     contour_array, levels,
-                                     cmap='Blues')
-                    #cbar = fig.colorbar(cp)  # Add a colorbar to a plot
-                    #cbar.ax.tick_params(labelsize=12)
-                    #axs[row][column].yaxis.set_minor_locator(AutoMinorLocator(2))
-                if axs[row][column] in axs[len(keyslist) - 1]: # If in the last row
+                    axs[row][column].contourf(
+                        np.swapaxes(plotmeshes[f'{keys_order[columnkey]}+{keys_order[rowkey]}'][0], 0, 1),
+                        np.swapaxes(plotmeshes[f'{keys_order[columnkey]}+{keys_order[rowkey]}'][1], 0, 1),
+                        contour_array, levels,
+                        cmap='Blues')
+                    # cbar = fig.colorbar(cp)  # Add a colorbar to a plot
+                    # cbar.ax.tick_params(labelsize=12)
+                    # axs[row][column].yaxis.set_minor_locator(AutoMinorLocator(2))
+                if axs[row][column] in axs[len(keyslist) - 1]:  # If in the last row
                     axs[row][column].set_xlabel(f'{columnkey}', loc='center')
-                    axs[row][column].tick_params(direction='in', left = False, bottom = True, top=False, right=False, which='both', labelsize=12)
+                    axs[row][column].tick_params(direction='in', left=False, bottom=True, top=False, right=False,
+                                                 which='both', labelsize=12)
                     axs[row][column].minorticks_on()
                 else:
                     axs[row][column].tick_params(
@@ -1074,8 +1124,9 @@ class Data_Object():
                     axs[row][column].minorticks_on()
                 if column == 0 and row != 0:
                     axs[row][column].set_ylabel(rowkey, loc='center')
-                    axs[row][column].tick_params(axis='y', direction='in', left=True, bottom=False, top=False, right=False,
-                                                 which='both', labelsize=12, colors = 'black')
+                    axs[row][column].tick_params(axis='y', direction='in', left=True, bottom=False, top=False,
+                                                 right=False,
+                                                 which='both', labelsize=12, colors='black')
                 else:
                     axs[row][column].tick_params(
                         axis='y',  # changes apply to the x-axis
@@ -1084,7 +1135,9 @@ class Data_Object():
                         right=False,  # ticks along the top edge are off
                         labelleft=False, labelsize=12)
         fig.align_ylabels()
-        plt.savefig('images/corner_plot', dpi = 600)
+        plt.savefig('images/corner_plot', dpi=600)
+
+
 def generate_data(test_planet):
     np.random.seed(seed=5)
     test_alphas = list(np.linspace(-np.pi, -.3, 10)) + list(np.linspace(-.29, .29, 10)) + list(
