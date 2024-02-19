@@ -14,9 +14,8 @@ import matplotlib.patches as mpatches
 import exoring_functions
 import exoring_objects
 
-primes_to_100 = [3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97]
-JUP_SATURN_LIKE_RING = 1.144
-
+with open('constants.json') as json_file:
+    constants = json.load(json_file)
 
 # 2 not included because it does fit nicely on a graph
 class FittingPlanet(exoring_objects.Planet):
@@ -487,7 +486,7 @@ class DataObject:
             plt.style.use('the_usual.mplstyle')
             fig, axs = plt.subplots(int(nrows), int(ncols), sharex=sharex, sharey=sharey)
         else:
-            if length not in primes_to_100:
+            if length not in constants['primes_to_100']:
                 nrows = math.ceil(nrows)
                 while True:
                     ncols = length / nrows
@@ -498,7 +497,7 @@ class DataObject:
                         break
                     else:
                         nrows += 1
-            elif length in primes_to_100:
+            elif length in constants['primes_to_100']:
                 if length == 3:
                     plt.style.use('the_usual.mplstyle')
                     fig, axs = plt.subplots(1, 3, sharex=sharex, sharey=sharey)
@@ -553,7 +552,7 @@ class DataObject:
             plt.style.use('the_usual.mplstyle')
             fig, axs = plt.subplots(int(nrows), int(ncols), sharex=sharex, sharey=sharey)
         else:
-            if length not in primes_to_100:
+            if length not in constants['primes_to_100']:
                 nrows = math.ceil(nrows)
                 while True:
                     ncols = length / nrows
@@ -564,7 +563,7 @@ class DataObject:
                         break
                     else:
                         nrows += 1
-            elif length in primes_to_100:
+            elif length in constants['primes_to_100']:
                 if length == 3:
                     plt.style.use('the_usual.mplstyle')
                     fig, axs = plt.subplots(1, 3, sharex=sharex, sharey=sharey)
@@ -653,14 +652,14 @@ class DataObject:
         I_errs = self.data[2]
         parm_values = list()
         hill_rad = self.star.distance * np.cbrt(
-            (1000 * (4 / 3) * (np.pi * (planet.radius ** 3))) / self.star.mass)  # Assuming density of 1 for planet
+            (1000 * (4 / 3) * (np.pi * ((planet.radius*constants['R_JUP']) ** 3))) / self.star.mass)  # Assuming density of 1 for planet
         for parm in changing_parms:
             if parm == 'radius':
                 parm_values.append((0.09, 0.83, 1))
             elif parm == 'disk_gap':
-                parm_values.append((JUP_SATURN_LIKE_RING * planet.radius, 10 * planet.radius, (1 / 3) * hill_rad))
+                parm_values.append((constants['SATURN-LIKE_RING_IN_R_JUP'] * planet.radius, 10 * planet.radius, (1 / 3) * hill_rad))
             elif parm == 'ring_width':
-                parm_values.append((JUP_SATURN_LIKE_RING * planet.radius, 10 * planet.radius, (1 / 3) * hill_rad))
+                parm_values.append((constants['SATURN-LIKE_RING_IN_R_JUP'] * planet.radius, 10 * planet.radius, (1 / 3) * hill_rad))
             else:
                 raise NotImplementedError('Variable not implemented')
         meshes = np.meshgrid(*parm_values)
@@ -690,7 +689,7 @@ class DataObject:
                 #ax.errorbar(self.data[0] / np.pi, I, I_errs, fmt='.')
                 if row == 0:  # first row
                     if parm2name == 'disk_gap' or parm2name == 'ring_width':
-                        if parm2 == JUP_SATURN_LIKE_RING * planet.radius:
+                        if parm2 == constants['SATURN-LIKE_RING_IN_R_JUP'] * planet.radius:
                             if parm2name == 'disk_gap':
                                 ax.set_title('G: Saturn', fontsize=14, pad=15)
                             elif parm2name == 'ring_width':
@@ -710,7 +709,7 @@ class DataObject:
                 if col == 2:  # last column
                     ax2 = ax.twinx()
                     if parm1name == 'disk_gap' or parm1name == 'ring_width':
-                        if parm1 == JUP_SATURN_LIKE_RING * planet.radius:
+                        if parm1 == constants['SATURN-LIKE_RING_IN_R_JUP'] * planet.radius:
                             if parm1name == 'disk_gap':
                                 ax2.set_ylabel('G: Saturn', loc='center', fontsize=14, rotation=270, labelpad=20)
                             elif parm1name == 'ring_width':

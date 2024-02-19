@@ -1,4 +1,5 @@
 if __name__ == '__main__':
+    import json
     import exoring_objects
     import scattering
     import numpy as np
@@ -10,20 +11,12 @@ if __name__ == '__main__':
     from matplotlib.ticker import FuncFormatter
     import matplotlib.ticker as tck
 
+    with open('constants.json') as json_file:
+        constants = json.load(json_file)
+
     start = time.time()
 
-    AU = 1.495978707e13
-    L_SUN = 3.828e33
-    R_JUP = 6.9911e9
-    R_SUN = 6.957e10
-    JUP_TO_AU = AU / R_JUP
-    SUN_TO_JUP = R_SUN / R_JUP
-    SUN_TO_AU = AU / R_SUN
-    AU_TO_JUP = AU / R_JUP
-    JUP_HILL_RAD = 0.355*JUP_TO_AU
-    JUP_SATURN_LIKE_RING = 1.144
-
-    star = exoring_objects.Star(1, SUN_TO_JUP, 0.1 * JUP_TO_AU, 1)
+    star = exoring_objects.Star(1, constants['R_SUN_TO_R_JUP'], 0.1 * constants['AU_TO_R_JUP'], 1)
     '''
     planet = exoring_objects.Planet(scattering.Jupiter(1), 1, star)
     
@@ -67,7 +60,7 @@ if __name__ == '__main__':
     search_ranges_planet = {'radius': (0.1, 1.9), 'planet_sc_args': {'albedo': (0.1, 1)}}
     '''
 
-    star_obj = exoring_objects.Star(1, SUN_TO_JUP, 0.5 * AU_TO_JUP, 1)
+    star_obj = exoring_objects.Star(1, constants['R_SUN_TO_R_JUP'], 0.5 * constants['AU_TO_R_JUP'], 1)
     model_parameters = {'radius': 1,
                         'disk_gap': 1, 'ring_width': 1,
                         'ring_normal': np.array([1., 1., 0]),

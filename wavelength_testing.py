@@ -1,27 +1,22 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+import json
 import exoring_objects
 import scattering
 import materials
 import socket
 
+with open('constants.json') as json_file:
+    constants = json.load(json_file)
+
 plt.style.use('poster')
-AU = 1.495978707e11
-L_SUN = 3.828e26
-R_JUP = 6.9911e7
-R_SUN = 6.957e8
-JUP_TO_AU = AU / R_JUP
-SUN_TO_JUP = R_SUN / R_JUP
-AU_TO_SUN = AU / R_SUN
-AU_TO_JUP = AU / R_JUP
-M_JUP = 1.898e27
 bandpass = (10e-6, 14e-6)
-star = exoring_objects.Star(L_SUN, R_SUN, .1*AU, 1.)
+star = exoring_objects.Star(constants['L_SUN'], constants['R_SUN'], .1*constants['AU'], 1.)
 
 ice = materials.RingMaterial('materials/saturn_small_ice.inp', 361, 500)
 silicate = materials.RingMaterial('materials/silicate_small.inp', 361, 500)
-atmos = materials.Atmosphere(scattering.Jupiter,  [M_JUP, R_JUP], star)
+atmos = materials.Atmosphere(scattering.Jupiter,  [constants['M_JUP'], constants['R_JUP']], star)
 
 sc_ice = scattering.WavelengthDependentScattering(ice, bandpass, star.planck_function)
 sc_sil = scattering.WavelengthDependentScattering(silicate, bandpass, star.planck_function)
@@ -29,12 +24,12 @@ sc_ring_diffuse = scattering.Lambert(sc_sil.albedo)
 sc_planet = scattering.WavelengthDependentScattering(atmos, bandpass, star.planck_function)
 sc_mie = scattering.Mie(1., 100e-6/np.mean(bandpass), 1.5+.1j)
 
-ring_params = [1.2*R_JUP, 2*R_JUP, [1., 0.5, 0.1], star]
+ring_params = [1.2*constants['R_JUP'], 2*constants['R_JUP'], [1., 0.5, 0.1], star]
 
-sil_rplanet = exoring_objects.RingedPlanet(sc_planet, R_JUP, sc_sil, *ring_params)
-ice_rplanet = exoring_objects.RingedPlanet(sc_planet, R_JUP, sc_ice, *ring_params)
-diffuse_rplanet = exoring_objects.RingedPlanet(sc_planet, R_JUP, sc_ring_diffuse, *ring_params)
-mie_rplanet = exoring_objects.RingedPlanet(sc_planet, R_JUP, sc_mie, *ring_params)
+sil_rplanet = exoring_objects.RingedPlanet(sc_planet, constants['R_JUP'], sc_sil, *ring_params)
+ice_rplanet = exoring_objects.RingedPlanet(sc_planet, constants['R_JUP'], sc_ice, *ring_params)
+diffuse_rplanet = exoring_objects.RingedPlanet(sc_planet, constants['R_JUP'], sc_ring_diffuse, *ring_params)
+mie_rplanet = exoring_objects.RingedPlanet(sc_planet, constants['R_JUP'], sc_mie, *ring_params)
 
 
 alphas = list(np.linspace(-np.pi, -0.1, 1000)) + list(np.linspace(-.1, .1, 1000)) + list(np.linspace(0.1, np.pi, 1000))
