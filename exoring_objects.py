@@ -3,6 +3,7 @@ import exoring_functions
 import scattering
 import scipy.integrate as spi
 import materials
+import json
 import time
 
 # coordinate systems defined such that the observer is always along the x-axis
@@ -10,6 +11,8 @@ import time
 # phase angle alpha is aligned with the phi of the spherical coordinate system; the star is always 'equatorial'
 
 # everything also assumes circular orbits
+with open('constants.json') as json_file:
+    constants = json.load(json_file)
 
 class Planet:
     def __init__(self, sc_law, radius, star):
@@ -282,13 +285,35 @@ class RingedPlanet(Planet):
         ring_light_curve = Ring.light_curve(self.ring, alpha)
         return planet_light_curve + ring_light_curve
 
+M_JUP = constants['M_JUP']
+R_JUP = constants['R_JUP']
 
-class ExoJupiter(Planet):
-    def __init__(self, single_albedo, radius, star):
-        sc_law = scattering.Jupiter(single_albedo)
-        Planet.__init__(self, sc_law, radius, star)
+class HotJupiter(Planet):
+    def __init__(self, radius, bandpass, star):
+        # radius is in Jupiter radii
+        self.bandpass = bandpass
+        self.atmos = materials.Atmosphere(scattering.Jupiter, [M_JUP, R_JUP], star) # could make this an attribute of the star instead to prevent reinitialization every time
+        sc_law = scattering.WavelengthDependentScattering(self.atmos, bandpass, star.planck_function)
+        Planet.__init__(self, sc_law, R_JUP*radius, star)
+    
+    def light_curve(self, alpha):
+        return Planet.light_curve(self, alpha)/self.star.luminosity
+    
 
-
+class HotRingedJupiter(RingedPlanet):
+    def __init__(self, planet_r, ring_inner_r, ring_outer_r, ring_normal, bandpass, star):
+        # planet_r, ring_inner_r, ring_outer_r are all in Jupiter radii
+        self.bandpass = bandpass
+        self.atmos = materials.Atmosphere(scattering.Jupiter, [M_JUP, R_JUP], star) # could make this an attribute of the star instead to prevent reinitialization every time
+        self.ringmat = materials.RingMaterial('materials/silicate_small.inp', 361, 500)
+        atmos_sc = scattering.WavelengthDependentScattering(self.atmos, bandpass, star.planck_function)
+        ring_sc = scattering.WavelengthDependentScattering(self.ringmat, bandpass, star.planck_function)
+        RingedPlanet.__init__(self, atmos_sc, planet_r*R_JUP, ring_sc, ring_inner_r*R_JUP, ring_outer_r*R_JUP, ring_normal, star)
+    
+    def light_curve(self, alpha):
+        return RingedPlanet.light_curve(self, alpha)/self.star.luminosity
+    
+    
 s = 5.67037e-8  # stefan boltzmann constant
 
 

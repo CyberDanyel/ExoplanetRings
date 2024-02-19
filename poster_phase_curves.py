@@ -68,7 +68,7 @@ def make_full_plot(ax):
 
     ax.set_xticklabels([r'$-\pi$', r'$-\pi/2$', r'$0$', r'$\pi/2$', r'$\pi$'])
 
-    plt.xlabel('Phase angle')
+    plt.xlabel('Phase angle $\alpha$')
     plt.ylabel(r'Intensity/$L_\odot$')
     plt.title(r'Wavelength band %.1f$\mathrm{\mu}$m-%.1f$\mathrm{\mu}$m'%tuple(val*1e6 for val in bandpass))
     plt.tight_layout()
