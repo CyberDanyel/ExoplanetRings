@@ -318,13 +318,14 @@ s = 5.67037e-8  # stefan boltzmann constant
 
 
 class Star:
-    def __init__(self, luminosity, radius, distance, mass, planet=None):
-        self.luminosity = luminosity
+    def __init__(self, temperature, radius, distance, mass, planet=None):
+        self.T = temperature
         self.radius = radius
         self.distance = distance
         self.mass = mass
         self.planet = planet
-        self.T = (self.luminosity / (s * 4 * np.pi * radius**2)) ** 0.25
+        self.luminosity =  (s * 4 * np.pi * radius**2) * self.T**4
+        
 
     def transit_function(self, alpha):
         # if abs(alpha) <= np.pi / 2:

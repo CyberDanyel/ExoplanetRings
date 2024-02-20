@@ -6,7 +6,7 @@ import platon
 from platon.TP_profile import Profile
 from platon.transit_depth_calculator import TransitDepthCalculator
 
-
+R_JUP = 69.911e9
 class _MatPhaseFuncs:
     'phase function interpolated for scattering angle but not wavelength'
     def __init__(self, data):
@@ -82,14 +82,20 @@ class RingMaterial:
 s = 5.67037e-8  # stefan boltzmann constant
 
 class Atmosphere:
-    def __init__(self, sc_class, planet_params, star, invert=False):
+    def __init__(self, sc_class, planet_params, star, meters_per_length_unit=1, invert=False):
         planet_mass, planet_radius = planet_params[:2]
-        T = 0.5*(star.luminosity/(np.pi*s))**0.25 * star.distance**-0.5
+        planet_radius *= meters_per_length_unit
+        star.radius *= meters_per_length_unit
+        star.luminosity *= meters_per_length_unit**2
+        star.distance *= meters_per_length_unit
+        self.meters_per_length_unit = meters_per_length_unit
+        T = 0.5*(star.luminosity/(np.pi*s))**0.25 * star.distance**-0.5 # result independent of length unit
         self.sc_class = sc_class
         self.T = T
         self.calc = TransitDepthCalculator()
         if invert:
             self.wavelengths, self.depths, info_dict = self.calc.compute_depths(star.radius, planet_mass, planet_radius, self.T, CO_ratio=0.425381, logZ=-1,  add_scattering=True, stellar_blackbody=True, full_output=True)
+            self.wavelengths *= R_JUP
             self.albedos = np.zeros(np.shape(self.wavelengths))
             depth_unitalbedo = (max(info_dict['radii'])**2 - min(info_dict['radii'])**2)/star.radius**2
             planetless_depths = self.depths - min(info_dict['radii'])**2/star.radius**2
@@ -104,7 +110,9 @@ class Atmosphere:
             for i, wavelength in enumerate(self.wavelengths):
                 self.albedos[i] += ((max(info_dict['radii'])**2/star.radius**2) - self.depths[i])/depth_unitalbedo
         self.albedo_func = spint.PchipInterpolator(self.wavelengths, self.albedos)
-
+        star.radius /= meters_per_length_unit
+        star.luminosity /= meters_per_length_unit**2
+        star.distance /= meters_per_length_unit
     def albedo(self, wavelength):
         'The wavelength dependent albedo'
         return self.albedo_func(wavelength)
