@@ -359,8 +359,9 @@ class DataObject:
         ring_sc_law = scattering_laws[f'{ring_sc_law}']
         if show_diff and not largest_diff:
             raise Exception('Largest_diff set to False but show_diff set to True')
-        plt.style.use('the_usual.mplstyle')
+        plt.style.use('poster.mplstyle')
         fig, ax = exoring_functions.generate_plot_style()
+        plt.style.use('poster.mplstyle')
         model_parameters['n_x'], model_parameters['n_y'], model_parameters['n_z'] = model_parameters['ring_normal'][0], \
             model_parameters['ring_normal'][1], model_parameters['ring_normal'][2]
         I = self.data[1]
@@ -826,7 +827,7 @@ class DataObject:
 
             plt.style.use('the_usual.mplstyle')
             fig, ax = plt.subplots()
-            cp = ax.contourf(X, Y, Z, cmap='magma_r')
+            cp = ax.contourf(X, Y, Z, cmap='Blues')
             cbar = fig.colorbar(cp)  # Add a colorbar to a plot
             cbar.ax.tick_params(labelsize=12)
             ax.set_title(f'log likelihood {key2} against {key1}', fontsize=13)
@@ -1042,7 +1043,7 @@ class DataObject:
                         np.swapaxes(plotmeshes[f'{keys_order[columnkey]}+{keys_order[rowkey]}'][0], 0, 1),
                         np.swapaxes(plotmeshes[f'{keys_order[columnkey]}+{keys_order[rowkey]}'][1], 0, 1),
                         contour_array, levels,
-                        cmap='magma_r')
+                        cmap='Blues')
                     # cbar = fig.colorbar(cp)  # Add a colorbar to a plot
                     # cbar.ax.tick_params(labelsize=12)
                     # axs[row][column].yaxis.set_minor_locator(AutoMinorLocator(2))
