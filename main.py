@@ -89,7 +89,7 @@ if __name__ == '__main__':
                         'disk_gap': 1, 'ring_width': 1,
                         'ring_normal': np.array([1, 1, 0])}
 
-    test_ring_planet = exoring_objects.RingedPlanet(scattering_laws['atmosphere'+f'{bandpass}'+'planck'+f'{constants['L_SUN']}'], model_parameters['radius'], scattering_laws['silicates'+f'{bandpass}'+'planck'+f'{constants['L_SUN']}'],
+    test_ring_planet = exoring_objects.RingedPlanet(scattering_laws['jupiter'], model_parameters['radius'], scattering_laws['rayleigh'],
                                                     model_parameters['radius'] + model_parameters['disk_gap'],
                                                     model_parameters['radius'] + model_parameters['disk_gap'] +
                                                     model_parameters['ring_width'],
@@ -105,9 +105,9 @@ if __name__ == '__main__':
 
     Data = fitting.DataObject(ring_data, star)
     #print(str(Data.fit_data_ring(sc_planet, sc_sil, init_guess)))
-    Data.produce_corner_plot(model_parameters, {'radius': (0.9, 1.1), 'disk_gap': (0, 2.5), 'ring_width': (0.5, 1.6)}, 70,
-                             planet_sc_law='jupiter', ring_sc_law='rayleigh', ringed=True, log=False, multiprocessing=True)
-    # Data.run_ringed_model(scattering.WavelengthDependentScattering, scattering.WavelengthDependentScattering, model_parameters)
+    #Data.produce_corner_plot(model_parameters, {'radius': (0.9, 1.1), 'disk_gap': (0, 2.5), 'ring_width': (0.5, 1.6)}, 70,
+    #                         planet_sc_law='jupiter', ring_sc_law='rayleigh', ringed=True, log=False, multiprocessing=True)
+    Data.run_ringed_model('jupiter', 'rayleigh', model_parameters)
     # Data.disperse_models(test_ring_planet, scattering.Jupiter, scattering.Rayleigh, ('ring_width', 'radius'), model_parameters)
     # param_sets1 = Data.create_various_model_parameters(radius = (0.09, 0.83, 1), ring_width = (JUP_SATURN_LIKE_RING, 10, (1/3)*JUP_HILL_RAD), disk_gap = (0.01))
     # param_sets2 = Data.create_various_model_parameters(radius = (0.09, 0.83, 1), disk_gap = (JUP_SATURN_LIKE_RING, 10, (1/3)*JUP_HILL_RAD), ring_width = (1))

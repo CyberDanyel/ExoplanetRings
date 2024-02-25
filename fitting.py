@@ -355,6 +355,8 @@ class DataObject:
         plt.savefig('images/Ringless_Model', dpi=600)
 
     def run_ringed_model(self, planet_sc_law, ring_sc_law, model_parameters, largest_diff=True, show_diff=True):
+        planet_sc_law = scattering_laws[f'{planet_sc_law}']
+        ring_sc_law = scattering_laws[f'{ring_sc_law}']
         if show_diff and not largest_diff:
             raise Exception('Largest_diff set to False but show_diff set to True')
         plt.style.use('the_usual.mplstyle')
@@ -1078,7 +1080,7 @@ def generate_data(test_planet):
         np.linspace(.3, np.pi, 10))
     test_alphas = np.array(test_alphas)
     I = test_planet.light_curve(test_alphas)
-    errs = 0 * I + (1e-7)*test_planet.star.luminosity
+    errs = 0 * I + 1e-7
     noise_vals = np.random.normal(size=len(test_alphas))
     data_vals = errs * noise_vals + I
     data = np.array([test_alphas, data_vals, errs])
