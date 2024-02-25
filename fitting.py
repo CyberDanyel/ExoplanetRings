@@ -30,9 +30,24 @@ class FittingPlanet(exoring_objects.Planet):
 class FittingRingedPlanet(exoring_objects.RingedPlanet, FittingPlanet):
     def __init__(self, planet_sc_law, ring_sc_law, star, parameters):
         FittingPlanet.__init__(self, planet_sc_law, star, parameters)
-        disk_gap, ring_width, n_x, n_y, n_z = parameters['disk_gap'], parameters['ring_width'], \
-            parameters['n_x'], parameters['n_y'], parameters['n_z']
-
+        try:
+            n_x, n_y, n_z = parameters['n_x'], parameters['n_y'], parameters['n_z']
+            try:
+                theta, phi = parameters['theta'], parameters['phi']
+                raise Exception('Both n_x, n_y, n_z as well as theta and phi provided, please use 1 convention')
+            except KeyError:
+                pass
+        except KeyError:
+            try:
+                theta, phi = parameters['theta'], parameters['phi']
+                n_x = np.sin(theta)*np.cos(phi)
+                n_y = np.sin(theta)*np.sin(phi)
+                n_z = np.cos(theta)
+            except KeyError:
+                raise Exception('No ring orientation provided')
+        disk_gap, ring_width = parameters['disk_gap'], parameters['ring_width']
+        if n_x < 0:
+            print('n_x was inputted to be <0, possibly the minimiser not respecting bounds')
         exoring_objects.RingedPlanet.__init__(self, self.sc_law, self.radius, ring_sc_law, self.radius + disk_gap,
                                               self.radius + disk_gap + ring_width, [n_x, n_y, n_z], star)
 
@@ -732,10 +747,21 @@ class DataObject:
         alpha = self.data[0]
         I = self.data[1]
         I_errs = self.data[2]
-        model_parameters['n_x'], model_parameters['n_y'], model_parameters['n_z'] = model_parameters['ring_normal'][0], \
-            model_parameters['ring_normal'][1], model_parameters['ring_normal'][2]
-        if model_parameters['n_x'] < 0:
-            print('n_x was inputted to be <0, possibly the minimiser not respecting bounds')
+        try:
+            model_parameters['n_x'], model_parameters['n_y'], model_parameters['n_z'] = model_parameters['ring_normal'][
+                0], \
+                model_parameters['ring_normal'][1], model_parameters['ring_normal'][2]
+            try:
+                theta, phi = model_parameters['theta'], model_parameters['phi']
+                raise Exception('Both normal as well as theta and phi provided, please use 1 convention')
+            except KeyError:
+                pass
+        except KeyError:
+            try:
+                model_parameters['theta'], model_parameters['phi']
+            except KeyError:
+                raise Exception('No ring orientation provided')
+
         model_ringed_planet = FittingRingedPlanet(planet_sc_law, ring_sc_law, self.star, model_parameters)
         x = model_ringed_planet.light_curve(alpha)
         return np.prod(gaussian(x, I, I_errs))
@@ -843,7 +869,7 @@ class DataObject:
             plt.savefig(f'images/contour {key1}+{key2}', dpi=600)
             plt.show()
 
-    def produce_corner_plot(self, best_model, ranges, number, planet_sc_law, ring_sc_law = None, ringed=True, log=False, multiprocessing=True):
+    def produce_corner_plot(self, best_model, ranges, planet_sc_law, ring_sc_law = None, ringed=True, log=False, multiprocessing=True):
         '''
         if ringed:
             if not ring_sc_law:
@@ -859,7 +885,7 @@ class DataObject:
         all_params = list()
         for i, key in enumerate(keys):
             key_value_range = ranges[key]
-            key_values = np.linspace(key_value_range[0], key_value_range[1], number)
+            key_values = np.linspace(key_value_range[0], key_value_range[1], key_value_range[2])
             all_params.append(key_values)
             keys_order[key] = i
         mixed_indices = list()
@@ -990,10 +1016,29 @@ class DataObject:
                     first_rearranged_likelihood = np.swapaxes(likelihood, 0, keys_order[columnkey])
                     rearranged_likelihood = np.swapaxes(first_rearranged_likelihood, 1, keys_order[rowkey])
                     param_values = all_params.copy()
-                    param_values[0], param_values[1], param_values[keys_order[columnkey]], param_values[
-                        keys_order[rowkey]] = \
-                        param_values[keys_order[columnkey]], param_values[keys_order[rowkey]], param_values[0], \
-                            param_values[1]
+                    if keys_order[columnkey] == 1:
+                        if keys_order[rowkey] == 0:
+                            param_values[0], param_values[1] = param_values[1], param_values[0]
+                        else:
+                            param_values[0], param_values[1], param_values[keys_order[rowkey]] = param_values[1], param_values[keys_order[rowkey]], param_values[0]
+                    elif keys_order[columnkey] == 0:
+                        if keys_order[rowkey] == 1:
+                            pass
+                        else:
+                            param_values[1], param_values[keys_order[rowkey]] = param_values[keys_order[rowkey]], param_values[1]
+                    elif keys_order[rowkey] == 0:
+                        if keys_order[columnkey] != 1:
+                            param_values[1], param_values[0], param_values[keys_order[columnkey]] = param_values[0], param_values[keys_order[columnkey]], param_values[1]
+                        else:
+                            raise Exception('This should be impossible, should have been treated earlier')
+                    elif keys_order[rowkey] == 1:
+                        if keys_order[columnkey] != 0:
+                            param_values[0], param_values[keys_order[columnkey]] = param_values[keys_order[columnkey]], param_values[0]
+                        else:
+                            raise Exception('This should be impossible, should have been treated earlier')
+                    else:
+                        param_values[0], param_values[1], param_values[keys_order[columnkey]], param_values[keys_order[rowkey]] = \
+                        param_values[keys_order[columnkey]], param_values[keys_order[rowkey]], param_values[0], param_values[1]
                     previous_integral = rearranged_likelihood
                     for i in range(len(meshes)):
                         if len(meshes) - i - 1 == 1:  # Penultimate variable
