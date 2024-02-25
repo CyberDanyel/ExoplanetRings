@@ -1,12 +1,15 @@
 import numpy as np
 import pandas as pd
 import scipy.interpolate as spint
+import json
 import scipy.integrate as spi
 import platon
 from platon.TP_profile import Profile
 from platon.transit_depth_calculator import TransitDepthCalculator
 
-R_JUP = 69.911e9
+with open('constants.json') as json_file:
+    constants = json.load(json_file)
+
 class _MatPhaseFuncs:
     'phase function interpolated for scattering angle but not wavelength'
     def __init__(self, data):
@@ -82,7 +85,7 @@ class RingMaterial:
 s = 5.67037e-8  # stefan boltzmann constant
 
 class Atmosphere:
-    def __init__(self, sc_class, planet_params, star, meters_per_length_unit=1, invert=False):
+    def __init__(self, sc_class, planet_params, star, meters_per_length_unit=constants['R_JUP'], invert=False):
         planet_mass, planet_radius = planet_params[:2]
         planet_radius *= meters_per_length_unit
         star.radius *= meters_per_length_unit
@@ -95,7 +98,7 @@ class Atmosphere:
         self.calc = TransitDepthCalculator()
         if invert:
             self.wavelengths, self.depths, info_dict = self.calc.compute_depths(star.radius, planet_mass, planet_radius, self.T, CO_ratio=0.425381, logZ=-1,  add_scattering=True, stellar_blackbody=True, full_output=True)
-            self.wavelengths *= R_JUP
+            self.wavelengths *= constants['R_JUP']
             self.albedos = np.zeros(np.shape(self.wavelengths))
             depth_unitalbedo = (max(info_dict['radii'])**2 - min(info_dict['radii'])**2)/star.radius**2
             planetless_depths = self.depths - min(info_dict['radii'])**2/star.radius**2

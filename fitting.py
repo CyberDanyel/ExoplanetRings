@@ -372,7 +372,8 @@ class DataObject:
         pos_alphas = np.linspace(0, np.pi, 5000)[1:]  # slicing to prevent repeat of alpha 0
         alphas = np.concatenate((neg_alphas, pos_alphas))
         resulting_lightcurve = model_ringed_planet.light_curve(alphas)
-        ax.errorbar(self.data[0] / np.pi, I, I_errs, fmt='.')
+        resulting_lightcurve /= self.star.luminosity
+        ax.errorbar(self.data[0] / np.pi, I/self.star.luminosity, I_errs/self.star.luminosity, fmt='.')
         ax.plot(alphas / np.pi, resulting_lightcurve)
         if largest_diff:
             neg_lightcurve = resulting_lightcurve[0:len(neg_alphas) - 1]  # -1 to ignore 0 alpha
@@ -1080,7 +1081,7 @@ def generate_data(test_planet):
         np.linspace(.3, np.pi, 10))
     test_alphas = np.array(test_alphas)
     I = test_planet.light_curve(test_alphas)
-    errs = 0 * I + 1e-7
+    errs = 0 * I + 1e-7*test_planet.star.luminosity
     noise_vals = np.random.normal(size=len(test_alphas))
     data_vals = errs * noise_vals + I
     data = np.array([test_alphas, data_vals, errs])

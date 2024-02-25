@@ -61,23 +61,18 @@ if __name__ == '__main__':
     search_ranges_planet = {'radius': (0.1, 1.9), 'planet_sc_args': {'albedo': (0.1, 1)}}
     '''
 
-    star = exoring_objects.Star(constants['L_SUN'], constants['R_SUN'], .1*constants['AU'], 1.)
+    star = exoring_objects.Star(5800, constants['R_SUN_TO_R_JUP'], .1*constants['AU_TO_R_JUP'], 1.)
     # star_obj = exoring_objects.Star(1, SUN_TO_JUP, 0.5 * AU_TO_JUP, 1)
-    '''
+
     scattering_laws = dict()
+    atmos = materials.Atmosphere(scattering.Jupiter, [constants['M_JUP'], constants['R_JUP']], star)
     ice = materials.RingMaterial('materials/saturn_small_ice.inp', 361, 500)
     silicate = materials.RingMaterial('materials/silicate_small.inp', 361, 500)
-    atmos = materials.Atmosphere(scattering.Jupiter, [constants['M_JUP'], constants['R_JUP']], star)
 
-    scattering_laws['ice'+f'{bandpass}'+'planck'+f'{constants['L_SUN']}'] = scattering.WavelengthDependentScattering(ice, bandpass, star.planck_function)
-    scattering_laws['silicates'+f'{bandpass}'+'planck'+f'{constants['L_SUN']}'] = scattering.WavelengthDependentScattering(silicate, bandpass, star.planck_function)
-    #scattering_laws['silicates'+f'{bandpass}'+'planck'+'lambert'] = scattering.Lambert(scattering_laws['silicates'+f'{bandpass}'+'planck'].albedo)
-    scattering_laws['atmosphere'+f'{bandpass}'+'planck'+f'{constants['L_SUN']}'] = scattering.WavelengthDependentScattering(atmos, bandpass, star.planck_function)
-    scattering_laws['mie'+f'albedo:1'+f'X:{100e-6 / np.mean(bandpass)}'+f'm:{1.5 + .1j}'] = scattering.Mie(1., 100e-6 / np.mean(bandpass), 1.5 + .1j)
-    '''
-    with open('scattering_laws.pkl', 'rb') as f:
-        scattering_laws = pickle.load(f)
-
+    scattering_laws['ice'] = scattering.WavelengthDependentScattering(ice, bandpass, star.planck_function)
+    scattering_laws['silicates'] = scattering.WavelengthDependentScattering(silicate, bandpass, star.planck_function)
+    scattering_laws['atmosphere'] = scattering.WavelengthDependentScattering(atmos, bandpass, star.planck_function)
+    scattering_laws['mie'] = scattering.Mie(1., 100e-6 / np.mean(bandpass), 1.5 + .1j)
     scattering_laws['rayleigh'] = scattering.Rayleigh(0.1)
     scattering_laws['jupiter'] = scattering.Jupiter(1)
 
@@ -89,25 +84,19 @@ if __name__ == '__main__':
                         'disk_gap': 1, 'ring_width': 1,
                         'ring_normal': np.array([1, 1, 0])}
 
-    test_ring_planet = exoring_objects.RingedPlanet(scattering_laws['jupiter'], model_parameters['radius'], scattering_laws['rayleigh'],
+    test_ring_planet = exoring_objects.RingedPlanet(scattering_laws['atmosphere'], model_parameters['radius'], scattering_laws['silicates'],
                                                     model_parameters['radius'] + model_parameters['disk_gap'],
                                                     model_parameters['radius'] + model_parameters['disk_gap'] +
                                                     model_parameters['ring_width'],
                                                     model_parameters['ring_normal'], star)
 
-    init_guess = {'radius': (0.8, [0.1, 1.1]),
-                  'disk_gap': (0.5, [0.1, 1.1]), 'ring_width': (0.7, [0.2, 1.1]),
-                  'ring_normal': (np.array([0.95, 0.95, 0.01]), np.array([[0.9, 1], [0.9, 1], [0, 0.15]]))}
-
     ring_data = fitting.generate_data(test_ring_planet)
-
-    bounds_planet = {'radius': (0, star.radius)}
 
     Data = fitting.DataObject(ring_data, star)
     #print(str(Data.fit_data_ring(sc_planet, sc_sil, init_guess)))
     #Data.produce_corner_plot(model_parameters, {'radius': (0.9, 1.1), 'disk_gap': (0, 2.5), 'ring_width': (0.5, 1.6)}, 70,
     #                         planet_sc_law='jupiter', ring_sc_law='rayleigh', ringed=True, log=False, multiprocessing=True)
-    Data.run_ringed_model('jupiter', 'rayleigh', model_parameters)
+    Data.run_ringed_model('atmosphere', 'silicates', model_parameters)
     # Data.disperse_models(test_ring_planet, scattering.Jupiter, scattering.Rayleigh, ('ring_width', 'radius'), model_parameters)
     # param_sets1 = Data.create_various_model_parameters(radius = (0.09, 0.83, 1), ring_width = (JUP_SATURN_LIKE_RING, 10, (1/3)*JUP_HILL_RAD), disk_gap = (0.01))
     # param_sets2 = Data.create_various_model_parameters(radius = (0.09, 0.83, 1), disk_gap = (JUP_SATURN_LIKE_RING, 10, (1/3)*JUP_HILL_RAD), ring_width = (1))
