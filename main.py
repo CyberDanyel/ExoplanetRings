@@ -78,7 +78,7 @@ if __name__ == '__main__':
     with open('scattering_laws.pkl', 'rb') as f:
         scattering_laws = pickle.load(f)
 
-    scattering_laws['rayleigh'] = scattering.Rayleigh(1)
+    scattering_laws['rayleigh'] = scattering.Rayleigh(0.1)
     scattering_laws['jupiter'] = scattering.Jupiter(1)
 
     with open('scattering_laws.pkl', 'wb') as f:
