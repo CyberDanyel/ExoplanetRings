@@ -1,8 +1,10 @@
+import functools
 import json
 import numpy as np
 import matplotlib.pyplot as plt
 import math
 import matplotlib.ticker as tck
+from iminuit.cost import LeastSquares
 from matplotlib.ticker import FuncFormatter
 from matplotlib.ticker import AutoMinorLocator
 import tqdm
@@ -13,12 +15,14 @@ import matplotlib.patches as mpatches
 import pickle
 import exoring_functions
 import exoring_objects
+from iminuit import minuit, Minuit
 
 with open('constants.json') as json_file:
     constants = json.load(json_file)
 
 with open('scattering_laws.pkl', 'rb') as f:
     scattering_laws = pickle.load(f)
+
 
 # 2 not included because it does fit nicely on a graph
 class FittingPlanet(exoring_objects.Planet):
@@ -40,8 +44,8 @@ class FittingRingedPlanet(exoring_objects.RingedPlanet, FittingPlanet):
         except KeyError:
             try:
                 theta, phi = parameters['theta'], parameters['phi']
-                n_x = np.sin(theta)*np.cos(phi)
-                n_y = np.sin(theta)*np.sin(phi)
+                n_x = np.sin(theta) * np.cos(phi)
+                n_y = np.sin(theta) * np.sin(phi)
                 n_z = np.cos(theta)
             except KeyError:
                 raise Exception('No ring orientation provided')
@@ -129,28 +133,12 @@ class DataObject:
         result of minimisation
         NLL of minimisation
         success of minimisation
-
         """
-        try:
-            radius = init_guess['radius'][0]
-            radius_bounds = init_guess['radius'][1]
-        except KeyError:
-            raise KeyError('Not all required parameters were inputted')
-
-        p0 = np.array([radius])
-        bounds = [radius_bounds]
-        minimization = op.minimize(
-            lambda p: self.log_likelihood_planet(planet_sc_law, *p), p0,
-            bounds=bounds)
-        result = minimization.x
-        NLL = minimization.fun
-        success = minimization.success
-        if not success:
-            return np.inf, None
-        elif success:
-            output = dict()
-            output['radius'] = result[0]
-            return NLL, output
+        cost_function = LeastSquares(self.data[0], self.data[1], self.data[2], lambda alphas, radius: self.run_ringless_model(alphas, radius, planet_sc_law=planet_sc_law))
+        minimiser = Minuit(cost_function, **init_guess)
+        minimiser.migrad()
+        minimiser.hesse()
+        return minimiser
 
     def fitwrap_planet(self, args):
         # pool.map only takes a function with a single argument, so all arguments are wrapped here and parsed onto
@@ -159,7 +147,7 @@ class DataObject:
         init_guess_planet = args[1]
         return self.fit_data_planet(planet_sc_law, init_guess_planet)
 
-    def fit_data_ring(self, planet_sc_law, ring_sc_law, init_guess: dict):
+    def fit_data_ring(self, planet_sc_law, ring_sc_law, init_guess: dict, bounds: dict = None):
         """
         Finds ringed planet giving best fit to the data with given planet & ring scattering laws and initial guesses
 
@@ -176,36 +164,14 @@ class DataObject:
         success of minimisation
 
         """
-        try:
-            radius = init_guess['radius'][0]
-            radius_bounds = init_guess['radius'][1]
-            disk_gap = init_guess['disk_gap'][0]
-            disk_gap_bounds = init_guess['disk_gap'][1]
-            ring_width = init_guess['ring_width'][0]
-            ring_width_bounds = init_guess['ring_width'][1]
-            n_x, n_y, n_z = init_guess['ring_normal'][0]
-            n_x_bounds, n_y_bounds, n_z_bounds = init_guess['ring_normal'][1]
-        except KeyError:
-            raise KeyError('Not all required parameters were inputted')
-        p0 = np.array(
-            [radius, disk_gap, ring_width, n_x, n_y, n_z])
-        bounds = [radius_bounds, disk_gap_bounds, ring_width_bounds, n_x_bounds, n_y_bounds, n_z_bounds]
-        print(str(self.log_likelihood_ring(planet_sc_law, ring_sc_law, *p0)))
-        minimization = op.minimize(
-            lambda p: self.log_likelihood_ring(planet_sc_law, ring_sc_law,
-                                               *p), p0, bounds=bounds, method='Nelder-Mead')
-        result = minimization.x
-        NLL = minimization.fun
-        success = minimization.success
-        if not success:
-            return np.inf, None
-        elif success:
-            output = dict()
-            output['radius'], output['disk_gap'], output['ring_width'], n_x, n_y, n_z = result[:6]
-            ring_normal = np.array([n_x, n_y, n_z])
-            ring_normal /= np.linalg.norm(ring_normal)
-            output['ring_normal'] = tuple(ring_normal)
-            return NLL, output
+        cost_function = LeastSquares(self.data[0], self.data[1], self.data[2], lambda alphas, radius, disk_gap, ring_width, theta, phi: self.run_ringed_model(alphas, radius, disk_gap, ring_width, theta, phi, planet_sc_law=planet_sc_law, ring_sc_law=ring_sc_law))
+        minimiser = Minuit(cost_function, **init_guess)
+        if bounds:
+            for key, bound in bounds.items():
+                minimiser.limits[key] = bound
+        minimiser.migrad()
+        minimiser.hesse()
+        return minimiser
 
     def fitwrap_ring(self, args):
         # pool.map only takes a function with a single argument, so all arguments are wrapped here and parsed onto
@@ -355,7 +321,23 @@ class DataObject:
                 with open('best_fit_planet.json', 'w') as f:
                     json.dump(json_serializable_best_result, f, indent=4)
 
-    def run_ringless_model(self, planet_sc_law, model_parameters):
+    def run_ringless_model(self, alphas, radius, planet_sc_law):
+        planet_sc_law = scattering_laws[f'{planet_sc_law}']
+        model_planet = exoring_objects.Planet(planet_sc_law, radius, self.star)
+        resulting_lightcurve = model_planet.light_curve(alphas)
+        return resulting_lightcurve
+
+    def run_ringed_model(self, alphas, radius, disk_gap, ring_width, theta, phi, planet_sc_law, ring_sc_law):
+        planet_sc_law = scattering_laws[f'{planet_sc_law}']
+        ring_sc_law = scattering_laws[f'{ring_sc_law}']
+        n_x = np.sin(theta) * np.cos(phi)
+        n_y = np.sin(theta) * np.sin(phi)
+        n_z = np.cos(theta)
+        model_ringed_planet = exoring_objects.RingedPlanet(planet_sc_law, radius, ring_sc_law, radius+disk_gap, radius+disk_gap+ring_width, [n_x, n_y, n_z], self.star)
+        resulting_lightcurve = model_ringed_planet.light_curve(alphas)
+        return resulting_lightcurve
+
+    def display_ringless_model(self, planet_sc_law, model_parameters):
         plt.style.use('the_usual.mplstyle')
         fig, ax = exoring_functions.generate_plot_style()
         I = self.data[1]
@@ -369,7 +351,7 @@ class DataObject:
         ax.plot(alphas / np.pi, resulting_lightcurve)
         plt.savefig('images/Ringless_Model', dpi=600)
 
-    def run_ringed_model(self, planet_sc_law, ring_sc_law, model_parameters, largest_diff=True, show_diff=True):
+    def display_ringed_model(self, planet_sc_law, ring_sc_law, model_parameters, largest_diff=True, show_diff=True):
         planet_sc_law = scattering_laws[f'{planet_sc_law}']
         ring_sc_law = scattering_laws[f'{ring_sc_law}']
         if show_diff and not largest_diff:
@@ -389,7 +371,7 @@ class DataObject:
         alphas = np.concatenate((neg_alphas, pos_alphas))
         resulting_lightcurve = model_ringed_planet.light_curve(alphas)
         resulting_lightcurve /= self.star.luminosity
-        ax.errorbar(self.data[0] / np.pi, I/self.star.luminosity, I_errs/self.star.luminosity, fmt='.')
+        ax.errorbar(self.data[0] / np.pi, I / self.star.luminosity, I_errs / self.star.luminosity, fmt='.')
         ax.plot(alphas / np.pi, resulting_lightcurve)
         if largest_diff:
             neg_lightcurve = resulting_lightcurve[0:len(neg_alphas) - 1]  # -1 to ignore 0 alpha
@@ -426,9 +408,8 @@ class DataObject:
                 print('No largest diff')
 
         plt.savefig('images/Ringed_Model', dpi=600)
-        plt.show()
 
-    def run_many_ringless_models(self, planet_sc_law, multiple_model_parameters, sharex=True, sharey=False):
+    def display_many_ringless_models(self, planet_sc_law, multiple_model_parameters, sharex=True, sharey=False):
         length = len(multiple_model_parameters)
         nrows = np.sqrt(length)
         if nrows.is_integer():
@@ -491,8 +472,8 @@ class DataObject:
 
         plt.savefig('images/Multiples', dpi=1000)
 
-    def run_many_ringed_models(self, planet_sc_law, ring_sc_law, multiple_model_parameters, static_param,
-                               changing_parms, sharex=True, sharey=False):
+    def display_many_ringed_models(self, planet_sc_law, ring_sc_law, multiple_model_parameters, static_parm,
+                                   changing_parms, sharex=True, sharey=False):
         length = len(multiple_model_parameters)
         nrows = np.sqrt(length)
         row_parms = list()
@@ -529,7 +510,7 @@ class DataObject:
                 raise NotImplementedError('Number is prime and too large')
         # fig.tight_layout()
         fig.suptitle(
-            f'Planet: {planet_sc_law.__name__} | Ring: {ring_sc_law.__name__} | {static_param[0]}: {static_param[1]}',
+            f'Planet: {planet_sc_law.__name__} | Ring: {ring_sc_law.__name__} | {static_parm[0]}: {static_parm[1]}',
             y=0.995)
         for model_parameters, ax in zip(multiple_model_parameters, axs.flat):
             I = self.data[1]
@@ -594,8 +575,8 @@ class DataObject:
 
         plt.savefig('images/Multiples', dpi=1000)
 
-    def disperse_models(self, planet, planet_sc_law, ring_sc_law, changing_parms, model_parameters, sharex=True,
-                        sharey=False):
+    def display_disperse_models(self, planet, planet_sc_law, ring_sc_law, changing_parms, model_parameters, sharex=True,
+                                sharey=False):
         model_parameters['n_x'], model_parameters['n_y'], model_parameters['n_z'] = model_parameters['ring_normal'][
             0], model_parameters['ring_normal'][1], model_parameters['ring_normal'][2]
         I = self.data[1]
@@ -607,9 +588,11 @@ class DataObject:
             if parm == 'radius':
                 parm_values.append((0.09, 0.83, 1))
             elif parm == 'disk_gap':
-                parm_values.append((constants['SATURN-LIKE_RING_IN_R_JUP'] * planet.radius, 10 * planet.radius, (1 / 3) * hill_rad))
+                parm_values.append(
+                    (constants['SATURN-LIKE_RING_IN_R_JUP'] * planet.radius, 10 * planet.radius, (1 / 3) * hill_rad))
             elif parm == 'ring_width':
-                parm_values.append((constants['SATURN-LIKE_RING_IN_R_JUP'] * planet.radius, 10 * planet.radius, (1 / 3) * hill_rad))
+                parm_values.append(
+                    (constants['SATURN-LIKE_RING_IN_R_JUP'] * planet.radius, 10 * planet.radius, (1 / 3) * hill_rad))
             else:
                 raise NotImplementedError('Variable not implemented')
         meshes = np.meshgrid(*parm_values)
@@ -697,7 +680,7 @@ class DataObject:
         # plt.tight_layout()
         plt.savefig('images/Disperse', dpi=1000)
 
-    def create_various_model_parameters(self, **kwargs):
+    def create_various_model_parameters(self, parameters_to_vary):
         # Changing albedos not implemented
         all_dicts = list()
         all_params = list()
@@ -705,9 +688,9 @@ class DataObject:
         default = {'radius': 1,
                    'disk_gap': 1, 'ring_width': 1,
                    'ring_normal': np.array([1., 1., 0])}
-        for order, key in enumerate(kwargs):
+        for order, key in enumerate(parameters_to_vary):
             param_list = list()
-            param_list.append(kwargs[key])
+            param_list.append(parameters_to_vary[key])
             all_params.append(param_list)
             order_dictionary[order] = key
         grid = np.meshgrid(*all_params)
@@ -869,7 +852,8 @@ class DataObject:
             plt.savefig(f'images/contour {key1}+{key2}', dpi=600)
             plt.show()
 
-    def produce_corner_plot(self, best_model, ranges, planet_sc_law, ring_sc_law = None, ringed=True, log=False, multiprocessing=True):
+    def produce_corner_plot(self, best_model, ranges, planet_sc_law, ring_sc_law=None, ringed=True, log=False,
+                            multiprocessing=True):
         '''
         if ringed:
             if not ring_sc_law:
@@ -1020,25 +1004,31 @@ class DataObject:
                         if keys_order[rowkey] == 0:
                             param_values[0], param_values[1] = param_values[1], param_values[0]
                         else:
-                            param_values[0], param_values[1], param_values[keys_order[rowkey]] = param_values[1], param_values[keys_order[rowkey]], param_values[0]
+                            param_values[0], param_values[1], param_values[keys_order[rowkey]] = param_values[1], \
+                            param_values[keys_order[rowkey]], param_values[0]
                     elif keys_order[columnkey] == 0:
                         if keys_order[rowkey] == 1:
                             pass
                         else:
-                            param_values[1], param_values[keys_order[rowkey]] = param_values[keys_order[rowkey]], param_values[1]
+                            param_values[1], param_values[keys_order[rowkey]] = param_values[keys_order[rowkey]], \
+                            param_values[1]
                     elif keys_order[rowkey] == 0:
                         if keys_order[columnkey] != 1:
-                            param_values[1], param_values[0], param_values[keys_order[columnkey]] = param_values[0], param_values[keys_order[columnkey]], param_values[1]
+                            param_values[1], param_values[0], param_values[keys_order[columnkey]] = param_values[0], \
+                            param_values[keys_order[columnkey]], param_values[1]
                         else:
                             raise Exception('This should be impossible, should have been treated earlier')
                     elif keys_order[rowkey] == 1:
                         if keys_order[columnkey] != 0:
-                            param_values[0], param_values[keys_order[columnkey]] = param_values[keys_order[columnkey]], param_values[0]
+                            param_values[0], param_values[keys_order[columnkey]] = param_values[keys_order[columnkey]], \
+                            param_values[0]
                         else:
                             raise Exception('This should be impossible, should have been treated earlier')
                     else:
-                        param_values[0], param_values[1], param_values[keys_order[columnkey]], param_values[keys_order[rowkey]] = \
-                        param_values[keys_order[columnkey]], param_values[keys_order[rowkey]], param_values[0], param_values[1]
+                        param_values[0], param_values[1], param_values[keys_order[columnkey]], param_values[
+                            keys_order[rowkey]] = \
+                            param_values[keys_order[columnkey]], param_values[keys_order[rowkey]], param_values[0], \
+                            param_values[1]
                     previous_integral = rearranged_likelihood
                     for i in range(len(meshes)):
                         if len(meshes) - i - 1 == 1:  # Penultimate variable
@@ -1127,7 +1117,7 @@ def generate_data(test_planet):
         np.linspace(.3, np.pi, 10))
     test_alphas = np.array(test_alphas)
     I = test_planet.light_curve(test_alphas)
-    errs = 0 * I + 1e-7*test_planet.star.luminosity
+    errs = 0 * I + 1e-7 * test_planet.star.luminosity
     noise_vals = np.random.normal(size=len(test_alphas))
     data_vals = errs * noise_vals + I
     data = np.array([test_alphas, data_vals, errs])

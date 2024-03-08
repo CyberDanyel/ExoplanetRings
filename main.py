@@ -47,16 +47,26 @@ if __name__ == '__main__':
                         'theta': theta,
                         'phi': phi}
 
+    test_ringless_planet = fitting.FittingPlanet(scattering_laws['atmosphere'], star, model_parameters)
     test_ring_planet = fitting.FittingRingedPlanet(scattering_laws['atmosphere'], scattering_laws['silicates'], star, model_parameters)
 
+    ringless_data = fitting.generate_data(test_ringless_planet)
     ring_data = fitting.generate_data(test_ring_planet)
 
+
+    Data = fitting.DataObject(ringless_data, star)
+    planet_init_guess = {'radius': 1.4}
+    print(Data.fit_data_planet('atmosphere', planet_init_guess))
+
     Data = fitting.DataObject(ring_data, star)
+    ring_init_guess = {'radius': 1, 'disk_gap': 1, 'ring_width': 1, 'theta':np.pi/2, 'phi':np.pi/4}
+    ring_bounds = {'radius': (0.1,2), 'disk_gap': (0.1,2), 'ring_width': (0.5,1.5), 'theta':(0, np.pi/2), 'phi':(-np.pi/2, np.pi/2)}
+    minimiser = Data.fit_data_ring('atmosphere', 'silicates', ring_init_guess, ring_bounds)
     # print(str(Data.fit_data_ring(sc_planet, sc_sil, init_guess)))
-    Data.produce_corner_plot(model_parameters,
-                             {'theta': 36, 'phi': (-np.pi/2, np.pi/2, 72), 'radius': (0, 2, 50), 'ring_width': (0, 4, 50)},
-                             planet_sc_law='atmosphere', ring_sc_law='silicates', ringed=True, log=False,
-                             multiprocessing=True)
+    #Data.produce_corner_plot(model_parameters,
+    #                         {'theta': (0, np.pi/2, 2), 'phi': (-np.pi/2, np.pi/2, 2), 'radius': (0, 2, 2), 'ring_width': (0, 4, 2)},
+    #                         planet_sc_law='atmosphere', ring_sc_law='silicates', ringed=True, log=False,
+    #                         multiprocessing=True)
     # , 'theta': (0, np.pi / 2, 2), phi': (-np.pi / 2, np.pi / 2, 3)
     # Data.run_ringed_model('atmosphere', 'silicates', model_parameters)
     # Data.disperse_models(test_ring_planet, scattering.Jupiter, scattering.Rayleigh, ('ring_width', 'radius'), model_parameters)
