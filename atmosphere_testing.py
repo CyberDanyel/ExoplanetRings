@@ -27,7 +27,7 @@ jup_albedo = data[:,3]
 nep_albedo = data[:,6]
 titan_albedo = data[:,7]
 
-star = exoring_objects.Star(L_SUN, R_SUN, 1*AU, 1.)
+star = exoring_objects.Star(5780, R_SUN, 1*AU, 1.)
 atmos = materials.Atmosphere(scattering.Jupiter,  [M_JUP, R_JUP], star, invert=False)
 silicate = materials.RingMaterial('materials/silicate_small.inp', 361, 500)
 
@@ -45,9 +45,12 @@ ax1.set_xlabel(r'Wavelength ($\mu$m)')
 ax1.set_ylabel(r'Ring albedo/atmospheric albedo')
 plt.tight_layout()
 
+
+
+
 # comparison to actual planets
 # using closest possible values for Jupiter
-fig2, ax2 = plt.subplots(1, 1, figsize = (6, 2.5))
+fig2, ax2 = plt.subplots(1, 1, figsize = (5, 3))
 jup_wavs*=1e-3
 
 ax2.plot(jup_wavs, atmos.albedo(jup_wavs*1e-6), label = r'Platon', zorder = 5)
@@ -58,8 +61,7 @@ ax2.set_xlabel(r'Wavelength ($\mathrm{\mu}$m)')
 ax2.set_ylabel(r'Albedo')
 ax2.legend(loc = 'lower left')
 plt.tight_layout()
-plt.savefig('c:/users/victo/onedrive/desktop/msci project/poster/solar_system_spectra.svg', transparent = True)
-
+plt.savefig('c:/users/victo/onedrive/desktop/msci project/viva/solar_system_spectra.svg', transparent = True)
 
 #just silicate
 fig3, ax3 = plt.subplots(1, 1)
