@@ -54,7 +54,7 @@ class RingMaterial:
         angles = np.loadtxt(filename, skiprows = 42 + 1 + nlam, max_rows = nang) * (np.pi/180) # why is it not already in radians, ew
         sc_data = np.loadtxt(filename, skiprows = 42 + 1 + nlam + 1 + nang)
         
-        sc_data = sc_data.reshape(nlam, nang, 6)[:,:,0].T # reshaping data so that each row is assigned an angle and each column is a wavelength
+        sc_data = sc_data.reshape(nlam, nang, 6)[:,:,0].T # reshaping data so that each row is assigned an angle and each column is a wavelength, selecting Z11
         sc_data *= 4*np.pi/np.broadcast_to(self.k_sc, sc_data.shape) # normalization - optool output is normalized to scattering cross section
         self.data = pd.DataFrame(sc_data, index = angles, columns = wavelengths)
         
@@ -104,10 +104,9 @@ class Atmosphere:
             self.wavelengths, self.depths, info_dict = self.calc.compute_depths(star.radius, planet_mass, planet_radius, self.T, CO_ratio=0.425381, logZ=-1,  add_scattering=False, stellar_blackbody=True, full_output=True)
             self.albedos = np.zeros(np.shape(self.wavelengths))
             depth_unitalbedo = (max(info_dict['radii'])**2 - min(info_dict['radii'])**2)/star.radius**2
-            depth_unitalbedo += np.pi*planet_radius**2 * s * T**4/star.luminosity
-            self.depth_unitalbedo = depth_unitalbedo
+            depth_unitalbedo -= np.pi*(max(info_dict['radii'])**2 - min(info_dict['radii'])**2) * s * T**4/star.luminosity
             for i, wavelength in enumerate(self.wavelengths):
-                self.albedos[i] += ((max(info_dict['radii'])**2/star.radius**2) - self.depths[i])/depth_unitalbedo
+                self.albedos[i] += ((max(info_dict['radii'])**2/star.radius**2) - (np.pi*(max(info_dict['radii'])**2) * s * T**4/star.luminosity) - self.depths[i])/depth_unitalbedo
         self.albedo_func = spint.PchipInterpolator(self.wavelengths, self.albedos)
         star.radius /= meters_per_length_unit
         star.luminosity /= meters_per_length_unit**2

@@ -244,7 +244,7 @@ class Ring:
             print("AAAAAAAAAAAAAAAAAAAAAAAA")
         n_x, n_y, n_z = self.normal
         if n_x < 0:
-            print('here', n_x, 'alpha', alpha)
+            print('here n_x < 0', n_x, 'alpha', alpha)
 
         y_star = self.star.distance * np.sin(alpha)
 

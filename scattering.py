@@ -110,10 +110,9 @@ class WavelengthDependentScattering(Jupiter, Rayleigh, Lambert, Mie, SingleEmpir
     def __init__(self, material, bandpass, inc_spec):
         self.material = material
         self.bandpass = bandpass
-        self.bandwidth = bandpass[1] - bandpass[0]
         self.inc_spec = inc_spec  # spectrum of the incident light for weighting scattering functions
         self.spec_norm = spi.quad(inc_spec, bandpass[0], bandpass[1], limit=100)[0]
-        albedo = spi.quad(lambda wav: material.albedo(wav) * self.wavelength_weighting(wav), bandpass[0], bandpass[1], limit=1000)[0] / self.bandwidth
+        albedo = spi.quad(lambda wav: material.albedo(wav) * self.wavelength_weighting(wav), bandpass[0], bandpass[1], limit=1000)[0]
         if isinstance(material, materials.RingMaterial):
             angles = np.linspace(0, np.pi, 1000)
             vals = []
@@ -128,7 +127,7 @@ class WavelengthDependentScattering(Jupiter, Rayleigh, Lambert, Mie, SingleEmpir
                     integrand.append(
                         material.phase_funcs[lams[i]](angle) * dlam * self.wavelength_weighting(lams[i]) * material.albedo(lams[i]))
                 int_val = np.sum(integrand)
-                avg_val = int_val / self.bandwidth
+                avg_val = int_val
                 vals.append(avg_val)
             func = spip.CubicSpline(angles, vals)
             SingleScatteringLaw.__init__(self, albedo, func)
@@ -139,4 +138,4 @@ class WavelengthDependentScattering(Jupiter, Rayleigh, Lambert, Mie, SingleEmpir
         
 
     def wavelength_weighting(self, wavelength):
-        return self.inc_spec(wavelength) * self.bandwidth / self.spec_norm
+        return self.inc_spec(wavelength) / self.spec_norm
