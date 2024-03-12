@@ -20,12 +20,13 @@ if __name__ == '__main__':
 
     start = time.time()
 
+    meters_per_length_unit = constants['R_JUP']
     star = exoring_objects.Star(5800, constants['R_SUN_TO_R_JUP'], .1 * constants['AU_TO_R_JUP'], 1.)
     # star_obj = exoring_objects.Star(1, SUN_TO_JUP, 0.5 * AU_TO_JUP, 1)
 
     scattering_laws = dict()
     atmos = materials.Atmosphere(scattering.Jupiter, [constants['M_JUP'], 1], star,
-                                 meters_per_length_unit=constants['R_JUP'])
+                                 meters_per_length_unit=meters_per_length_unit)
     silicate = materials.RingMaterial('materials/silicate_small.inp', 361, 500)
 
     scattering_laws['silicates'] = scattering.WavelengthDependentScattering(silicate, bandpass, star.planck_function)
@@ -54,19 +55,19 @@ if __name__ == '__main__':
     ring_data = fitting.generate_data(test_ring_planet)
 
 
-    Data = fitting.DataObject(ringless_data, star)
-    planet_init_guess = {'radius': 1.4}
-    print(Data.fit_data_planet('atmosphere', planet_init_guess))
+    #Data = fitting.DataObject(ringless_data, star)
+    #planet_init_guess = {'radius': 1.4}
+    #Data.fit_data_planet('atmosphere', planet_init_guess)
 
     Data = fitting.DataObject(ring_data, star)
-    ring_init_guess = {'radius': 1, 'disk_gap': 1, 'ring_width': 1, 'theta':np.pi/2, 'phi':np.pi/4}
-    ring_bounds = {'radius': (0.1,2), 'disk_gap': (0.1,2), 'ring_width': (0.5,1.5), 'theta':(0, np.pi/2), 'phi':(-np.pi/2, np.pi/2)}
-    minimiser = Data.fit_data_ring('atmosphere', 'silicates', ring_init_guess, ring_bounds)
+    #ring_init_guess = {'radius': 1, 'disk_gap': 1, 'ring_width': 1, 'theta':np.pi/2, 'phi':np.pi/4}
+    #ring_bounds = {'radius': (0.1,2), 'disk_gap': (0.1,2), 'ring_width': (0.5,1.5), 'theta':(0, np.pi), 'phi':(-np.pi/2, np.pi/2)}
+    #minimiser = Data.fit_data_ring('atmosphere', 'silicates', ring_init_guess, ring_bounds)
     # print(str(Data.fit_data_ring(sc_planet, sc_sil, init_guess)))
-    #Data.produce_corner_plot(model_parameters,
-    #                         {'theta': (0, np.pi/2, 2), 'phi': (-np.pi/2, np.pi/2, 2), 'radius': (0, 2, 2), 'ring_width': (0, 4, 2)},
-    #                         planet_sc_law='atmosphere', ring_sc_law='silicates', ringed=True, log=False,
-    #                         multiprocessing=True)
+    Data.produce_corner_plot(model_parameters,
+                             {'theta': (0, np.pi/2, 10), 'phi': (-np.pi/2, np.pi/2, 10), 'radius': (0, 2, 10), 'ring_width': (0, 4, 10)},
+                             planet_sc_law='atmosphere', ring_sc_law='silicates', ringed=True, log=False,
+                             multiprocessing=True, save_data=True)
     # , 'theta': (0, np.pi / 2, 2), phi': (-np.pi / 2, np.pi / 2, 3)
     # Data.run_ringed_model('atmosphere', 'silicates', model_parameters)
     # Data.disperse_models(test_ring_planet, scattering.Jupiter, scattering.Rayleigh, ('ring_width', 'radius'), model_parameters)

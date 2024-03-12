@@ -1,5 +1,7 @@
 import functools
 import json
+
+import matplotlib
 import numpy as np
 import matplotlib.pyplot as plt
 import math
@@ -15,7 +17,7 @@ import matplotlib.patches as mpatches
 import pickle
 import exoring_functions
 import exoring_objects
-from iminuit import minuit, Minuit
+from iminuit import Minuit
 
 with open('constants.json') as json_file:
     constants = json.load(json_file)
@@ -853,7 +855,8 @@ class DataObject:
             plt.show()
 
     def produce_corner_plot(self, best_model, ranges, planet_sc_law, ring_sc_law=None, ringed=True, log=False,
-                            multiprocessing=True):
+                            multiprocessing=True, save_data = True):
+        varname_to_dispname = {'theta':r'$\boldsymbol{\theta}$', 'phi': r'$\boldsymbol{\phi}$', 'radius': 'Radius', 'ring_width': 'Ring width', 'disk_gap': 'Ring gap'} # Used to display variable names in graphs
         '''
         if ringed:
             if not ring_sc_law:
@@ -954,6 +957,8 @@ class DataObject:
             likelihood = likelihood / total_integral
         '''
         plt.style.use('the_usual.mplstyle')
+        if save_data == True:
+            data = dict()
         fig, axs = plt.subplots(len(keyslist), len(keyslist), sharex='col')  # share the x-axis between columns
         for column, columnkey in zip(range(len(keyslist)), keyslist):
             for row, rowkey in zip(range(len(keyslist)), keyslist):
@@ -985,17 +990,21 @@ class DataObject:
                                                x=param_values[-(i + 1)])  # Not sure if x is right here, figure this out
                                 integral_over_mesh[*indices] = val
                             previous_integral = integral_over_mesh
-                    axs[row][column].plot(param_values[0], integral_over_mesh, color='#084d96')
+                    if columnkey == 'theta' or columnkey == 'phi':
+                        axs[row][column].plot(param_values[0]/np.pi, integral_over_mesh, color='#084d96') # Formatting angles in terms of pi for visual clarity
+                        axs[row][column].set_xlim(param_values[0][0]/np.pi, param_values[0][-1]/np.pi)
+                    else:
+                        axs[row][column].plot(param_values[0], integral_over_mesh, color='#084d96')
+                        axs[row][column].set_xlim(param_values[0][0], param_values[0][-1])
                     axs[row][column].tick_params(
                         axis='x',  # changes apply to the x-axis
                         which='both',  # both major and minor ticks are affected
                         bottom=True,  # ticks along the bottom edge are off
                         top=False,  # ticks along the top edge are off
                         labelbottom=True, labelsize=12)
-                    axs[row][column].minorticks_on()
-                    axs[row][column].xaxis.set_minor_locator(AutoMinorLocator(2))
-                    axs[row][column].set_xlim(param_values[0][0], param_values[0][-1])
                     axs[row][column].set_ylim(0)
+                    if save_data == True:
+                        data[f'{rowkey}'] = (param_values[0], integral_over_mesh)
                 else:  # contour, integrate over all variables but rowkey and columnkey
                     first_rearranged_likelihood = np.swapaxes(likelihood, 0, keys_order[columnkey])
                     rearranged_likelihood = np.swapaxes(first_rearranged_likelihood, 1, keys_order[rowkey])
@@ -1074,19 +1083,34 @@ class DataObject:
                     else:
                         levels = np.arange(start=contour_array.min(), stop=contour_array.max(), step=step)
                     plt.style.use('the_usual.mplstyle')
-                    axs[row][column].contourf(
-                        np.swapaxes(plotmeshes[f'{keys_order[columnkey]}+{keys_order[rowkey]}'][0], 0, 1),
-                        np.swapaxes(plotmeshes[f'{keys_order[columnkey]}+{keys_order[rowkey]}'][1], 0, 1),
-                        contour_array, levels,
-                        cmap='Blues')
+                    if columnkey == 'theta' or columnkey == 'phi':
+                        axs[row][column].contourf(
+                            np.swapaxes(plotmeshes[f'{keys_order[columnkey]}+{keys_order[rowkey]}'][0], 0, 1)/np.pi, # Formatting angles in terms of pi
+                            np.swapaxes(plotmeshes[f'{keys_order[columnkey]}+{keys_order[rowkey]}'][1], 0, 1)/np.pi,
+                            contour_array, levels,
+                            cmap='Blues')
+                    else:
+                        axs[row][column].contourf(
+                            np.swapaxes(plotmeshes[f'{keys_order[columnkey]}+{keys_order[rowkey]}'][0], 0, 1),
+                            np.swapaxes(plotmeshes[f'{keys_order[columnkey]}+{keys_order[rowkey]}'][1], 0, 1),
+                            contour_array, levels,
+                            cmap='Blues')
+
+                    if save_data == True:
+                        data[f'{rowkey} and {columnkey}'] = (np.swapaxes(plotmeshes[f'{keys_order[columnkey]}+{keys_order[rowkey]}'][0], 0, 1), np.swapaxes(plotmeshes[f'{keys_order[columnkey]}+{keys_order[rowkey]}'][1], 0, 1), contour_array)
                     # cbar = fig.colorbar(cp)  # Add a colorbar to a plot
                     # cbar.ax.tick_params(labelsize=12)
                     # axs[row][column].yaxis.set_minor_locator(AutoMinorLocator(2))
                 if axs[row][column] in axs[len(keyslist) - 1]:  # If in the last row
-                    axs[row][column].set_xlabel(f'{columnkey}', loc='center')
+                    axs[row][column].set_xlabel(varname_to_dispname[f'{columnkey}'], loc='center')
                     axs[row][column].tick_params(direction='in', left=False, bottom=True, top=False, right=False,
                                                  which='both', labelsize=12)
                     axs[row][column].minorticks_on()
+                    if columnkey == 'theta' or columnkey == 'phi':
+                        axs[row][column].xaxis.set_major_formatter(FuncFormatter(exoring_functions.format_fraction_with_pi))
+                        axs[row][column].xaxis.set_major_locator(tck.MultipleLocator(base=1/4))
+                    if columnkey == 'phi':
+                        axs[row][column].xaxis.set_minor_locator(AutoMinorLocator(2))
                 else:
                     axs[row][column].tick_params(
                         axis='x',  # changes apply to the x-axis
@@ -1096,7 +1120,7 @@ class DataObject:
                         labelbottom=False, labelsize=12)
                     axs[row][column].minorticks_on()
                 if column == 0 and row != 0:
-                    axs[row][column].set_ylabel(rowkey, loc='center')
+                    axs[row][column].set_ylabel(varname_to_dispname[rowkey], loc='center')
                     axs[row][column].tick_params(axis='y', direction='in', left=True, bottom=False, top=False,
                                                  right=False,
                                                  which='both', labelsize=12, colors='black')
@@ -1107,8 +1131,13 @@ class DataObject:
                         left=False,  # ticks along the bottom edge are off
                         right=False,  # ticks along the top edge are off
                         labelleft=False, labelsize=12)
+        fig.align_xlabels()
         fig.align_ylabels()
+        #fig.tight_layout()
         plt.savefig('images/corner_plot', dpi=600)
+        if save_data == True:
+            with open('corner_data.pkl', 'wb') as f:
+                pickle.dump(data, f)
 
 
 def generate_data(test_planet):

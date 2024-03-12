@@ -87,12 +87,12 @@ def format_fraction_with_pi(x, pos):
     elif x == 1:
         return '$\\pi$'
     elif x == -1:
-        return '$-\\pi$'
+        return '$\\text{{-}}\\pi$'
     else:
         if fract.numerator > 0:
             return f'$\\frac{{{fract.numerator}}}{{{fract.denominator}}}$' + '$\\pi$'
         else:
-            return f'$-\\frac{{{abs(fract.numerator)}}}{{{fract.denominator}}}$' + '$\\pi$'
+            return f'$\\text{{-}}\\frac{{{abs(fract.numerator)}}}{{{fract.denominator}}}$' + '$\\pi$'
 
 
 def monte_carlo_ring_integration(func, bounds_y, bounds_z, i):
