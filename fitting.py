@@ -856,7 +856,7 @@ class DataObject:
 
     def produce_corner_plot(self, best_model, ranges, planet_sc_law, ring_sc_law=None, ringed=True, log=False,
                             multiprocessing=True, save_data = True):
-        varname_to_dispname = {'theta':r'$\boldsymbol{\theta}$', 'phi': r'$\boldsymbol{\phi}$', 'radius': 'Radius', 'ring_width': 'Ring width', 'disk_gap': 'Ring gap'} # Used to display variable names in graphs
+        varname_to_dispname = {'theta':r'$\theta$', 'phi': r'$\phi$', 'radius': r'$\boldsymbol{R_{p}}$', 'ring_width': '$W_{r}$', 'disk_gap': '$G_{r}$'} # Used to display variable names in graphs
         '''
         if ringed:
             if not ring_sc_law:
@@ -959,7 +959,7 @@ class DataObject:
         plt.style.use('the_usual.mplstyle')
         if save_data == True:
             data = dict()
-        fig, axs = plt.subplots(len(keyslist), len(keyslist), sharex='col')  # share the x-axis between columns
+        fig, axs = plt.subplots(len(keyslist), len(keyslist), sharex='col', sharey=False)  # share the x-axis between columns
         for column, columnkey in zip(range(len(keyslist)), keyslist):
             for row, rowkey in zip(range(len(keyslist)), keyslist):
                 if column > row:
@@ -992,17 +992,13 @@ class DataObject:
                             previous_integral = integral_over_mesh
                     if columnkey == 'theta' or columnkey == 'phi':
                         axs[row][column].plot(param_values[0]/np.pi, integral_over_mesh, color='#084d96') # Formatting angles in terms of pi for visual clarity
-                        axs[row][column].set_xlim(param_values[0][0]/np.pi, param_values[0][-1]/np.pi)
+                        if column == len(param_values) - 1:  # Limit x-axis of last column as it is not done automatically by contours
+                            axs[row][column].set_xlim(param_values[0][0]/np.pi, param_values[0][-1]/np.pi)
                     else:
                         axs[row][column].plot(param_values[0], integral_over_mesh, color='#084d96')
-                        axs[row][column].set_xlim(param_values[0][0], param_values[0][-1])
-                    axs[row][column].tick_params(
-                        axis='x',  # changes apply to the x-axis
-                        which='both',  # both major and minor ticks are affected
-                        bottom=True,  # ticks along the bottom edge are off
-                        top=False,  # ticks along the top edge are off
-                        labelbottom=True, labelsize=12)
-                    axs[row][column].set_ylim(0)
+                        if column == len(param_values) - 1:  # Limit x-axis of last column as it is not done automatically by contours
+                            axs[row][column].set_xlim(param_values[0][0], param_values[0][-1])
+                    #axs[row][column].set_ylim(0)
                     if save_data == True:
                         data[f'{rowkey}'] = (param_values[0], integral_over_mesh)
                 else:  # contour, integrate over all variables but rowkey and columnkey
@@ -1083,12 +1079,21 @@ class DataObject:
                     else:
                         levels = np.arange(start=contour_array.min(), stop=contour_array.max(), step=step)
                     plt.style.use('the_usual.mplstyle')
-                    if columnkey == 'theta' or columnkey == 'phi':
-                        axs[row][column].contourf(
-                            np.swapaxes(plotmeshes[f'{keys_order[columnkey]}+{keys_order[rowkey]}'][0], 0, 1)/np.pi, # Formatting angles in terms of pi
-                            np.swapaxes(plotmeshes[f'{keys_order[columnkey]}+{keys_order[rowkey]}'][1], 0, 1)/np.pi,
-                            contour_array, levels,
-                            cmap='Blues')
+                    if columnkey == 'theta' or columnkey == 'phi' or rowkey == 'theta' or rowkey == 'phi':
+                        if rowkey == 'theta' and columnkey == 'phi' or rowkey == 'phi' and columnkey == 'theta':
+                            axs[row][column].contourf(
+                                np.swapaxes(plotmeshes[f'{keys_order[columnkey]}+{keys_order[rowkey]}'][0], 0, 1)/np.pi, # Formatting angles in terms of pi
+                                np.swapaxes(plotmeshes[f'{keys_order[columnkey]}+{keys_order[rowkey]}'][1], 0, 1)/np.pi,
+                                contour_array, levels,
+                                cmap='Blues')
+                        elif rowkey == 'theta' or rowkey == 'phi' and columnkey not in ['theta', 'phi']:
+                            axs[row][column].contourf(
+                                np.swapaxes(plotmeshes[f'{keys_order[columnkey]}+{keys_order[rowkey]}'][0], 0, 1), # Formatting angles in terms of pi
+                                np.swapaxes(plotmeshes[f'{keys_order[columnkey]}+{keys_order[rowkey]}'][1], 0, 1)/np.pi,
+                                contour_array, levels,
+                                cmap='Blues')
+                        elif columnkey == 'theta' or columnkey == 'phi' and rowkey not in ['theta', 'phi']: # Should never happen anyways because diagonal graph
+                            raise Exception('Diagonality of graph not respected')
                     else:
                         axs[row][column].contourf(
                             np.swapaxes(plotmeshes[f'{keys_order[columnkey]}+{keys_order[rowkey]}'][0], 0, 1),
@@ -1104,33 +1109,53 @@ class DataObject:
                 if axs[row][column] in axs[len(keyslist) - 1]:  # If in the last row
                     axs[row][column].set_xlabel(varname_to_dispname[f'{columnkey}'], loc='center')
                     axs[row][column].tick_params(direction='in', left=False, bottom=True, top=False, right=False,
-                                                 which='both', labelsize=12)
+                                                 which='both', labelsize=9)
                     axs[row][column].minorticks_on()
                     if columnkey == 'theta' or columnkey == 'phi':
                         axs[row][column].xaxis.set_major_formatter(FuncFormatter(exoring_functions.format_fraction_with_pi))
-                        axs[row][column].xaxis.set_major_locator(tck.MultipleLocator(base=1/4))
-                    if columnkey == 'phi':
-                        axs[row][column].xaxis.set_minor_locator(AutoMinorLocator(2))
+                    else:
+                        axs[row][column].xaxis.set_major_formatter(
+                            FuncFormatter(exoring_functions.format_fraction_with_r_jup))
+
+                    axs[row][column].xaxis.set_major_locator(tck.MaxNLocator(3))
                 else:
                     axs[row][column].tick_params(
                         axis='x',  # changes apply to the x-axis
                         which='both',  # both major and minor ticks are affected
                         bottom=True,  # ticks along the bottom edge are off
                         top=False,  # ticks along the top edge are off
-                        labelbottom=False, labelsize=12)
+                        labelbottom=False, labelsize=9)
                     axs[row][column].minorticks_on()
-                if column == 0 and row != 0:
+                if column == 0 and row != 0: # y labels given to left column
                     axs[row][column].set_ylabel(varname_to_dispname[rowkey], loc='center')
+                    if rowkey == 'theta' or rowkey == 'phi':
+                        axs[row][column].yaxis.set_major_formatter(FuncFormatter(exoring_functions.format_fraction_with_pi_small))
+                    else:
+                        axs[row][column].yaxis.set_major_formatter(
+                            FuncFormatter(exoring_functions.format_fraction_with_r_jup_small))
+
+                    axs[row][column].yaxis.set_major_locator(tck.MaxNLocator(3))
                     axs[row][column].tick_params(axis='y', direction='in', left=True, bottom=False, top=False,
-                                                 right=False,
-                                                 which='both', labelsize=12, colors='black')
-                else:
+                                             right=False,
+                                             which='both', labelsize=9, colors='black',
+                                             rotation = 0)
+                elif column != row: # y ticks added to all contours
+                    axs[row][column].tick_params(
+                        axis='y',  # changes apply to the x-axis
+                        which='both',  # both major and minor ticks are affected
+                        left=True,  # ticks along the bottom edge are off
+                        right=False,  # ticks along the top edge are off
+                        labelleft=False, labelsize=9)
+
+
+                else: # Diagonal y ticks disabled
                     axs[row][column].tick_params(
                         axis='y',  # changes apply to the x-axis
                         which='both',  # both major and minor ticks are affected
                         left=False,  # ticks along the bottom edge are off
                         right=False,  # ticks along the top edge are off
-                        labelleft=False, labelsize=12)
+                        labelleft=False, labelsize=9)
+
         fig.align_xlabels()
         fig.align_ylabels()
         #fig.tight_layout()
