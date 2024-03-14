@@ -140,6 +140,35 @@ def format_fraction_with_r_jup_small(x, pos):
         else:
             return f'$\\text{{-}}{abs(fract.numerator)}R_{{j}}/{fract.denominator}$'
 
+def format_fraction_with_r_jup_squared(x, pos):
+    fract = Fraction(x).limit_denominator()
+    if fract == 0:
+        return "0"
+    elif x == 1:
+        return '$R_{j}^{2}$'
+    else:
+        if fract.denominator == 1:
+            return f'${fract.numerator}R_{{j}}^{{2}}$'
+        else:
+            return f'$\\frac{{{fract.numerator}}}{{{fract.denominator}}}$' + '$R_{j}^{2}$'
+def format_fraction_with_r_jup_small_squared(x, pos):
+    fract = Fraction(x).limit_denominator()
+    if fract == 0:
+        return "0"
+    elif x == 1:
+        return '$R_{j}^{2}$$'
+    elif x == -1:
+        return '$\\text{{-}}R_{j}^{2}$$'
+    else:
+        if fract.numerator == 1:
+            return f'$R_{{j}}/{fract.denominator}$'
+        elif fract.denominator == 1:
+            return f'${fract.numerator}R_{{j}}^{{2}}$'
+        elif fract.numerator > 0:
+            return f'${fract.numerator}R_{{j}}^{{2}}/{fract.denominator}$'
+        else:
+            return f'$\\text{{-}}{abs(fract.numerator)}R_{{j}}^{{2}}/{fract.denominator}$'
+
 def monte_carlo_ring_integration(func, bounds_y, bounds_z, i):
     integration_area = abs(bounds_y[1] - bounds_y[0]) * abs(bounds_z[1] - bounds_z[0])
     ys = np.random.uniform(bounds_y[0], bounds_y[1], i)

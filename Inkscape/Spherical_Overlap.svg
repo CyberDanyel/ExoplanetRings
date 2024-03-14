@@ -8,7 +8,7 @@
    version="1.1"
    id="svg5"
    inkscape:version="1.2.2 (732a01da63, 2022-12-09)"
-   sodipodi:docname="Thanku.svg"
+   sodipodi:docname="Spherical_Overlap.svg"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
    xmlns:xlink="http://www.w3.org/1999/xlink"
@@ -26,36 +26,17 @@
      inkscape:document-units="mm"
      showgrid="false"
      showguides="false"
-     inkscape:zoom="2"
-     inkscape:cx="199.5"
-     inkscape:cy="419.5"
+     inkscape:zoom="1.8049602"
+     inkscape:cx="212.74707"
+     inkscape:cy="437.12875"
      inkscape:window-width="2560"
-     inkscape:window-height="1334"
-     inkscape:window-x="-11"
-     inkscape:window-y="-11"
+     inkscape:window-height="1369"
+     inkscape:window-x="-8"
+     inkscape:window-y="-8"
      inkscape:window-maximized="1"
      inkscape:current-layer="layer1" />
   <defs
      id="defs2">
-    <marker
-       style="overflow:visible"
-       id="RoundedArrow"
-       refX="0"
-       refY="0"
-       orient="auto-start-reverse"
-       inkscape:stockid="RoundedArrow"
-       markerWidth="6.1347523"
-       markerHeight="5.9304948"
-       viewBox="0 0 6.1347524 5.9304951"
-       inkscape:isstock="true"
-       inkscape:collect="always"
-       preserveAspectRatio="xMidYMid">
-      <path
-         transform="scale(0.7)"
-         d="m -0.21114562,-4.1055728 6.42229122,3.21114561 a 1,1 90 0 1 0,1.78885438 L -0.21114562,4.1055728 A 1.236068,1.236068 31.717474 0 1 -2,3 v -6 a 1.236068,1.236068 148.28253 0 1 1.78885438,-1.1055728 z"
-         style="fill:context-stroke;fill-rule:evenodd;stroke:none"
-         id="path1367" />
-    </marker>
     <pattern
        inkscape:collect="always"
        xlink:href="#pattern44245"
@@ -84,26 +65,6 @@
          offset="0"
          id="stop27874" />
     </linearGradient>
-    <marker
-       style="overflow:visible"
-       id="Arrow1"
-       refX="0"
-       refY="0"
-       orient="auto-start-reverse"
-       inkscape:stockid="Arrow1"
-       markerWidth="4.0606599"
-       markerHeight="6.7071066"
-       viewBox="0 0 4.0606602 6.7071068"
-       inkscape:isstock="true"
-       inkscape:collect="always"
-       preserveAspectRatio="xMidYMid">
-      <path
-         style="fill:none;stroke:context-stroke;stroke-width:1;stroke-linecap:butt"
-         d="M 3,-3 0,0 3,3"
-         id="path5057"
-         transform="rotate(180,0.125,0)"
-         sodipodi:nodetypes="ccc" />
-    </marker>
     <pattern
        patternUnits="userSpaceOnUse"
        width="24.050581"
@@ -208,46 +169,6 @@
          ry="0"
          rx="0" />
     </pattern>
-    <marker
-       style="overflow:visible"
-       id="Arrow1-1"
-       refX="0"
-       refY="0"
-       orient="auto-start-reverse"
-       inkscape:stockid="Arrow1"
-       markerWidth="4.0606599"
-       markerHeight="6.7071066"
-       viewBox="0 0 4.0606602 6.7071068"
-       inkscape:isstock="true"
-       inkscape:collect="always"
-       preserveAspectRatio="xMidYMid">
-      <path
-         style="fill:none;stroke:context-stroke;stroke-width:1;stroke-linecap:butt"
-         d="M 3,-3 0,0 3,3"
-         id="path5057-7"
-         transform="rotate(180,0.125,0)"
-         sodipodi:nodetypes="ccc" />
-    </marker>
-    <marker
-       style="overflow:visible"
-       id="Arrow1-1-1"
-       refX="0"
-       refY="0"
-       orient="auto-start-reverse"
-       inkscape:stockid="Arrow1"
-       markerWidth="4.0606599"
-       markerHeight="6.7071066"
-       viewBox="0 0 4.0606602 6.7071068"
-       inkscape:isstock="true"
-       inkscape:collect="always"
-       preserveAspectRatio="xMidYMid">
-      <path
-         style="fill:none;stroke:context-stroke;stroke-width:1;stroke-linecap:butt"
-         d="M 3,-3 0,0 3,3"
-         id="path5057-7-3"
-         transform="rotate(180,0.125,0)"
-         sodipodi:nodetypes="ccc" />
-    </marker>
   </defs>
   <g
      inkscape:label="Layer 1"
@@ -258,7 +179,10 @@
        id="path234"
        cx="65.501945"
        cy="122.54503"
-       r="30" />
+       r="30"
+       inkscape:export-filename="SphericalOverlap.png"
+       inkscape:export-xdpi="232.20758"
+       inkscape:export-ydpi="232.20758" />
     <circle
        style="fill:none;stroke:#000000;stroke-width:0.4;stroke-miterlimit:100;paint-order:fill markers stroke"
        id="path236"
@@ -267,7 +191,7 @@
        r="23" />
     <path
        style="display:inline;fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.4;stroke-miterlimit:100;stroke-dasharray:3.2, 0.4;stroke-dashoffset:0;stroke-opacity:1;paint-order:fill markers stroke"
-       d="M 88.005,142.33118 88.0765,95.745426"
+       d="M 88.005,142.33039 88.0765,102.7428"
        id="path5673" />
     <path
        style="display:inline;fill:#c6c6ff;fill-opacity:1;stroke:none;stroke-width:1.88977;stroke-miterlimit:100;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;paint-order:fill markers stroke"
@@ -290,69 +214,6 @@
        id="path26999"
        inkscape:label="path26999"
        transform="scale(0.26458333)" />
-    <path
-       style="display:inline;fill:none;stroke:#000000;stroke-width:0.4;stroke-miterlimit:100;stroke-opacity:1;marker-start:url(#Arrow1);paint-order:fill markers stroke"
-       d="M 125.54188,122.54504 H 106.04239 65.862014"
-       id="path400"
-       sodipodi:nodetypes="ccc" />
-    <path
-       style="display:inline;fill:none;stroke:#000000;stroke-width:0.4;stroke-miterlimit:100;stroke-opacity:1;marker-start:url(#Arrow1-1);paint-order:fill markers stroke"
-       d="M 65.862016,86.650553 V 98.443826 122.7449"
-       id="path400-9"
-       sodipodi:nodetypes="ccc" />
-    <text
-       xml:space="preserve"
-       style="font-size:5.64444px;font-family:Arial;-inkscape-font-specification:Arial;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.499999;stroke-miterlimit:100;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;paint-order:fill markers stroke"
-       x="80.854927"
-       y="82.099319"
-       id="text54996"><tspan
-         sodipodi:role="line"
-         id="tspan54994"
-         style="font-size:5.64444px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.5"
-         x="80.854927"
-         y="82.099319">Δ </tspan></text>
-    <path
-       style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:0.499999;stroke-miterlimit:100;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;marker-start:url(#RoundedArrow);marker-end:url(#RoundedArrow);paint-order:fill markers stroke"
-       d="M 68.223271,83.773207 97.256902,83.659399"
-       id="path61143" />
-    <text
-       xml:space="preserve"
-       style="font-size:4.58611111px;font-family:Arial;-inkscape-font-specification:Arial;fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.499999;stroke-miterlimit:100;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;paint-order:fill markers stroke"
-       x="68.006729"
-       y="89.163467"
-       id="text61355"><tspan
-         sodipodi:role="line"
-         id="tspan61353"
-         style="stroke-width:0.5;font-size:4.58611111px"
-         x="68.006729"
-         y="89.163467">y</tspan></text>
-    <path
-       style="display:inline;fill:none;stroke:#000000;stroke-width:0.4;stroke-miterlimit:100;stroke-opacity:1;marker-start:url(#Arrow1-1-1);paint-order:fill markers stroke"
-       d="M 99.609856,86.650553 V 98.443826 122.7449"
-       id="path400-9-7"
-       sodipodi:nodetypes="ccc" />
-    <text
-       xml:space="preserve"
-       style="font-size:4.58611px;font-family:Arial;-inkscape-font-specification:Arial;fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.499999;stroke-miterlimit:100;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;paint-order:fill markers stroke"
-       x="101.75459"
-       y="89.163467"
-       id="text61355-6"><tspan
-         sodipodi:role="line"
-         id="tspan61353-6"
-         style="font-size:4.58611px;stroke-width:0.5"
-         x="101.75459"
-         y="89.163467">y '</tspan></text>
-    <text
-       xml:space="preserve"
-       style="font-size:4.5861px;font-family:Arial;-inkscape-font-specification:Arial;fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.499999;stroke-miterlimit:100;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;paint-order:fill markers stroke"
-       x="126.93966"
-       y="126.62546"
-       id="text61558"><tspan
-         sodipodi:role="line"
-         id="tspan61556"
-         style="stroke-width:0.5"
-         x="126.93966"
-         y="126.62546">x / x '</tspan></text>
     <text
        xml:space="preserve"
        style="font-size:8.79517px;font-family:Arial;-inkscape-font-specification:Arial;fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.5;stroke-miterlimit:100;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;paint-order:fill markers stroke"
@@ -377,18 +238,5 @@
          style="stroke-width:0.5"
          x="87.365074"
          y="161.82954">Planet</tspan></text>
-    <text
-       xml:space="preserve"
-       style="font-size:4.58611px;font-family:Arial;-inkscape-font-specification:Arial;letter-spacing:0.79375px;fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.499999;stroke-miterlimit:100;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;paint-order:fill markers stroke"
-       x="85.513756"
-       y="93.176292"
-       id="text63141"><tspan
-         sodipodi:role="line"
-         id="tspan63139"
-         style="font-size:4.58611px;stroke-width:0.5"
-         x="85.513756"
-         y="93.176292">x<tspan
-   style="font-size:2.82222px;baseline-shift:sub"
-   id="tspan69339">0</tspan></tspan></text>
   </g>
 </svg>

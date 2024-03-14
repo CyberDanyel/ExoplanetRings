@@ -64,10 +64,14 @@ if __name__ == '__main__':
     #ring_bounds = {'radius': (0.1,2), 'disk_gap': (0.1,2), 'ring_width': (0.5,1.5), 'theta':(0, np.pi), 'phi':(-np.pi/2, np.pi/2)}
     #minimiser = Data.fit_data_ring('atmosphere', 'silicates', ring_init_guess, ring_bounds)
     # print(str(Data.fit_data_ring(sc_planet, sc_sil, init_guess)))
-    Data.produce_corner_plot(model_parameters,
-                             {'radius': (0, 3, 2), 'disk_gap': (0, 1.5, 2), 'ring_width': (0, 1, 2), 'phi': (-np.pi/2, np.pi/2, 2), 'theta': (0, np.pi/2, 2)},
+    model_parameters_var = model_parameters.copy()
+    model_parameters_var['disk_gap'] = 0
+    def fun(A):
+        return np.sqrt(A/np.pi +1) -1
+    Data.produce_corner_plot(model_parameters_var,
+                             {'phi': (3*np.pi/16, 5*np.pi/16, 70), 'radius': (0.8, 1.2, 70), 'ring_width': (fun(10), fun(20), 70)},
                              planet_sc_law='atmosphere', ring_sc_law='silicates', ringed=True, log=False,
-                             multiprocessing=True, save_data=True)
+                             multiprocessing=True)
     # , 'theta': (0, np.pi / 2, 2), phi': (-np.pi / 2, np.pi / 2, 3)
     # Data.run_ringed_model('atmosphere', 'silicates', model_parameters)
     # Data.disperse_models(test_ring_planet, scattering.Jupiter, scattering.Rayleigh, ('ring_width', 'radius'), model_parameters)

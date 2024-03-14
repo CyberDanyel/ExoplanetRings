@@ -303,7 +303,6 @@ class DataObject:
                                                  'Ring_sc_function': best_result[3].__name__}
                 with open('best_fit_ring.json', 'w') as f:
                     json.dump(json_serializable_best_result, f, indent=4)
-
         else:
             with Pool(16) as pool:
                 for planet_sc in planet_sc_functions:
@@ -856,7 +855,7 @@ class DataObject:
 
     def produce_corner_plot(self, best_model, ranges, planet_sc_law, ring_sc_law=None, ringed=True, log=False,
                             multiprocessing=True, save_data = True):
-        varname_to_dispname = {'theta':r'$\theta$', 'phi': r'$\phi$', 'radius': r'$\boldsymbol{R_{p}}$', 'ring_width': '$W_{r}$', 'disk_gap': '$G_{r}$'} # Used to display variable names in graphs
+        varname_to_dispname = {'theta':r'$\theta$', 'phi': r'$\phi$', 'radius': r'$\boldsymbol{R_{p}}$', 'ring_width': r'$Effective \, Area$', 'disk_gap': '$G_{r}$'} # Used to display variable names in graphs
         '''
         if ringed:
             if not ring_sc_law:
@@ -906,7 +905,7 @@ class DataObject:
                     args.append((indexes, planet_sc_law, altered_model))
             with Pool(16) as pool:
                 if ringed:
-                    results = list(tqdm.tqdm(pool.imap(self.wrapped_likelihood_ringed_model, args), total=len(args),
+                    results = list(tqdm.tqdm(pool.imap(self.wrapped_likelihood_ringed_model, args, chunksize=10), total=len(args),
                                              desc='Running Models', colour='green'))
                     for result in results:
                         likelihood[*result[0]] = result[1]
@@ -995,10 +994,21 @@ class DataObject:
                         if column == len(param_values) - 1:  # Limit x-axis of last column as it is not done automatically by contours
                             axs[row][column].set_xlim(param_values[0][0]/np.pi, param_values[0][-1]/np.pi)
                     else:
-                        axs[row][column].plot(param_values[0], integral_over_mesh, color='#084d96')
-                        if column == len(param_values) - 1:  # Limit x-axis of last column as it is not done automatically by contours
-                            axs[row][column].set_xlim(param_values[0][0], param_values[0][-1])
-                    #axs[row][column].set_ylim(0)
+                        if columnkey == 'ring_width':
+                            axs[row][column].plot(np.pi*((param_values[0]+1)**2 - 1), integral_over_mesh, color='#084d96')
+                            axs[row][column].set_xlim(10,
+                                                      20)
+                            axs[row][column].set_ylim(0)
+                            boty, topy = axs[row][column].get_ylim()
+                            axs[row][column].plot([15.707963267948966, 15.707963267948966], [boty, topy],
+                                                  '--', color='#D55E00')
+                            if column == len(param_values) - 1:  # Limit x-axis of last column as it is not done automatically by contours
+                                axs[row][column].set_xlim(np.pi*((param_values[0]+1)**2 - 1)[0], np.pi*((param_values[0]+1)**2 - 1)[-1])
+                        else:
+                            axs[row][column].plot(param_values[0], integral_over_mesh, color='#084d96')
+                            if column == len(param_values) - 1:  # Limit x-axis of last column as it is not done automatically by contours
+                                axs[row][column].set_xlim(param_values[0][0], param_values[0][-1])
+                    axs[row][column].set_ylim(0)
                     if save_data == True:
                         data[f'{rowkey}'] = (param_values[0], integral_over_mesh)
                 else:  # contour, integrate over all variables but rowkey and columnkey
@@ -1092,14 +1102,34 @@ class DataObject:
                                 np.swapaxes(plotmeshes[f'{keys_order[columnkey]}+{keys_order[rowkey]}'][1], 0, 1)/np.pi,
                                 contour_array, levels,
                                 cmap='Blues')
-                        elif columnkey == 'theta' or columnkey == 'phi' and rowkey not in ['theta', 'phi']: # Should never happen anyways because diagonal graph
-                            raise Exception('Diagonality of graph not respected')
+                        elif columnkey == 'theta' or columnkey == 'phi' and rowkey not in ['theta', 'phi']:
+                            if rowkey == 'ring_width':
+                                axs[row][column].contourf(
+                                    np.swapaxes(plotmeshes[f'{keys_order[columnkey]}+{keys_order[rowkey]}'][0], 0, 1)/np.pi,
+                                    np.pi * ((np.swapaxes(
+                                        plotmeshes[f'{keys_order[columnkey]}+{keys_order[rowkey]}'][1], 0,
+                                        1) + 1) ** 2 - 1),
+                                    contour_array, levels,
+                                    cmap='Blues')
+                            else:
+                                axs[row][column].contourf(
+                                    np.swapaxes(plotmeshes[f'{keys_order[columnkey]}+{keys_order[rowkey]}'][0], 0, 1)/np.pi, # Formatting angles in terms of pi
+                                    np.swapaxes(plotmeshes[f'{keys_order[columnkey]}+{keys_order[rowkey]}'][1], 0, 1),
+                                    contour_array, levels,
+                                    cmap='Blues')
                     else:
-                        axs[row][column].contourf(
-                            np.swapaxes(plotmeshes[f'{keys_order[columnkey]}+{keys_order[rowkey]}'][0], 0, 1),
-                            np.swapaxes(plotmeshes[f'{keys_order[columnkey]}+{keys_order[rowkey]}'][1], 0, 1),
-                            contour_array, levels,
-                            cmap='Blues')
+                        if rowkey == 'ring_width':
+                            axs[row][column].contourf(
+                                np.swapaxes(plotmeshes[f'{keys_order[columnkey]}+{keys_order[rowkey]}'][0], 0, 1),
+                                np.pi*((np.swapaxes(plotmeshes[f'{keys_order[columnkey]}+{keys_order[rowkey]}'][1], 0, 1)+1)**2 - 1),
+                                contour_array, levels,
+                                cmap='Blues')
+                        else:
+                            axs[row][column].contourf(
+                                np.swapaxes(plotmeshes[f'{keys_order[columnkey]}+{keys_order[rowkey]}'][0], 0, 1),
+                                np.swapaxes(plotmeshes[f'{keys_order[columnkey]}+{keys_order[rowkey]}'][1], 0, 1),
+                                contour_array, levels,
+                                cmap='Blues')
 
                     if save_data == True:
                         data[f'{rowkey} and {columnkey}'] = (np.swapaxes(plotmeshes[f'{keys_order[columnkey]}+{keys_order[rowkey]}'][0], 0, 1), np.swapaxes(plotmeshes[f'{keys_order[columnkey]}+{keys_order[rowkey]}'][1], 0, 1), contour_array)
@@ -1113,11 +1143,13 @@ class DataObject:
                     axs[row][column].minorticks_on()
                     if columnkey == 'theta' or columnkey == 'phi':
                         axs[row][column].xaxis.set_major_formatter(FuncFormatter(exoring_functions.format_fraction_with_pi))
+                    elif columnkey == 'ring_width':
+                        axs[row][column].xaxis.set_major_formatter(
+                            FuncFormatter(exoring_functions.format_fraction_with_r_jup_squared))
                     else:
                         axs[row][column].xaxis.set_major_formatter(
                             FuncFormatter(exoring_functions.format_fraction_with_r_jup))
-
-                    axs[row][column].xaxis.set_major_locator(tck.MaxNLocator(3))
+                    axs[row][column].xaxis.set_major_locator(tck.MaxNLocator(3, integer=True, steps=[1,2,5,10]))
                 else:
                     axs[row][column].tick_params(
                         axis='x',  # changes apply to the x-axis
@@ -1130,11 +1162,14 @@ class DataObject:
                     axs[row][column].set_ylabel(varname_to_dispname[rowkey], loc='center')
                     if rowkey == 'theta' or rowkey == 'phi':
                         axs[row][column].yaxis.set_major_formatter(FuncFormatter(exoring_functions.format_fraction_with_pi_small))
+                    elif rowkey == 'ring_width':
+                        axs[row][column].yaxis.set_major_formatter(
+                            FuncFormatter(exoring_functions.format_fraction_with_r_jup_small_squared))
                     else:
                         axs[row][column].yaxis.set_major_formatter(
                             FuncFormatter(exoring_functions.format_fraction_with_r_jup_small))
 
-                    axs[row][column].yaxis.set_major_locator(tck.MaxNLocator(3))
+                    axs[row][column].yaxis.set_major_locator(tck.MaxNLocator(3, integer=True, steps=[1,2,5,10]))
                     axs[row][column].tick_params(axis='y', direction='in', left=True, bottom=False, top=False,
                                              right=False,
                                              which='both', labelsize=9, colors='black',
@@ -1160,6 +1195,7 @@ class DataObject:
         fig.align_ylabels()
         #fig.tight_layout()
         plt.savefig('images/corner_plot', dpi=600)
+        plt.savefig('images/corner_plot_svg', dpi=600, format='svg')
         if save_data == True:
             with open('corner_data.pkl', 'wb') as f:
                 pickle.dump(data, f)
