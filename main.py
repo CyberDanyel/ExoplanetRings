@@ -65,7 +65,7 @@ if __name__ == '__main__':
     #minimiser = Data.fit_data_ring('atmosphere', 'silicates', ring_init_guess, ring_bounds)
     # print(str(Data.fit_data_ring(sc_planet, sc_sil, init_guess)))
     Data.produce_corner_plot(model_parameters,
-                             {'radius': (0, 3, 2), 'disk_gap': (0, 1.5, 2), 'ring_width': (0, 1, 2), 'phi': (-np.pi/2, np.pi/2, 2), 'theta': (0, np.pi/2, 2)},
+                             {'radius': (0.7, 1.3, 70), 'disk_gap': (0, 3, 70), 'ring_width': (2/5, 8/5, 70)},
                              planet_sc_law='atmosphere', ring_sc_law='silicates', ringed=True, log=False,
                              multiprocessing=True, save_data=True)
     # , 'theta': (0, np.pi / 2, 2), phi': (-np.pi / 2, np.pi / 2, 3)

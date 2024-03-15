@@ -998,7 +998,7 @@ class DataObject:
                         axs[row][column].plot(param_values[0], integral_over_mesh, color='#084d96')
                         if column == len(param_values) - 1:  # Limit x-axis of last column as it is not done automatically by contours
                             axs[row][column].set_xlim(param_values[0][0], param_values[0][-1])
-                    #axs[row][column].set_ylim(0)
+                    axs[row][column].set_ylim(0)
                     if save_data == True:
                         data[f'{rowkey}'] = (param_values[0], integral_over_mesh)
                 else:  # contour, integrate over all variables but rowkey and columnkey
@@ -1167,8 +1167,8 @@ class DataObject:
 
 def generate_data(test_planet):
     np.random.seed(seed=5)
-    test_alphas = list(np.linspace(-np.pi, -.3, 10)) + list(np.linspace(-.29, .29, 10)) + list(
-        np.linspace(.3, np.pi, 10))
+    test_alphas = list(np.linspace(-np.pi, -.3, 2)) + list(np.linspace(-.3, .3, 50)) + list(
+        np.linspace(.3, np.pi, 2))
     test_alphas = np.array(test_alphas)
     I = test_planet.light_curve(test_alphas)
     errs = 0 * I + 1e-7 * test_planet.star.luminosity
