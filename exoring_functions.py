@@ -92,7 +92,7 @@ def format_fraction_with_pi(x, pos):
         if fract.numerator > 0:
             return f'$\\frac{{{fract.numerator}}}{{{fract.denominator}}}$' + '$\\pi$'
         else:
-            return f'$\\text{{-}}\\frac{{{abs(fract.numerator)}}}{{{fract.denominator}}}$' + '$\\pi$'
+            return f'$-\\frac{{{abs(fract.numerator)}}}{{{fract.denominator}}}$' + '$\\pi$'
 
 def format_fraction_with_pi_small(x, pos):
     fract = Fraction(x).limit_denominator()
@@ -101,7 +101,7 @@ def format_fraction_with_pi_small(x, pos):
     elif x == 1:
         return '$\\pi$'
     elif x == -1:
-        return '$\\text{{-}}\\pi$'
+        return '$-\\pi$'
     else:
         if fract.numerator > 0:
             if fract.numerator == 1:
@@ -109,7 +109,7 @@ def format_fraction_with_pi_small(x, pos):
             else:
                 return f'${fract.numerator}\\pi/{fract.denominator}$'
         else:
-            return f'$\\text{{-}}{abs(fract.numerator)}\\pi/{fract.denominator}$'
+            return f'$-{abs(fract.numerator)}\\pi/{fract.denominator}$'
 
 def format_fraction_with_r_jup(x, pos):
     fract = Fraction(x).limit_denominator()
@@ -129,7 +129,7 @@ def format_fraction_with_r_jup_small(x, pos):
     elif x == 1:
         return '$R_{j}$'
     elif x == -1:
-        return '$\\text{{-}}R_{j}$'
+        return '$-R_{j}$'
     else:
         if fract.numerator == 1:
             return f'$R_{{j}}/{fract.denominator}$'
@@ -138,7 +138,7 @@ def format_fraction_with_r_jup_small(x, pos):
         elif fract.numerator > 0:
             return f'${fract.numerator}R_{{j}}/{fract.denominator}$'
         else:
-            return f'$\\text{{-}}{abs(fract.numerator)}R_{{j}}/{fract.denominator}$'
+            return f'$-{abs(fract.numerator)}R_{{j}}/{fract.denominator}$'
 
 def monte_carlo_ring_integration(func, bounds_y, bounds_z, i):
     integration_area = abs(bounds_y[1] - bounds_y[0]) * abs(bounds_z[1] - bounds_z[0])
