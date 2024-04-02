@@ -18,6 +18,7 @@ import pickle
 import exoring_functions
 import exoring_objects
 from iminuit import Minuit
+from scipy.interpolate import RegularGridInterpolator
 
 with open('constants.json') as json_file:
     constants = json.load(json_file)
@@ -40,7 +41,7 @@ class FittingRingedPlanet(exoring_objects.RingedPlanet, FittingPlanet):
             n_x, n_y, n_z = parameters['n_x'], parameters['n_y'], parameters['n_z']
             try:
                 theta, phi = parameters['theta'], parameters['phi']
-                raise Exception('Both n_x, n_y, n_z as well as theta and phi provided, please use 1 convention')
+                raise Exception('Both n_x, n_y, n_z as well as theta and phi provided, please use one convention')
             except KeyError:
                 pass
         except KeyError:
@@ -53,7 +54,7 @@ class FittingRingedPlanet(exoring_objects.RingedPlanet, FittingPlanet):
                 raise Exception('No ring orientation provided')
         disk_gap, ring_width = parameters['disk_gap'], parameters['ring_width']
         if n_x < 0:
-            print('n_x was inputted to be <0, possibly the minimiser not respecting bounds')
+            raise Exception('n_x was inputted to be <0, possibly the minimiser not respecting bounds')
         exoring_objects.RingedPlanet.__init__(self, self.sc_law, self.radius, ring_sc_law, self.radius + disk_gap,
                                               self.radius + disk_gap + ring_width, [n_x, n_y, n_z], star)
 
@@ -121,7 +122,7 @@ class DataObject:
                     # print(-np.sum(logs))
                     return -np.sum(logs)
 
-    def fit_data_planet(self, planet_sc_law, init_guess: dict):
+    def fit_data_planet(self, planet_sc_law, init_guess: dict, bounds: dict = None):
         """
         Finds planet giving best fit to the data with given planet scattering law and initial guesses
 
@@ -138,6 +139,9 @@ class DataObject:
         """
         cost_function = LeastSquares(self.data[0], self.data[1], self.data[2], lambda alphas, radius: self.run_ringless_model(alphas, radius, planet_sc_law=planet_sc_law))
         minimiser = Minuit(cost_function, **init_guess)
+        if bounds:
+            for key, bound in bounds.items():
+                minimiser.limits[key] = bound
         minimiser.migrad()
         minimiser.hesse()
         return minimiser
@@ -171,6 +175,7 @@ class DataObject:
         if bounds:
             for key, bound in bounds.items():
                 minimiser.limits[key] = bound
+
         minimiser.migrad()
         minimiser.hesse()
         return minimiser
@@ -358,15 +363,10 @@ class DataObject:
         ring_sc_law = scattering_laws[f'{ring_sc_law}']
         if show_diff and not largest_diff:
             raise Exception('Largest_diff set to False but show_diff set to True')
-        plt.style.use('poster.mplstyle')
+        plt.style.use('the_usual.mplstyle')
         fig, ax = exoring_functions.generate_plot_style()
-        plt.style.use('poster.mplstyle')
-        model_parameters['n_x'], model_parameters['n_y'], model_parameters['n_z'] = model_parameters['ring_normal'][0], \
-            model_parameters['ring_normal'][1], model_parameters['ring_normal'][2]
         I = self.data[1]
         I_errs = self.data[2]
-        if model_parameters['n_x'] < 0:
-            print('n_x was inputted to be <0')
         model_ringed_planet = FittingRingedPlanet(planet_sc_law, ring_sc_law, self.star, model_parameters)
         neg_alphas = np.linspace(-np.pi, 0, 5000)
         pos_alphas = np.linspace(0, np.pi, 5000)[1:]  # slicing to prevent repeat of alpha 0
@@ -856,7 +856,7 @@ class DataObject:
 
     def produce_corner_plot(self, best_model, ranges, planet_sc_law, ring_sc_law=None, ringed=True, log=False,
                             multiprocessing=True, save_data = True):
-        varname_to_dispname = {'theta':r'$\theta$', 'phi': r'$\phi$', 'radius': r'$\boldsymbol{R_{p}}$', 'ring_width': '$W_{r}$', 'disk_gap': '$G_{r}$'} # Used to display variable names in graphs
+        varname_to_dispname = {'theta':r'$\theta$', 'phi': r'$\phi$', 'radius': r'$R_{p}$', 'ring_width': '$W_{r}$', 'disk_gap': '$G_{r}$'} # Used to display variable names in graphs
         '''
         if ringed:
             if not ring_sc_law:
@@ -880,14 +880,10 @@ class DataObject:
             for index2 in indices:
                 if index1 != index2 and (index2, index1) not in mixed_indices:
                     mixed_indices.append((index1, index2))
-        meshes = np.meshgrid(*all_params)
+        meshes = np.meshgrid(*all_params, indexing='ij')
         plotmeshes = dict()
         for index1, index2 in mixed_indices:
-            plotmeshes[f'{index1}+{index2}'] = np.meshgrid(all_params[index1], all_params[index2])
-        flipped_axes_meshes = list()
-        for mesh in meshes:
-            flipped_axes_meshes.append(np.swapaxes(mesh, 0, 1))
-        meshes = flipped_axes_meshes
+            plotmeshes[f'{index1}+{index2}'] = np.meshgrid(all_params[index1], all_params[index2], indexing='ij')
         likelihood = np.zeros(meshes[0].shape)
         # saved = dict() # Used to check whether x in np.trapz was correct
         indices_meshes = np.meshgrid(*[[i for i in range(likelihood.shape[j])] for j in range(len(likelihood.shape))])
@@ -998,7 +994,7 @@ class DataObject:
                         axs[row][column].plot(param_values[0], integral_over_mesh, color='#084d96')
                         if column == len(param_values) - 1:  # Limit x-axis of last column as it is not done automatically by contours
                             axs[row][column].set_xlim(param_values[0][0], param_values[0][-1])
-                    #axs[row][column].set_ylim(0)
+                    axs[row][column].set_ylim(0)
                     if save_data == True:
                         data[f'{rowkey}'] = (param_values[0], integral_over_mesh)
                 else:  # contour, integrate over all variables but rowkey and columnkey
@@ -1079,30 +1075,53 @@ class DataObject:
                     else:
                         levels = np.arange(start=contour_array.min(), stop=contour_array.max(), step=step)
                     plt.style.use('the_usual.mplstyle')
+
+                    colvals = plotmeshes[f'{keys_order[columnkey]}+{keys_order[rowkey]}'][0]
+                    rowvals = plotmeshes[f'{keys_order[columnkey]}+{keys_order[rowkey]}'][1]
+                    ''' Attempt for contours
+                    xs = all_params[keys_order[columnkey]]
+                    ys = all_params[keys_order[rowkey]]
+                    interp_contour = RegularGridInterpolator((xs, ys), contour_array)
+                    best_x, best_y = best_model[columnkey], best_model[rowkey]
+                    column_max_r = max(xs)
+                    row_max_r = max(ys)
+                    max_r = np.sqrt(column_max_r**2 + row_max_r**2)
+                    rs = np.linspace(0, max_r, 100)
+                    for phi in np.linspace(0, np.pi, 360, endpoint=False):
+                        test_xs = rs * np.cos(phi) + best_x
+                        test_ys = rs * np.sin(phi) + best_y
+                        x_bool = (test_xs<=ranges[columnkey][1]) & (test_xs>=ranges[columnkey][0]) # Keep x values within limits
+                        y_bool = (test_ys<=ranges[rowkey][1]) & (test_ys>=ranges[rowkey][0]) # Keep y values within limits
+                        total_bool = (x_bool) & (y_bool) # Keep all values within limits
+                        inputs = np.swapaxes(np.array([test_xs, test_ys]), 0, 1)[total_bool] # Cull values out of limits
+                        contour_vals = interp_contour(inputs)
+                        dr = float(rs[1]-rs[0])
+                        print(np.trapz(contour_vals, dx=dr))
+                    '''
                     if columnkey == 'theta' or columnkey == 'phi' or rowkey == 'theta' or rowkey == 'phi':
                         if rowkey == 'theta' and columnkey == 'phi' or rowkey == 'phi' and columnkey == 'theta':
                             axs[row][column].contourf(
-                                np.swapaxes(plotmeshes[f'{keys_order[columnkey]}+{keys_order[rowkey]}'][0], 0, 1)/np.pi, # Formatting angles in terms of pi
-                                np.swapaxes(plotmeshes[f'{keys_order[columnkey]}+{keys_order[rowkey]}'][1], 0, 1)/np.pi,
+                                colvals/np.pi, # Formatting angles in terms of pi
+                                rowvals/np.pi,
                                 contour_array, levels,
                                 cmap='Blues')
                         elif rowkey == 'theta' or rowkey == 'phi' and columnkey not in ['theta', 'phi']:
                             axs[row][column].contourf(
-                                np.swapaxes(plotmeshes[f'{keys_order[columnkey]}+{keys_order[rowkey]}'][0], 0, 1), # Formatting angles in terms of pi
-                                np.swapaxes(plotmeshes[f'{keys_order[columnkey]}+{keys_order[rowkey]}'][1], 0, 1)/np.pi,
+                                colvals, # Formatting angles in terms of pi
+                                rowvals/np.pi,
                                 contour_array, levels,
                                 cmap='Blues')
                         elif columnkey == 'theta' or columnkey == 'phi' and rowkey not in ['theta', 'phi']: # Should never happen anyways because diagonal graph
                             raise Exception('Diagonality of graph not respected')
                     else:
                         axs[row][column].contourf(
-                            np.swapaxes(plotmeshes[f'{keys_order[columnkey]}+{keys_order[rowkey]}'][0], 0, 1),
-                            np.swapaxes(plotmeshes[f'{keys_order[columnkey]}+{keys_order[rowkey]}'][1], 0, 1),
+                            colvals,
+                            rowvals,
                             contour_array, levels,
                             cmap='Blues')
 
                     if save_data == True:
-                        data[f'{rowkey} and {columnkey}'] = (np.swapaxes(plotmeshes[f'{keys_order[columnkey]}+{keys_order[rowkey]}'][0], 0, 1), np.swapaxes(plotmeshes[f'{keys_order[columnkey]}+{keys_order[rowkey]}'][1], 0, 1), contour_array)
+                        data[f'{rowkey} and {columnkey}'] = (colvals, rowvals, contour_array)
                     # cbar = fig.colorbar(cp)  # Add a colorbar to a plot
                     # cbar.ax.tick_params(labelsize=12)
                     # axs[row][column].yaxis.set_minor_locator(AutoMinorLocator(2))
@@ -1167,7 +1186,7 @@ class DataObject:
 
 def generate_data(test_planet):
     np.random.seed(seed=5)
-    test_alphas = list(np.linspace(-np.pi, -.3, 10)) + list(np.linspace(-.29, .29, 10)) + list(
+    test_alphas = list(np.linspace(-np.pi, -.3, 10, endpoint=False)) + list(np.linspace(-.3, .3, 10, endpoint=False)) + list(
         np.linspace(.3, np.pi, 10))
     test_alphas = np.array(test_alphas)
     I = test_planet.light_curve(test_alphas)
