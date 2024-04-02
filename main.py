@@ -46,8 +46,7 @@ if __name__ == '__main__':
     model_parameters = {'radius': 1,
                         'disk_gap': 1, 'ring_width': 1,
                         'theta': theta,
-                        'phi': phi
-                        }
+                        'phi': phi}
 
     test_ringless_planet = fitting.FittingPlanet(scattering_laws['atmosphere'], star, model_parameters)
     test_ring_planet = fitting.FittingRingedPlanet(scattering_laws['atmosphere'], scattering_laws['silicates'], star, model_parameters)
@@ -61,19 +60,14 @@ if __name__ == '__main__':
     #Data.fit_data_planet('atmosphere', planet_init_guess)
 
     Data = fitting.DataObject(ring_data, star)
-    #Data.display_ringed_model('atmosphere', 'silicates', model_parameters)
-    #planet_init_guess = {'radius': 1}
     #ring_init_guess = {'radius': 1, 'disk_gap': 1, 'ring_width': 1, 'theta':np.pi/2, 'phi':np.pi/4}
-    #planet_bounds = {'radius': (0.1,10)}
     #ring_bounds = {'radius': (0.1,2), 'disk_gap': (0.1,2), 'ring_width': (0.5,1.5), 'theta':(0, np.pi), 'phi':(-np.pi/2, np.pi/2)}
-    #minimiser = Data.fit_data_planet('atmosphere', planet_init_guess, planet_bounds)
-    #print(minimiser)
     #minimiser = Data.fit_data_ring('atmosphere', 'silicates', ring_init_guess, ring_bounds)
-    #print(str(Data.fit_data_ring(sc_planet, sc_sil, init_guess)))
+    # print(str(Data.fit_data_ring(sc_planet, sc_sil, init_guess)))
     Data.produce_corner_plot(model_parameters,
-                             {'radius': (0.7, 1.3, 70), 'disk_gap': (0, 3, 70), 'ring_width': (2/5, 8/5, 70)},
+                             {'radius': (0, 3, 2), 'disk_gap': (0, 1.5, 2), 'ring_width': (0, 1, 2), 'phi': (-np.pi/2, np.pi/2, 2), 'theta': (0, np.pi/2, 2)},
                              planet_sc_law='atmosphere', ring_sc_law='silicates', ringed=True, log=False,
-                             multiprocessing=True, save_data=False)
+                             multiprocessing=True, save_data=True)
     # , 'theta': (0, np.pi / 2, 2), phi': (-np.pi / 2, np.pi / 2, 3)
     # Data.run_ringed_model('atmosphere', 'silicates', model_parameters)
     # Data.disperse_models(test_ring_planet, scattering.Jupiter, scattering.Rayleigh, ('ring_width', 'radius'), model_parameters)
@@ -90,9 +84,5 @@ if __name__ == '__main__':
     # Data.range_search_fitting(search_ranges_ring, 0.5, bounds_ring, [scattering.Lambert, scattering.Jupiter], [scattering.Rayleigh])
     # Data.plot_best_ringfit()
     # Data.plot_best_planetfit()
-    #minimiser.migrad()
-    #print(minimiser)
-    #fig, ax = minimiser.draw_mnmatrix()
-    #fig.savefig('images/hey', dpi=600)
     end = time.time()
     print('Time taken for code execution:', round(end - start, 2), 'seconds')

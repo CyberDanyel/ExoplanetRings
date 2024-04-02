@@ -87,7 +87,7 @@ def format_fraction_with_pi(x, pos):
     elif x == 1:
         return '$\\pi$'
     elif x == -1:
-        return r'$\text{-}\pi$'
+        return '$\\text{{-}}\\pi$'
     else:
         if fract.numerator > 0:
             return f'$\\frac{{{fract.numerator}}}{{{fract.denominator}}}$' + '$\\pi$'
