@@ -367,14 +367,26 @@ class DataObject:
         fig, ax = exoring_functions.generate_plot_style()
         I = self.data[1]
         I_errs = self.data[2]
+        theta, phi = model_parameters['theta'], model_parameters['phi']
+        ring = exoring_objects.Ring(ring_sc_law, model_parameters['radius']+model_parameters['disk_gap'],
+                                    model_parameters['radius']+model_parameters['disk_gap']+model_parameters['ring_width'],
+                                    normal = [np.sin(theta) * np.cos(phi), np.sin(theta) * np.sin(phi), np.cos(theta)],
+                                    star = self.star)
+        model_planet = FittingPlanet(planet_sc_law, self.star, model_parameters)
         model_ringed_planet = FittingRingedPlanet(planet_sc_law, ring_sc_law, self.star, model_parameters)
         neg_alphas = np.linspace(-np.pi, 0, 5000)
         pos_alphas = np.linspace(0, np.pi, 5000)[1:]  # slicing to prevent repeat of alpha 0
         alphas = np.concatenate((neg_alphas, pos_alphas))
+        planet_lightcurve = model_planet.light_curve(alphas)
+        ring_lightcurve = ring.light_curve(alphas)
         resulting_lightcurve = model_ringed_planet.light_curve(alphas)
         resulting_lightcurve /= self.star.luminosity
-        ax.errorbar(self.data[0] / np.pi, I / self.star.luminosity, I_errs / self.star.luminosity, fmt='.')
-        ax.plot(alphas / np.pi, resulting_lightcurve)
+        planet_lightcurve /= self.star.luminosity
+        ring_lightcurve /= self.star.luminosity
+        #ax.errorbar(self.data[0] / np.pi, I / self.star.luminosity, I_errs / self.star.luminosity, fmt='.')
+        ax.plot(alphas / np.pi, planet_lightcurve, color='#980002', label='Planet')
+        ax.plot(alphas / np.pi, ring_lightcurve, color='xkcd:carolina blue', label='Ring')
+        ax.plot(alphas / np.pi, resulting_lightcurve, color='xkcd:prussian blue', label='Planet+Ring')
         if largest_diff:
             neg_lightcurve = resulting_lightcurve[0:len(neg_alphas) - 1]  # -1 to ignore 0 alpha
             pos_lightcurve = resulting_lightcurve[len(neg_alphas):len(alphas)]
@@ -404,11 +416,11 @@ class DataObject:
                     ax.text(-1 + 0.2, (diff_pos_element + diff_neg_element) / 2, '{:.3g}'.format(largest_diff),
                             horizontalalignment='center', verticalalignment='center')
                 ax.set_xlim(botx, topx)
-                ax.set_ylim(boty, topy)
+                ax.set_ylim(boty, 2e-6)
                 print('Largest diff', largest_diff)
             else:
                 print('No largest diff')
-
+        plt.legend(fontsize=10, loc='upper right')
         plt.savefig('images/Ringed_Model', dpi=600)
 
     def display_many_ringless_models(self, planet_sc_law, multiple_model_parameters, sharex=True, sharey=False):

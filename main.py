@@ -21,7 +21,7 @@ if __name__ == '__main__':
     start = time.time()
 
     meters_per_length_unit = constants['R_JUP']
-    star = exoring_objects.Star(5800, constants['R_SUN_TO_R_JUP'], .1 * constants['AU_TO_R_JUP'], 1.)
+    star = exoring_objects.Star(5800, constants['R_SUN_TO_R_JUP'], .1 * constants['AU_TO_R_JUP'], 1000)
     # star_obj = exoring_objects.Star(1, SUN_TO_JUP, 0.5 * AU_TO_JUP, 1)
 
     scattering_laws = dict()
@@ -61,7 +61,7 @@ if __name__ == '__main__':
     #Data.fit_data_planet('atmosphere', planet_init_guess)
 
     Data = fitting.DataObject(ring_data, star)
-    #Data.display_ringed_model('atmosphere', 'silicates', model_parameters)
+    Data.display_ringed_model('atmosphere', 'silicates', model_parameters)
     #planet_init_guess = {'radius': 1}
     #ring_init_guess = {'radius': 1, 'disk_gap': 1, 'ring_width': 1, 'theta':np.pi/2, 'phi':np.pi/4}
     #planet_bounds = {'radius': (0.1,10)}
@@ -70,10 +70,10 @@ if __name__ == '__main__':
     #print(minimiser)
     #minimiser = Data.fit_data_ring('atmosphere', 'silicates', ring_init_guess, ring_bounds)
     #print(str(Data.fit_data_ring(sc_planet, sc_sil, init_guess)))
-    Data.produce_corner_plot(model_parameters,
-                             {'radius': (0.7, 1.3, 70), 'disk_gap': (0, 3, 70), 'ring_width': (2/5, 8/5, 70)},
-                             planet_sc_law='atmosphere', ring_sc_law='silicates', ringed=True, log=False,
-                             multiprocessing=True, save_data=False)
+    #Data.produce_corner_plot(model_parameters,
+    #                         {'radius': (0.7, 1.3, 70), 'disk_gap': (0, 3, 70), 'ring_width': (2/5, 8/5, 70)},
+    #                         planet_sc_law='atmosphere', ring_sc_law='silicates', ringed=True, log=False,
+    #                         multiprocessing=True, save_data=False)
     # , 'theta': (0, np.pi / 2, 2), phi': (-np.pi / 2, np.pi / 2, 3)
     # Data.run_ringed_model('atmosphere', 'silicates', model_parameters)
     # Data.disperse_models(test_ring_planet, scattering.Jupiter, scattering.Rayleigh, ('ring_width', 'radius'), model_parameters)

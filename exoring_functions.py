@@ -291,11 +291,11 @@ def overlap_area(r_circle, r_ellipse, mu, cos_phi, sin_phi, offset):
 
 def generate_plot_style():
     plt.style.use('the_usual.mplstyle')
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=[6, 4])
     ax.xaxis.set_major_formatter(FuncFormatter(format_fraction_with_pi))
     ax.xaxis.set_major_locator(tck.MultipleLocator(base=1 / 2))
     ax.set_xlabel(r'Phase angle $\alpha$')
-    ax.set_ylabel(r'Intensity ($L_{\odot}$)')
+    ax.set_ylabel(r'$L(\alpha)/L_{\odot}$')
     fig.tight_layout()
     return fig, ax
 
