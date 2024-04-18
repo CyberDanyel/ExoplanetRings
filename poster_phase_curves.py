@@ -15,9 +15,10 @@ import scattering
 import materials
 import socket
 
-plt.style.use('poster')
+plt.style.use('the_usual.mplstyle')
 AU = 1.495978707e11
 L_SUN = 3.828e26
+T_SUN = 5780
 R_JUP = 6.9911e7
 R_SUN = 6.957e8
 JUP_TO_AU = AU / R_JUP
@@ -26,19 +27,21 @@ AU_TO_SUN = AU / R_SUN
 AU_TO_JUP = AU / R_JUP
 M_JUP = 1.898e27
 bandpass = (10e-6, 14e-6)
-star = exoring_objects.Star(L_SUN, R_SUN, .1*AU, 1.)
+star = exoring_objects.Star(T_SUN, R_SUN, .1*AU, 1.)
 
 ice = materials.RingMaterial('materials/saturn_small_ice.inp', 361, 500)
 silicate = materials.RingMaterial('materials/silicate_small.inp', 361, 500)
 atmos = materials.Atmosphere(scattering.Jupiter,  [M_JUP, R_JUP], star)
 
 sc_ice = scattering.WavelengthDependentScattering(ice, bandpass, star.planck_function)
-sc_sil = scattering.WavelengthDependentScattering(silicate, bandpass, star.planck_function)
+#sc_sil = scattering.WavelengthDependentScattering(silicate, bandpass, star.planck_function)
+sc_sil = scattering.Lambert(1.)
 sc_ring_diffuse = scattering.Lambert(sc_sil.albedo)
-sc_planet = scattering.WavelengthDependentScattering(atmos, bandpass, star.planck_function)
+#sc_planet = scattering.WavelengthDependentScattering(atmos, bandpass, star.planck_function)
+sc_planet = scattering.Lambert(1.)
 sc_mie = scattering.Mie(1., 100e-6/np.mean(bandpass), 1.5+.1j)
 
-ring_params = [1.2*R_JUP, 2*R_JUP, [1., 0.5, 0.1], star]
+ring_params = [12*R_JUP, 12.0731106*R_JUP, [1., 1, 1], star]
 
 sil_rplanet = exoring_objects.RingedPlanet(sc_planet, R_JUP, sc_sil, *ring_params)
 ice_rplanet = exoring_objects.RingedPlanet(sc_planet, R_JUP, sc_ice, *ring_params)
@@ -68,7 +71,7 @@ def make_full_plot(ax):
 
     ax.set_xticklabels([r'$-\pi$', r'$-\pi/2$', r'$0$', r'$\pi/2$', r'$\pi$'])
 
-    plt.xlabel('Phase angle $\alpha$')
+    plt.xlabel(r'Phase angle $\alpha$')
     plt.ylabel(r'Intensity/$L_\odot$')
     plt.title(r'Wavelength band %.1f$\mathrm{\mu}$m-%.1f$\mathrm{\mu}$m'%tuple(val*1e6 for val in bandpass))
     plt.tight_layout()
@@ -77,13 +80,44 @@ def make_full_plot(ax):
 def make_example_plot(ax):
     ax.plot(alphas, light_curve_sil_ring, label = 'Ring')
     ax.plot(alphas, light_curve_sil - light_curve_sil_ring, label = 'Planet')
-    ax.plot(alphas, light_curve_sil, label = 'Ring + Planet')
-    ax.set_xlim(-.06, .06)
-    ax.set_ylim(-4e-8, 2.5e-6)
+    ax.plot(alphas, light_curve_sil, label = 'Ring\n+ Planet')
+    ax.set_xlim(.03, .0575)
+    ax.set_ylim(-4e-8, 1.0e-5)
+    #ax.set_xticks([-np.pi, -np.pi/2, 0, np.pi/2, np.pi])
+
+    #ax.set_xticklabels([r'$-\pi$', r'$-\pi/2$', r'$0$', r'$\pi/2$', r'$\pi$'])
+
     ax.set_xlabel(r'Phase angle $\alpha$')
     ax.set_ylabel(r'Intensity/$L_\odot$')
     #plt.title('Secondary eclipse')
     plt.legend()
     plt.tight_layout()
+
+def make_final_report_plot(ax1, ax2):
+    ax1.plot(alphas, light_curve_sil_ring, label = 'Ring')
+    ax1.plot(alphas, light_curve_sil - light_curve_sil_ring, label = 'Planet')
+    ax1.plot(alphas, light_curve_sil, label = 'Ring\n+ Planet')
+    ax1.set_title('(c)', fontsize = 12.5)
+    ax2.plot(alphas, light_curve_sil_ring, label = 'Ring')
+    ax2.plot(alphas, light_curve_sil - light_curve_sil_ring, label = 'Planet')
+    ax2.plot(alphas, light_curve_sil, label = 'Ring +\nPlanet')
+    ax2.set_title('(d)', fontsize = 12.5)
+    ax2.set_xlim(-0.052, .11)
+    #ax1.set_ylim(-4e-8, 1.0e-5)
+    #ax2.set_ylim(-4e-8, 1.0e-5)
+    ax2.set_yticklabels([])
+    ax1.set_xticks([-np.pi, -np.pi/2, 0, np.pi/2, np.pi])
+    ax1.set_xticklabels([r'$-\pi$', r'$-\pi/2$', r'$0$', r'$\pi/2$', r'$\pi$'])
+    ax1.set_xlabel(r'Phase angle $\alpha$')
+    ax1.set_ylabel(r'Intensity/$L_\odot$')
+    ax2.set_xlabel(r'Phase angle $\alpha$', labelpad = 8)
+    #plt.title('Secondary eclipse')
+    #fig.supxlabel(r'Phase angle ($\alpha$)')
+    ax2.legend(fontsize = 12)
+    fig.tight_layout()
     
+fig, axes = plt.subplots(1, 2, figsize = (6.5, 3))
+make_final_report_plot(axes[0], axes[1])
+plt.show()
+#plt.savefig('big_ring_phase_curve.svg', transparent=True)
 
