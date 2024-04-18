@@ -102,7 +102,7 @@ class Atmosphere:
             self.albedos += planetless_depths/depth_unitalbedo
         else:
             self.wavelengths, self.depths, info_dict = self.calc.compute_depths(star.radius, planet_mass, planet_radius, self.T, CO_ratio=0.425381, logZ=-1,  add_scattering=False, stellar_blackbody=True, full_output=True)
-            self.albedos = np.zeros(np.shape(self.wavelengths))
+            self.albedos = np.zeros(np.shape(self.wavelengths)) - 0.3 # I made it the fuck up
             depth_unitalbedo = (max(info_dict['radii'])**2 - min(info_dict['radii'])**2)/star.radius**2
             depth_unitalbedo -= np.pi*(max(info_dict['radii'])**2 - min(info_dict['radii'])**2) * s * T**4/star.luminosity
             for i, wavelength in enumerate(self.wavelengths):
