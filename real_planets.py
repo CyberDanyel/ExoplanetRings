@@ -137,7 +137,7 @@ def max_asymm_plots(planetname):
         plt.plot(alphas[int(len(alphas) / 2):], phi_residual, label=phi_labels[n], linestyle=':', color=[n/len(phi_residuals), 0, 1-n/len(phi_residuals)])
     for n, max_residual in enumerate(max_residuals):
         plt.plot(alphas[int(len(alphas) / 2):], max_residual, label=labels[n], linestyle=linestyles[n], color='xkcd:midnight')
-    plt.ylabel(r'Asymmetry$/L_{\odot}$')
+    plt.ylabel(r'Asymmetry$/L_{\star}$')
     plt.xlabel(r'Phase angle $\alpha$')
     plt.xlim(0, np.pi)
     ax.set_xticks([0, np.pi / 4, np.pi / 2, 3 * np.pi / 4, np.pi])
@@ -150,7 +150,7 @@ def max_asymm_plots(planetname):
 
 def all_laplace_asymmetries():
     planets = pd.read_csv('exoplanet_info.csv', header=29)
-    fig, ax = plt.subplots(1, 1, figsize=[6, 4])
+    fig, ax = plt.subplots(1, 1, figsize=[5, 3])
     for n, planet in enumerate(planets.iloc):
         if n == 16:
             break
@@ -174,7 +174,7 @@ def all_laplace_asymmetries():
         star = exoring_objects.Star(T_star, R_star, distance, M_star)
         try:
             atmos = materials.Atmosphere(scattering.Jupiter, [M, R_reduced], star)
-        except:
+        except AssertionError:
             raise AssertionError(planet['pl_name'])
         atmos_sc = scattering.WavelengthDependentScattering(atmos, bandpass, star.planck_function)
         ring_sc = scattering.WavelengthDependentScattering(silicate, bandpass, star.planck_function)
@@ -195,7 +195,7 @@ def all_laplace_asymmetries():
         else:
             max_residue = max(residuals.flatten())
             ax.plot(alphas[int(len(alphas) / 2):], residuals.flatten(), color=[1-0.5*(max_residue/2e-6) for i in range(3)], zorder = int(max_residue/1e-7))
-        plt.ylabel(r'Asymmetry$/L_{\odot}$')
+        plt.ylabel(r'Asymmetry$/L_{\star}$')
         plt.xlabel(r'Phase angle $\alpha$')
         plt.xlim(0, np.pi)
         ax.set_xticks([0, np.pi / 4, np.pi / 2, 3 * np.pi / 4, np.pi])
@@ -204,12 +204,111 @@ def all_laplace_asymmetries():
         plt.tight_layout()
     plt.savefig('all_laplace_asymmetries.svg', transparent = True)
 
-#def find_max_asymmetries():
+def generate_tables():
     # finds the maximum possible asymmetry for each planet with an upper bound on radius being the Laplace radius
+    planets = pd.read_csv('exoplanet_info.csv', header=29)
+    input_array = np.zeros((16, 6)).astype(str)
+    output_array = np.zeros((16, 7)).astype(str)
+    star_array = np.zeros((16, 5)).astype(str)
+    for n, planet in enumerate(planets.iloc):
+        if n == 16:
+            break
+        T_star = planet['st_teff']
+        R_star = planet['st_rad'] * R_SUN
+        distance = planet['pl_orbsmax'] * AU
+        M_star = planet['st_mass'] * M_SUN
+        M = planet['pl_bmasse'] * M_EARTH
+        R = planet['pl_radj'] * R_JUP
+        density = planet['pl_dens'] * 1000  # gcm^-3 to kgm^-3
+        R_reduced = R * (density / RHO_JUP) ** (1 / 3)
+        saturn_J2 = .016298
+
+        R_hill = distance * (M / (3 * M_star)) ** (1 / 3)
+        R_roche = R_reduced * 2.45 * (RHO_JUP / 2090) ** (
+                    1 / 3)  # the density of silicate is about 3 times that of Jupiter
+        R_laplace = (2 * saturn_J2 * R_reduced ** 2 * distance ** 3 * (M / M_star)) ** (1 / 5)
+        R_max = np.array([R_roche, R_laplace])
+        phi_max = np.arccos((R ** 2 - R_reduced ** 2) / (R_max ** 2 - R_reduced ** 2))
+
+        # defining objects
+        star = exoring_objects.Star(T_star, R_star, distance, M_star)
+        try:
+            atmos = materials.Atmosphere(scattering.Jupiter, [M, R_reduced], star)
+        except AssertionError:
+            raise AssertionError(planet['pl_name'])
+        atmos_sc = scattering.WavelengthDependentScattering(atmos, bandpass, star.planck_function)
+        ring_sc = scattering.WavelengthDependentScattering(silicate, bandpass, star.planck_function)
+
+        # calculate light curves
+        unringed_planet = exoring_objects.Planet(atmos_sc, R, star)
+        unringed_light_curve = unringed_planet.light_curve(alphas) / star.luminosity
+
+        for i, phi in enumerate(phi_max):
+            normal = [np.cos(phi), np.sin(phi), 0]
+            ringed_planet = exoring_objects.RingedPlanet(atmos_sc, R_reduced, ring_sc, R_reduced,
+                                                     R / np.sqrt(np.cos(phi)), normal, star)
+            max_light_curve = ringed_planet.light_curve(alphas)
+            max_light_curve /= star.luminosity
+            # calculate asymmetries
+            front_half = max_light_curve[:int(len(alphas) / 2)]
+            back_half = max_light_curve[int(len(alphas) / 2):]
+            residuals = back_half - front_half[::-1]  # only works for an even number of alphas
+            if i == 0:
+                roche_max_asymm = max(residuals)
+            elif i == 1:
+                laplace_max_asymm = max(residuals)
+
+        #placing results in tables
+        input_array[n][0] = planet['pl_name'] # Name
+        input_array[n][1] = np.round(M/M_EARTH, 2) # mass
+        input_array[n][2] = np.round(R/R_JUP, 2) # radius
+        input_array[n][3] = np.round(density/1000, 2)# density
+        input_array[n][4] = np.round(distance/AU, 2) # semi-major axis
+        input_array[n][5] = planet['pl_refname'] # data reference
+
+        star_array[n][0] = planet['hostname'] # Name
+        star_array[n][1] = T_star # effective temperature
+        star_array[n][2] = np.round(R_star/R_SUN, 2) # stellar radius
+        star_array[n][3] = np.round(M_star/M_SUN, 2) # stellar mass
+        star_array[n][4] = planet['st_refname']
+
+        output_array[n][0] = planet['pl_name'] # Name
+        output_array[n][1] = np.round(R/R_JUP, 2) # inferred radius
+        output_array[n][2] = np.round(R_reduced/R, 2) # reduced radius
+        output_array[n][3] = np.round(R_roche/R, 2) # Roche limit
+        output_array[n][4] = np.round(R_laplace/R, 2) # Laplace radius
+        if not np.isnan(roche_max_asymm):
+            output_array[n][5] = np.round(roche_max_asymm / 1e-7, 2)
+        else:
+            output_array[n][5] = '(n/a)'
+
+        if not np.isnan(laplace_max_asymm):
+            output_array[n][6] = np.round(laplace_max_asymm / 1e-7, 2)
+        else:
+            output_array[n][6] = '(n/a)'
+
+    input_columns = ['Name', 'Mass', 'Radius', 'Density', 'Semi-major axis', 'Reference']
+    input_table = pd.DataFrame(data=input_array, columns=input_columns)
+    output_columns = ['Name', 'Inferred Radius', 'Reduced Radius', 'Roche limit', 'Laplace radius', 'Roche Asymm', 'Laplace Asymm']
+    output_table = pd.DataFrame(data=output_array, columns=output_columns)
+    star_columns = ['Name', 'Temp', 'Mass', 'Radius', 'Reference']
+    star_table = pd.DataFrame(data=star_array, columns=star_columns)
+
+    input_table_string = input_table.to_latex()
+    output_table_string = output_table.to_latex()
+    star_table_string = star_table.to_latex()
+    with open('input_table.txt', 'w') as input_file:
+        input_file.write(input_table_string)
+    with open('output_table.txt', 'w') as output_file:
+        output_file.write(output_table_string)
+    with open('star_table.txt', 'w') as star_file:
+        star_file.write(star_table_string)
+
 
 #max_residual_plots('TOI-5398 b')
 #max_asymm_plots('TOI-5398 b')
 #light_curve_plots('TOI-5398 b')
-all_laplace_asymmetries()
+#all_laplace_asymmetries()
 #max_asymm_plots('Kepler-18 d')
 #max_asymm_plots('Kepler-435 b')
+generate_tables()
