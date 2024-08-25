@@ -1167,7 +1167,7 @@ class DataObject:
 
 def generate_data(test_planet):
     np.random.seed(seed=5)
-    test_alphas = list(np.linspace(-np.pi, -.3, 10)) + list(np.linspace(-.29, .29, 10)) + list(
+    test_alphas = list(np.linspace(-np.pi, -.3, 10)) + list(np.linspace(-.29, .29, 50)) + list(
         np.linspace(.3, np.pi, 10))
     test_alphas = np.array(test_alphas)
     I = test_planet.light_curve(test_alphas)

@@ -87,7 +87,7 @@ def format_fraction_with_pi(x, pos):
     elif x == 1:
         return '$\\pi$'
     elif x == -1:
-        return '$\\text{{-}}\\pi$'
+        return r'$\text{-}\pi$'
     else:
         if fract.numerator > 0:
             return f'$\\frac{{{fract.numerator}}}{{{fract.denominator}}}$' + '$\\pi$'
@@ -292,7 +292,7 @@ def overlap_area(r_circle, r_ellipse, mu, cos_phi, sin_phi, offset):
 def generate_plot_style():
     plt.style.use('the_usual.mplstyle')
     fig, ax = plt.subplots(figsize=[6, 4])
-    ax.xaxis.set_major_formatter(FuncFormatter(format_fraction_with_pi))
+    ax.xaxis.set_major_formatter(FuncFormatter(format_fraction_with_pi_small))
     ax.xaxis.set_major_locator(tck.MultipleLocator(base=1 / 2))
     ax.set_xlabel(r'Phase angle $\alpha$')
     ax.set_ylabel(r'$L(\alpha)/L_{\odot}$')

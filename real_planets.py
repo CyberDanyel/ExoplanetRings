@@ -20,7 +20,7 @@ import pandas as pd
 with open('constants.json') as json_file:
     constants = json.load(json_file)
 
-plt.style.use('the_usual')
+plt.style.use('the_usual.mplstyle')
 bandpass = (11.43e-6, 14.17e-6) # f1280w
 R_SUN = constants['R_SUN']
 M_SUN = constants['M_SUN']
