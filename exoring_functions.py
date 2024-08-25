@@ -52,107 +52,6 @@ def integrate2d(func, bounds: list, sigma=0.01):
                 old_total_integral = new_total_integral
                 pass
 
-
-class MonteCarloPlanetIntegration:
-    def __init__(self, i):
-        self.i = i
-        xs = np.random.uniform(0, 1, self.i)
-        self.thetas = np.arccos(1 - 2 * xs)
-        # self.phis = np.random.uniform(- np.pi / 2, np.pi / 2,self.i)
-
-    def integrate(self, alpha, func):
-        if alpha >= 0:
-            # phis = [phi for phi in self.phis if alpha - np.pi / 2 < phi < np.pi / 2]
-            phis = np.random.uniform(alpha - np.pi / 2, np.pi / 2, self.i)
-        else:
-            # phis = [phi for phi in self.phis if -np.pi / 2 < phi < alpha + np.pi / 2]
-            phis = np.random.uniform(-np.pi / 2, alpha + np.pi / 2, self.i)
-        if alpha >= 0:
-            qs = func(self.thetas, phis) * (2 * (np.pi - alpha)) / np.sin(self.thetas)
-        else:
-            qs = func(self.thetas, phis) * (2 * (np.pi + alpha)) / np.sin(self.thetas)
-        q_average = sum(qs) / self.i
-        # sigma_squared = (1 / (self.i - 1)) * sum((qs - q_average) ** 2)
-        # sigma = np.sqrt(sigma_squared)
-        # error = (1 / np.sqrt(self.i)) * sigma
-        # fractional_error = error / q_average
-        # print(f'q_average = {q_average} +-', f'{fractional_error*100}%')
-        return q_average
-
-
-def format_fraction_with_pi(x, pos):
-    fract = Fraction(x).limit_denominator()
-    if fract == 0:
-        return "0"
-    elif x == 1:
-        return '$\\pi$'
-    elif x == -1:
-        return r'$\text{-}\pi$'
-    else:
-        if fract.numerator > 0:
-            return f'$\\frac{{{fract.numerator}}}{{{fract.denominator}}}$' + '$\\pi$'
-        else:
-            return f'$-\\frac{{{abs(fract.numerator)}}}{{{fract.denominator}}}$' + '$\\pi$'
-
-def format_fraction_with_pi_small(x, pos):
-    fract = Fraction(x).limit_denominator()
-    if fract == 0:
-        return "0"
-    elif x == 1:
-        return '$\\pi$'
-    elif x == -1:
-        return '$-\\pi$'
-    else:
-        if fract.numerator > 0:
-            if fract.numerator == 1:
-                return f'$\\pi/{fract.denominator}$'
-            else:
-                return f'${fract.numerator}\\pi/{fract.denominator}$'
-        else:
-            return f'$-{abs(fract.numerator)}\\pi/{fract.denominator}$'
-
-def format_fraction_with_r_jup(x, pos):
-    fract = Fraction(x).limit_denominator()
-    if fract == 0:
-        return "0"
-    elif x == 1:
-        return '$R_{j}$'
-    else:
-        if fract.denominator == 1:
-            return f'${fract.numerator}R_{{j}}$'
-        else:
-            return f'$\\frac{{{fract.numerator}}}{{{fract.denominator}}}$' + '$R_{j}$'
-def format_fraction_with_r_jup_small(x, pos):
-    fract = Fraction(x).limit_denominator()
-    if fract == 0:
-        return "0"
-    elif x == 1:
-        return '$R_{j}$'
-    elif x == -1:
-        return '$-R_{j}$'
-    else:
-        if fract.numerator == 1:
-            return f'$R_{{j}}/{fract.denominator}$'
-        elif fract.denominator == 1:
-            return f'${fract.numerator}R_{{j}}$'
-        elif fract.numerator > 0:
-            return f'${fract.numerator}R_{{j}}/{fract.denominator}$'
-        else:
-            return f'$-{abs(fract.numerator)}R_{{j}}/{fract.denominator}$'
-
-def monte_carlo_ring_integration(func, bounds_y, bounds_z, i):
-    integration_area = abs(bounds_y[1] - bounds_y[0]) * abs(bounds_z[1] - bounds_z[0])
-    ys = np.random.uniform(bounds_y[0], bounds_y[1], i)
-    zs = np.random.uniform(bounds_z[0], bounds_z[1], i)
-    func_values = func(ys, zs)
-    added_func_values = sum(func_values)
-    average_func_value = added_func_values / i
-    integral = (integration_area / i) * added_func_values
-    sampling_sigma_squared = (1 / (i - 1)) * sum((func_values - average_func_value) ** 2)
-    integral_sigma = (integration_area / np.sqrt(i)) * np.sqrt(sampling_sigma_squared)
-    return integral  # numerical errors may bring this down to 0
-
-
 def circle_section_integral(radius, bounds: []):
     upper = radius ** 2 * np.arcsin(bounds[1] / radius) + bounds[1] * np.sqrt(radius ** 2 - bounds[1] ** 2)
     bottom = radius ** 2 * np.arcsin(bounds[0] / radius) + bounds[0] * np.sqrt(radius ** 2 - bounds[0] ** 2)
@@ -287,17 +186,6 @@ def overlap_area(r_circle, r_ellipse, mu, cos_phi, sin_phi, offset):
 
     else:
         raise NotImplementedError('Edge case of %.i intersection points, how did you even do this??!' % len(x))
-
-
-def generate_plot_style():
-    plt.style.use('the_usual.mplstyle')
-    fig, ax = plt.subplots(figsize=[6, 4])
-    ax.xaxis.set_major_formatter(FuncFormatter(format_fraction_with_pi_small))
-    ax.xaxis.set_major_locator(tck.MultipleLocator(base=1 / 2))
-    ax.set_xlabel(r'Phase angle $\alpha$')
-    ax.set_ylabel(r'$L(\alpha)/L_{\odot}$')
-    fig.tight_layout()
-    return fig, ax
 
 def select_best_result(results):
     lowest_NLL = np.inf

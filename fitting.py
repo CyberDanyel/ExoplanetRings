@@ -1161,7 +1161,7 @@ class DataObject:
         #fig.tight_layout()
         plt.savefig('images/corner_plot', dpi=600)
         if save_data == True:
-            with open('corner_data.pkl', 'wb') as f:
+            with open('pickled_files/corner_data.pkl', 'wb') as f:
                 pickle.dump(data, f)
 
 

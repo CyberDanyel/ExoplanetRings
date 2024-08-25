@@ -86,21 +86,6 @@ class Planet:
         """
         return self.sc_law(alpha) * self.secondary_eclipse_single(alpha) * scattering.lambert_phase_func(alpha)
 
-    def phase_curve_multiple(self, alpha: float) -> float:
-        """
-        The unvectorized phase curve for an atmospheric scattering law dependent on the angle of incidence
-        Parameters
-        ----------
-            alpha : phase angle
-        Returns
-        -------
-        The phase curve evaluated at the phase angle alpha
-        """
-        theta_bounds = [0, np.pi]
-        phi_bounds = [max(alpha - np.pi / 2, -np.pi / 2), min(alpha + np.pi / 2, np.pi / 2)]
-        return exoring_functions.integrate2d(lambda theta, phi: self.phase_curve_integrand(theta, phi, alpha),
-                                             bounds=[theta_bounds, phi_bounds], sigma=1e-3)
-
     def shadow_integrand(self, theta, alpha):
         '''
         The integrand for finding the amount of flux blocked by the secondary eclipse.
@@ -274,7 +259,6 @@ class Ring:
         return (self.outer_radius ** 2 - self.inner_radius ** 2) * self.phase_curve(alpha) * self.star.luminosity / (
                 4 * self.star.distance ** 2)
 
-
 class RingedPlanet(Planet):
     def __init__(self, planet_sc, planet_r, ring_sc, ring_inner_r, ring_outer_r, ring_normal, star):
         self.ring = Ring(ring_sc, ring_inner_r, ring_outer_r, ring_normal, star)
@@ -285,38 +269,7 @@ class RingedPlanet(Planet):
         ring_light_curve = Ring.light_curve(self.ring, alpha)
         return planet_light_curve + ring_light_curve
 
-M_JUP = constants['M_JUP']
-R_JUP = constants['R_JUP']
-
-class HotJupiter(Planet):
-    def __init__(self, radius, bandpass, star):
-        # radius is in Jupiter radii
-        self.bandpass = bandpass
-        self.atmos = materials.Atmosphere(scattering.Jupiter, [M_JUP, R_JUP], star) # could make this an attribute of the star instead to prevent reinitialization every time
-        sc_law = scattering.WavelengthDependentScattering(self.atmos, bandpass, star.planck_function)
-        Planet.__init__(self, sc_law, R_JUP*radius, star)
-    
-    def light_curve(self, alpha):
-        return Planet.light_curve(self, alpha)/self.star.luminosity
-    
-
-class HotRingedJupiter(RingedPlanet):
-    def __init__(self, planet_r, ring_inner_r, ring_outer_r, ring_normal, bandpass, star):
-        # planet_r, ring_inner_r, ring_outer_r are all in Jupiter radii
-        self.bandpass = bandpass
-        self.atmos = materials.Atmosphere(scattering.Jupiter, [M_JUP, R_JUP], star) # could make this an attribute of the star instead to prevent reinitialization every time
-        self.ringmat = materials.RingMaterial('materials/silicate_small.inp', 361, 500)
-        atmos_sc = scattering.WavelengthDependentScattering(self.atmos, bandpass, star.planck_function)
-        ring_sc = scattering.WavelengthDependentScattering(self.ringmat, bandpass, star.planck_function)
-        RingedPlanet.__init__(self, atmos_sc, planet_r*R_JUP, ring_sc, ring_inner_r*R_JUP, ring_outer_r*R_JUP, ring_normal, star)
-    
-    def light_curve(self, alpha):
-        return RingedPlanet.light_curve(self, alpha)/self.star.luminosity
-    
-    
 s = 5.67037e-8  # stefan boltzmann constant
-
-
 class Star:
     def __init__(self, temperature, radius, distance, mass, planet=None):
         self.T = temperature
@@ -325,57 +278,9 @@ class Star:
         self.mass = mass
         self.planet = planet
         self.luminosity =  (s * 4 * np.pi * radius**2) * self.T**4
-        
-
-    def transit_function(self, alpha):
-        # if abs(alpha) <= np.pi / 2:
-        #    separation = self.distance * np.sin(abs(alpha)) For these angles the planet could never transit the sun
-        if abs(alpha) >= np.pi / 2:
-            separation = self.distance * np.sin(np.pi - abs(alpha))
-        else:
-            return self.luminosity
-        if alpha < 0:
-            separation_coord = -separation
-        elif alpha > 0:
-            separation_coord = separation
-        else:
-            print('problem with alpha')
-            exit()
-        if separation >= self.planet.radius + self.radius:  # planet does not occlude star
-            return self.luminosity
-        if separation < self.radius - self.planet.radius:  # planet fully in front of star
-            occluded_frac = (self.planet.radius / self.radius) ** 2
-            return (1 - occluded_frac) * self.luminosity
-        x_0 = (self.planet.radius ** 2 - self.radius ** 2 + separation_coord ** 2) / (2 * separation_coord)
-        if alpha > 0:
-            integration = abs(
-                exoring_functions.circle_section_integral(self.planet.radius, [x_0, self.planet.radius])) + abs(
-                exoring_functions.circle_section_integral(self.radius,
-                                                          [x_0 - separation_coord, -self.radius]))
-        elif alpha < 0:
-            integration = abs(
-                exoring_functions.circle_section_integral(self.planet.radius, [x_0, -self.planet.radius])) + abs(
-                exoring_functions.circle_section_integral(self.radius,
-                                                          [x_0 - separation_coord, self.radius]))
-        else:
-            print('problem with alpha 2')
-            exit()
-        occluded_frac = integration / (np.pi * self.radius ** 2)  # Occluded fraction
-        if occluded_frac > 1:
-            print('error, occluded_frac > 1')
-            exit()
-        return (1 - occluded_frac) * self.luminosity
 
     def planck_function(self, wavelength):
         c = 3e8
         h = 6.626e-34
         k = 1.380649e-23
         return (2 * h * c ** 2 / wavelength ** 5) / np.exp((h * c / (k * wavelength * self.T)) - 1)
-
-    def L_wav(self, bandpass):
-        'luminosity in a certain wavelength region'
-        return spi.quad(self.planck_function, bandpass[0], bandpass[1])[0] * 4 * np.pi * self.radius**2
-
-    def light_curve(self, alphas):
-        light_curve = [self.transit_function(alpha) for alpha in list(alphas)]
-        return light_curve
