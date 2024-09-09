@@ -83,6 +83,19 @@ s = 5.67037e-8  # stefan boltzmann constant
 
 class Atmosphere:
     def __init__(self, sc_class, planet_params, star, meters_per_length_unit=1, invert=False):
+        """
+        A material for a planetary atmosphere, to be passed to a scattering.WavelengthDependentScattering object
+
+        Parameters
+        ----------
+            sc_class: (scattering.SingleScatteringLaw class) the class from which the scattering law
+        should be initialized
+            planet_params: (float, float) the planetary mass and radius
+            star: (exoring_objects.Star) the host star
+            meters_per_length_unit: (float) use when working in units of R_Jupiter
+            invert: (bool) which method to use for calculating the planetary reflectance spectrum.
+        Recommended to keep as False
+        """
         planet_mass, planet_radius = planet_params[:2]
         planet_radius *= meters_per_length_unit
         star.radius *= meters_per_length_unit
