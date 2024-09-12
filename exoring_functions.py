@@ -1,58 +1,8 @@
 import numpy as np
-from fractions import Fraction
 
-from matplotlib import pyplot as plt
-from matplotlib.ticker import FuncFormatter
-import matplotlib.ticker as tck
-import scipy.integrate as spi
-
-
-def integrate2d(func, bounds: list, sigma=0.01):
-    """
-    2D integration by basic Riemann sum
-
-    Parameters
-    ----------
-    func : function object
-        The function to be integrated, with two input variables
-    bounds : iterable w. shape 2,2
-        A tuple of floats specifying the bounds of the respective variables
-    sigma : float
-        Fractional error acceptable for end of integration
-    Returns
-    -------
-    float
-        The definite integral
-
-    """
-    old_total_integral = 0
-    iteration = 1
-    n = 1000
-    width = int(np.sqrt(n))
-    while True:
-        xs = np.broadcast_to(np.linspace(bounds[0][0], bounds[0][1], width), (width, width))
-        ys = np.broadcast_to(np.array([np.linspace(bounds[1][0], bounds[1][1], width)]).T, (width, width))
-        area = (xs[0][1] - xs[0][0]) * (ys[1][0] - ys[0][0])
-        arr = func(xs, ys)
-        new_total_integral = np.sum(arr) * area
-        if iteration == 1:
-            n = n * 2
-            width = int(np.sqrt(n))
-            iteration += 1
-            old_total_integral = new_total_integral
-            pass
-        else:
-            if old_total_integral == 0 or abs((
-                                                      new_total_integral - old_total_integral) / old_total_integral) < sigma or old_total_integral < 1e-10:
-                return new_total_integral
-            else:
-                n = n * 2
-                width = int(np.sqrt(n))
-                iteration += 1
-                old_total_integral = new_total_integral
-                pass
 
 def circle_section_integral(radius, bounds: []):
+    """The formula for the area of a circle section with sagitta lying on the x-axis"""
     upper = radius ** 2 * np.arcsin(bounds[1] / radius) + bounds[1] * np.sqrt(radius ** 2 - bounds[1] ** 2)
     bottom = radius ** 2 * np.arcsin(bounds[0] / radius) + bounds[0] * np.sqrt(radius ** 2 - bounds[0] ** 2)
     integration_result = upper - bottom
@@ -60,32 +10,55 @@ def circle_section_integral(radius, bounds: []):
 
 
 def overlap_area(r_circle, r_ellipse, mu, cos_phi, sin_phi, offset):
-    ellipse_sign = np.sign(sin_phi)
+    """
+    Finds the overlap area of a circle with an ellipse
+
+    Parameters
+    ----------
+        r_circle: (float) the radius of the circle
+        r_ellipse: (float) the semi-major axis of the ellipse
+        mu: (float) ratio of semi-minor axis over semi-major axis
+        cos_phi: (float) cosine of angle phi between semi-major axis and line joining shape centers
+        sin_phi: (float) sine of angle phi
+        offset: (float) distance between centers of objects
+
+    Returns
+    -------
+    Area of overlap area
+    """
+
     sin_phi *= (-1 + 2 * (
-                cos_phi >= 0))  # aligns everything with closest axis instead of same axis everytime - keeps bounds w. correct sign
+            cos_phi >= 0))  # aligns everything with closest axis instead of same axis everytime - keeps bounds w. correct sign
     cos_phi = np.abs(cos_phi)
 
     def find_distance_from_ellipse_centre(a, b):
         with np.errstate(all='raise'):
             if mu == 0:
+                # case of overlap of two circles
                 return a ** 2 + b ** 2
             else:
                 return (a * cos_phi + b * sin_phi) ** 2 + (1 / mu ** 2) * (a * sin_phi - b * cos_phi) ** 2
 
+    # creating 1D area parameterizing edge of circle
     angles = np.linspace(0, 2 * np.pi, 5000)
     xs = r_circle * np.cos(angles) + offset
     ys = r_circle * np.sin(angles)
+
+    # finding intersection points
     in_ellipse = (find_distance_from_ellipse_centre(xs, ys) < r_ellipse ** 2)
     intersect_bool = np.roll(in_ellipse, 1) != in_ellipse
     x = xs[intersect_bool]
     y = ys[intersect_bool]
 
+    # coordinate transform - rotation such that semi-major axis aligns with x-axis plus stretch to circularize ellipse
     x_prime = (x * cos_phi + y * sin_phi)
     y_prime = (y * cos_phi - x * sin_phi) / mu
 
     ellipse_area = np.pi * mu * r_ellipse ** 2
     circle_area = np.pi * r_circle ** 2
 
+    # checking different possibilities for different numbers of intersection points
+    # no intersection
     if len(x) == 0:
         if np.all(in_ellipse):
             return circle_area
@@ -94,8 +67,10 @@ def overlap_area(r_circle, r_ellipse, mu, cos_phi, sin_phi, offset):
         else:
             return 0.
 
+    # two intersection points
     elif len(x) == 2:
 
+        # rotating circle and intersect points to use circle_section_integral in exoring_functions
         circle_rot_angle = np.arctan((x[1] - x[0]) / (y[1] - y[0]))
         circle_bound, extra = (x - offset) * np.cos(circle_rot_angle) - y * np.sin(circle_rot_angle)
 
@@ -125,6 +100,7 @@ def overlap_area(r_circle, r_ellipse, mu, cos_phi, sin_phi, offset):
             circle_section_integral(r_ellipse, bounds=[ellipse_sign * np.abs(ellipse_bound), r_ellipse]))
         return ellipse_section_area + circle_section_area
 
+    # four intersection points
     elif len(x) == 4:
         intersect_index = np.where(intersect_bool)[0]
         i_0 = intersect_index[0]
@@ -132,7 +108,7 @@ def overlap_area(r_circle, r_ellipse, mu, cos_phi, sin_phi, offset):
         # we want two points where the section of ellipse is outside the section of circle
         clockwise_connected = in_ellipse[
             i_0 - 1]  # is the first point in the list paired with the one clockwise or anti-clockwise relative to it
-        connection_direction = 1 - 2 * clockwise_connected  # the sign becomes important later when finding the length of the circle section between two points
+        connection_direction = 1 - 2 * clockwise_connected  # the sign is relevant for finding the length of the circle section between two points
         if clockwise_connected:
             x = np.roll(x, 1)
             y = np.roll(y, 1)
@@ -186,6 +162,7 @@ def overlap_area(r_circle, r_ellipse, mu, cos_phi, sin_phi, offset):
 
     else:
         raise NotImplementedError('Edge case of %.i intersection points, how did you even do this??!' % len(x))
+
 
 def select_best_result(results):
     lowest_NLL = np.inf
