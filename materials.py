@@ -30,9 +30,12 @@ class _MatPhaseFuncs:
 
 class RingMaterial:
     def __init__(self, filename, nang, nlam):
-        '''
-        A material for a ring, using a single scattering approximation.
-        The single scattering cross section is used to calculate the
+        """
+
+        A material for a ring to be passed as a parameter to a scattering.WavelengthDependentScattering object.
+        The different particle sizes and Mie scattering effects are calculated using optool (Dominik et al. 2021)
+        and averaged across to produce a single scattering approximation.
+        The single scattering cross-section is used to calculate the
         wavelength dependent albedo, and the rest of the radiation is absorbed
         (no forward scattering)
         
@@ -42,7 +45,7 @@ class RingMaterial:
         as an optool output file using the -radmc option.
             nang: the number of points in the angular grid used by optool
             nlam: the number of points in the wavelength grid used by optool
-        '''
+        """
         opacity_data = np.loadtxt(filename, skiprows = 42, max_rows = nlam)
         wavelengths = opacity_data[:,0] * 1e-6
         self.k_sc = opacity_data[:,2] * 1e-4 # necessary for normalization, but the rest of the model uses SI
@@ -85,6 +88,8 @@ class Atmosphere:
     def __init__(self, sc_class, planet_params, star, meters_per_length_unit=1, invert=False):
         """
         A material for a planetary atmosphere, to be passed to a scattering.WavelengthDependentScattering object
+        Atmospheric albedos at different wavelengths are calculated using whole-planet opacities
+        from the transit depth calculator of the Platon module (Zhang et al. 2019).
 
         Parameters
         ----------

@@ -128,6 +128,7 @@ class Jupiter(SingleScatteringLaw):
         return (2 * (1 - g ** 2)) / (1 + g ** 2 - 2 * g * np.cos(theta)) ** (1.5)
 
     def jupiter_func(self, theta):
+        "the double HG function fitted in Dyudina et al. (2005)"
         return self.f * self.hg_func(self.g1, theta) + (1 - self.f) * self.hg_func(self.g2, theta)
 
 
@@ -144,7 +145,7 @@ class RandJ(Rayleigh, Jupiter):
 class WavelengthDependentScattering(Jupiter, Rayleigh, Lambert, Mie, SingleEmpirical):
     def __init__(self, material, bandpass, inc_spec):
         """
-        A wavelength dependent single scattering phase function.
+        A wavelength dependent single scattering phase function, based on the scattering properties of a material.
         The phase function at each wavelength is taken from the material object.
         The average scattering function is averaged across the bandpass - weighted by the incident spectrum
 
