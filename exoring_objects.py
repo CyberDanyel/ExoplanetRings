@@ -19,12 +19,13 @@ class Planet:
         """
         Parameters
         ----------
-            radius : float
-        The radius of the sphere.
+            sc_law : scattering law for planet (modulation to lambertian phase curve)
+            radius : radius of planet
+            star : host star from Star class
         """
         self.radius = radius
         self.sc_law = sc_law
-        self.phase_curve = np.vectorize(self.phase_curve_single)  # vectorizing so that arrays of phase angles can be
+        self.phase_curve = np.vectorize(self.phase_curve)  # vectorizing so that arrays of phase angles can be
         # input more easily than with a Python for loop
         self.star = star
         
@@ -55,26 +56,7 @@ class Planet:
         """
         return np.sin(theta) * np.cos(phi)  # see notes for derivation
 
-    def phase_curve_integrand(self, theta, phi, alpha):
-        """
-        Parameters
-        ----------
-            theta : angle theta in local spherical coord system - see get_mu()
-            phi : angle phi in local spherical coord system - see get_mu()
-            alpha : phase angle
-        Returns
-        -------
-        The integrand for the phase integral
-
-        """
-        mu = self.get_mu(theta, phi)
-        mu_star = self.get_mu_star(theta, phi, alpha)
-        return np.sin(theta) * mu * mu_star * self.sc_law(alpha) * self.secondary_eclipse(theta, phi,
-                                                                                          alpha)  # * (np.abs(
-        # alpha) >= np.arcsin((self.star.radius + self.radius) / self.star.distance))
-        # Only check secondary eclipse for certain alphas when you are close to the star for speed
-
-    def phase_curve_single(self, alpha: float) -> float:
+    def phase_curve(self, alpha: float) -> float:
         """
         The unvectorized phase curve for an atmospheric scattering law independent of the angle of incidence
         Parameters
@@ -84,10 +66,10 @@ class Planet:
         -------
         The phase curve evaluated at the phase angle alpha
         """
-        return self.sc_law(alpha) * self.secondary_eclipse_single(alpha) * scattering.lambert_phase_func(alpha)
+        return self.sc_law(alpha) * self.secondary_eclipse(alpha) * scattering.lambert_phase_func(alpha)
 
     def shadow_integrand(self, theta, alpha):
-        '''
+        """
         The integrand for finding the amount of flux blocked by the secondary eclipse.
         This is for a 1D integral across theta.
 
@@ -101,7 +83,7 @@ class Planet:
         Returns
         -------
         The flux density (in theta) of the area being blocked by the secondary eclipse
-        '''
+        """
         R = self.star.distance
         r_star = self.star.radius
         r = self.radius
@@ -123,8 +105,8 @@ class Planet:
         term_lower = term(phi_lower)
         return term_upper - term_lower
 
-    def secondary_eclipse_single(self, alpha: float) -> float:
-        '''
+    def secondary_eclipse(self, alpha: float) -> float:
+        """
         Calculates the fraction of flux blocked due to the secondary
         eclipse at some phase angle, assuming a Lambertian surface.
         Can be used in phase curve calculations for atmospheres with
@@ -134,12 +116,11 @@ class Planet:
         ----------
             alpha : (float)
         The phase angle between star, planet and observer
-        
+
         Returns
         -------
-        The fraction of flux blocked at a phase angle 
-
-        '''
+        The fraction of flux blocked at a phase angle
+        """
         R = self.star.distance
         r_star = self.star.radius
         r = self.radius
@@ -159,15 +140,8 @@ class Planet:
             theta_upper = np.pi / 2 + angle
             theta_lower = np.pi / 2 - angle
             blocked = spi.quad(np.vectorize(lambda theta: self.shadow_integrand(theta, alpha)), theta_lower, theta_upper, epsabs=1e-3)[0]
-            flux = scattering.lambert_phase_func(alpha) * np.pi # the extra factor of pi is require to turn a phase function into a flux
+            flux = scattering.lambert_phase_func(alpha) * np.pi # The extra factor of pi is required to turn a phase function into a flux
             return (flux - blocked) / flux
-
-    def secondary_eclipse(self, theta, phi, alpha):
-        """returns boolean of whether these coords are eclipsed at this phase angle"""
-        if np.abs(alpha) > 2.1 * self.star.radius / self.star.distance:
-            return 1.
-        return ((self.radius * np.sin(theta) * np.sin(phi) - self.star.distance * np.sin(alpha)) ** 2 + (
-                self.radius * np.cos(theta)) ** 2 > self.star.radius ** 2)
 
     def light_curve(self, alpha):
         """turns a phase curve into a light curve"""
@@ -176,6 +150,15 @@ class Planet:
 
 class Ring:
     def __init__(self, sc_law, inner_rad, outer_rad, normal, star):
+        """
+        Parameters
+        ----------
+            sc_law : scattering law for ring
+            inner_rad : inner radius of ring
+            outer_rad : outer radius of ring
+            normal : normal vector to the ring in Cartesian [x,y,z] form, determines ring orientation
+            star : host star from Star class
+        """
         self.inner_radius = inner_rad
         self.outer_radius = outer_rad
         self.sc_law = sc_law
@@ -188,12 +171,24 @@ class Ring:
         self.star = star
 
     def get_mu_star(self, alpha):
-        """mu_star = cos(angle between star and normal to ring)"""
+        """
+        Parameters
+        ----------
+            alpha: phase angle
+
+        Returns
+        -------
+            mu_star = cos(angle between star and normal to ring)"
+        """
         star_pos = np.array([np.cos(alpha), np.sin(alpha), np.zeros(np.shape(alpha))])
         return np.dot(self.normal, star_pos)
 
     def get_mu(self):
-        """mu = cos(angle between observer and normal to ring)"""
+        """
+        Returns
+        -------
+            mu = cos(angle between observer and normal to ring)
+        """
         obs_pos = np.array([1, 0, 0])
         return np.dot(self.normal, obs_pos)
 

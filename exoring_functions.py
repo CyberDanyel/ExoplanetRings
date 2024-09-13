@@ -1,68 +1,15 @@
 import numpy as np
-from fractions import Fraction
 
-from matplotlib import pyplot as plt
-from matplotlib.ticker import FuncFormatter
-import matplotlib.ticker as tck
-import scipy.integrate as spi
+def overlap_area(r_circle, r_ellipse, mu, cos_phi, sin_phi, offset): # Finds overlapping area between a circle and ellipse
+    def circle_section_integral(radius, bounds: []): # Finds area of a circle segment
+        upper = radius ** 2 * np.arcsin(bounds[1] / radius) + bounds[1] * np.sqrt(radius ** 2 - bounds[1] ** 2)
+        bottom = radius ** 2 * np.arcsin(bounds[0] / radius) + bounds[0] * np.sqrt(radius ** 2 - bounds[0] ** 2)
+        integration_result = upper - bottom
+        return integration_result
 
-
-def integrate2d(func, bounds: list, sigma=0.01):
-    """
-    2D integration by basic Riemann sum
-
-    Parameters
-    ----------
-    func : function object
-        The function to be integrated, with two input variables
-    bounds : iterable w. shape 2,2
-        A tuple of floats specifying the bounds of the respective variables
-    sigma : float
-        Fractional error acceptable for end of integration
-    Returns
-    -------
-    float
-        The definite integral
-
-    """
-    old_total_integral = 0
-    iteration = 1
-    n = 1000
-    width = int(np.sqrt(n))
-    while True:
-        xs = np.broadcast_to(np.linspace(bounds[0][0], bounds[0][1], width), (width, width))
-        ys = np.broadcast_to(np.array([np.linspace(bounds[1][0], bounds[1][1], width)]).T, (width, width))
-        area = (xs[0][1] - xs[0][0]) * (ys[1][0] - ys[0][0])
-        arr = func(xs, ys)
-        new_total_integral = np.sum(arr) * area
-        if iteration == 1:
-            n = n * 2
-            width = int(np.sqrt(n))
-            iteration += 1
-            old_total_integral = new_total_integral
-            pass
-        else:
-            if old_total_integral == 0 or abs((
-                                                      new_total_integral - old_total_integral) / old_total_integral) < sigma or old_total_integral < 1e-10:
-                return new_total_integral
-            else:
-                n = n * 2
-                width = int(np.sqrt(n))
-                iteration += 1
-                old_total_integral = new_total_integral
-                pass
-
-def circle_section_integral(radius, bounds: []):
-    upper = radius ** 2 * np.arcsin(bounds[1] / radius) + bounds[1] * np.sqrt(radius ** 2 - bounds[1] ** 2)
-    bottom = radius ** 2 * np.arcsin(bounds[0] / radius) + bounds[0] * np.sqrt(radius ** 2 - bounds[0] ** 2)
-    integration_result = upper - bottom
-    return integration_result
-
-
-def overlap_area(r_circle, r_ellipse, mu, cos_phi, sin_phi, offset):
     ellipse_sign = np.sign(sin_phi)
     sin_phi *= (-1 + 2 * (
-                cos_phi >= 0))  # aligns everything with closest axis instead of same axis everytime - keeps bounds w. correct sign
+                cos_phi >= 0))  # Aligns everything with closest axis instead of same axis everytime - keeps bounds w. correct sign
     cos_phi = np.abs(cos_phi)
 
     def find_distance_from_ellipse_centre(a, b):
