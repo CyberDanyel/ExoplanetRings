@@ -1,7 +1,4 @@
-import functools
 import json
-
-import matplotlib
 import numpy as np
 import matplotlib.pyplot as plt
 import math
@@ -10,13 +7,13 @@ from iminuit.cost import LeastSquares
 from matplotlib.ticker import FuncFormatter
 from matplotlib.ticker import AutoMinorLocator
 import tqdm
-import scipy.optimize as op
 import time
 from multiprocessing import Pool, freeze_support
 import matplotlib.patches as mpatches
 import pickle
 import exoring_functions
 import exoring_objects
+import figure_formatting_functions
 from iminuit import Minuit
 
 with open('constants.json') as json_file:
@@ -29,12 +26,31 @@ with open('scattering_laws.pkl', 'rb') as f:
 # 2 not included because it does fit nicely on a graph
 class FittingPlanet(exoring_objects.Planet):
     def __init__(self, sc_law, star, parameters):
+        """
+        Used to pass parameter list to instantiate exoring_objects.Planet
+
+        Parameters
+        ----------
+            sc_law: (scattering.sc) the scattering law for the planetary atmosphere
+            star: (exoring_objects.Star) the host star
+            parameters: (list) parameters required to create an instance of exoring_objects.Planet
+        """
         radius = parameters['radius']
         exoring_objects.Planet.__init__(self, sc_law, radius, star)
 
 
 class FittingRingedPlanet(exoring_objects.RingedPlanet, FittingPlanet):
     def __init__(self, planet_sc_law, ring_sc_law, star, parameters):
+        """
+        Used to pass parameter list to instantiate exoring_objects.RingedPlanet
+
+        Parameters
+        ----------
+            planet_sc_law: (scattering.sc) the scattering law for the planetary atmosphere
+            ring_sc_law: (scattering.sc) the scattering law for the ring
+            star: (exoring_objects.Star) the host star
+            parameters: (list) parameters required to create an instance of exoring_objects.RingedPlanet
+        """
         FittingPlanet.__init__(self, planet_sc_law, star, parameters)
         try:
             n_x, n_y, n_z = parameters['n_x'], parameters['n_y'], parameters['n_z']
@@ -59,15 +75,28 @@ class FittingRingedPlanet(exoring_objects.RingedPlanet, FittingPlanet):
 
 
 def gaussian(x, mu, sigma):
+    """
+    Definition of a gaussian (normal) distribution
+    """
     with np.errstate(under='ignore'):
-        a = (1 / (sigma * np.sqrt(2 * np.pi))) * np.exp(-0.5 * ((x - mu) / sigma) ** 2)
-        if True in np.isinf(a):
+        gauss = (1 / (sigma * np.sqrt(2 * np.pi))) * np.exp(-0.5 * ((x - mu) / sigma) ** 2)
+        if True in np.isinf(gauss):
             raise Exception('WasInf')
-        return (1 / (sigma * np.sqrt(2 * np.pi))) * np.exp(-0.5 * ((x - mu) / sigma) ** 2)
+        return gauss
 
 
 class DataObject:
     def __init__(self, data, star):
+        """
+        Takes observational light curve data as well as host star and provides
+        various functions to fit our model and display results
+
+        Parameters
+        ----------
+            data: ([phase_angle_list, luminosity_list, luminosity_errors]) observational data in the form
+                [phase_angle_list (independent variable),luminosity_list (dependent variable), luminosity_errors]
+            star: (exoring_objects.Star) the host star
+        """
         self.best_result_ring = None
         self.best_result_planet = None
         self.data = data
@@ -83,16 +112,13 @@ class DataObject:
         x = model_planet.light_curve(alpha)
         with np.errstate(divide='raise'):
             try:
-                # print(-np.sum(np.log(gaussian(x, I, I_errs))))
                 return -np.sum(np.log(gaussian(x, I, I_errs)))
             except:  # The gaussian has returned 0 for at least 1 data point
                 with np.errstate(divide='ignore'):
-                    # print('Triggered')
                     logs = np.log(gaussian(x, I, I_errs))
                     for index, element in enumerate(logs):
                         if np.isinf(element):
                             logs[index] = -1000
-                    # print(-np.sum(logs))
                     return -np.sum(logs)
 
     def log_likelihood_ring(self, planet_sc_law, ring_sc_law,
@@ -109,16 +135,13 @@ class DataObject:
         x = model_ringed_planet.light_curve(alpha)
         with np.errstate(divide='raise'):
             try:
-                # print(-np.sum(np.log(gaussian(x, I, I_errs))))
                 return -np.sum(np.log(gaussian(x, I, I_errs)))
             except:  # The gaussian has returned 0 for at least 1 data point
                 with np.errstate(divide='ignore'):
-                    # print('Triggered')
                     logs = np.log(gaussian(x, I, I_errs))
                     for index, element in enumerate(logs):
                         if np.isinf(element):
                             logs[index] = -1000
-                    # print(-np.sum(logs))
                     return -np.sum(logs)
 
     def fit_data_planet(self, planet_sc_law, init_guess: dict):
@@ -186,7 +209,7 @@ class DataObject:
     # should turn fitting results into their own class later
     def plot_planet_result(self, result, planet_sc):
         plt.style.use('the_usual.mplstyle')
-        fig, ax = exoring_functions.generate_plot_style()
+        fig, ax = figure_formatting_functions.generate_plot_style()
         fitted_planet = FittingPlanet(planet_sc, self.star, result)
         alphas = np.linspace(-np.pi, np.pi, 10000)
         ax.errorbar(self.data[0] / np.pi, self.data[1], self.data[2], fmt='.')
@@ -195,7 +218,7 @@ class DataObject:
 
     def plot_ring_result(self, result, planet_sc, ring_sc):
         plt.style.use('the_usual.mplstyle')
-        fig, ax = exoring_functions.generate_plot_style()
+        fig, ax = figure_formatting_functions.generate_plot_style()
         result['n_x'] = result['ring_normal'][0]
         result['n_y'] = result['ring_normal'][1]
         result['n_z'] = result['ring_normal'][2]
@@ -237,8 +260,7 @@ class DataObject:
         Returns
         -------
         Whatever you want it to return. Maybe the initial guess with the lowest NLL if you rly want that
-        what else do you want from me. Look man my shift ended 5 minutes ago if you have anymore questions
-        you're gonna have to come tomorrow
+        what else do you want from me.
         """
         if ring_sc_functions:
             try:
@@ -341,7 +363,7 @@ class DataObject:
 
     def display_ringless_model(self, planet_sc_law, model_parameters):
         plt.style.use('the_usual.mplstyle')
-        fig, ax = exoring_functions.generate_plot_style()
+        fig, ax = figure_formatting_functions.generate_plot_style()
         I = self.data[1]
         I_errs = self.data[2]
         if model_parameters['n_x'] < 0:
@@ -359,7 +381,7 @@ class DataObject:
         if show_diff and not largest_diff:
             raise Exception('Largest_diff set to False but show_diff set to True')
         plt.style.use('poster.mplstyle')
-        fig, ax = exoring_functions.generate_plot_style()
+        fig, ax = figure_formatting_functions.generate_plot_style()
         plt.style.use('poster.mplstyle')
         model_parameters['n_x'], model_parameters['n_y'], model_parameters['n_z'] = model_parameters['ring_normal'][0], \
             model_parameters['ring_normal'][1], model_parameters['ring_normal'][2]
@@ -456,7 +478,7 @@ class DataObject:
                 f'R:{round(model_parameters['radius'])}', fontsize=8, pad=2)
         if int(nrows) == 1:
             for ax in axs:
-                ax.xaxis.set_major_formatter(FuncFormatter(exoring_functions.format_fraction_with_pi))
+                ax.xaxis.set_major_formatter(FuncFormatter(figure_formatting_functions.format_fraction_with_pi))
                 ax.xaxis.set_major_locator(tck.MultipleLocator(base=1 / 2))
                 ax.set_xlabel(r'Phase angle $\alpha$')
                 for row in range(int(nrows)):
@@ -464,7 +486,7 @@ class DataObject:
                         ax.set_ylabel(r'Intensity ($L_{\odot}$)')
         else:
             for ax in axs.flat:
-                ax.xaxis.set_major_formatter(FuncFormatter(exoring_functions.format_fraction_with_pi))
+                ax.xaxis.set_major_formatter(FuncFormatter(figure_formatting_functions.format_fraction_with_pi))
                 ax.xaxis.set_major_locator(tck.MultipleLocator(base=1 / 2))
                 if ax in axs[int(nrows) - 1]:  # If in the last row
                     ax.set_xlabel(r'Phase angle $\alpha$')
@@ -558,7 +580,7 @@ class DataObject:
         if int(nrows) == 1:
             for ax in axs:
                 ax.ticklabel_format(axis='y', style='sci', scilimits=(0, 0))  # force scientific notation
-                ax.xaxis.set_major_formatter(FuncFormatter(exoring_functions.format_fraction_with_pi))
+                ax.xaxis.set_major_formatter(FuncFormatter(figure_formatting_functions.format_fraction_with_pi))
                 ax.xaxis.set_major_locator(tck.MultipleLocator(base=1 / 2))
                 ax.set_xlabel(r'Phase angle $\alpha$')
                 for row in range(int(nrows)):
@@ -567,7 +589,7 @@ class DataObject:
         else:
             for ax in axs.flat:
                 ax.ticklabel_format(axis='y', style='sci', scilimits=(0, 0))  # force scientific notation
-                ax.xaxis.set_major_formatter(FuncFormatter(exoring_functions.format_fraction_with_pi))
+                ax.xaxis.set_major_formatter(FuncFormatter(figure_formatting_functions.format_fraction_with_pi))
                 ax.xaxis.set_major_locator(tck.MultipleLocator(base=1 / 2))
                 if ax in axs[int(nrows) - 1]:  # If in the last row
                     ax.set_xlabel(r'Phase angle $\alpha$')
@@ -670,7 +692,7 @@ class DataObject:
         for ax in axs.flat:
             ax.ticklabel_format(axis='y', style='sci', scilimits=(0, 0))  # force scientific notation
             ax.yaxis.get_offset_text().set_fontsize(12)
-            ax.xaxis.set_major_formatter(FuncFormatter(exoring_functions.format_fraction_with_pi))
+            ax.xaxis.set_major_formatter(FuncFormatter(figure_formatting_functions.format_fraction_with_pi))
             ax.xaxis.set_major_locator(tck.MultipleLocator(base=1 / 2))
             ax.tick_params(labelsize=13)
             if ax in axs[2]:  # If in the last row
@@ -1112,10 +1134,10 @@ class DataObject:
                                                  which='both', labelsize=9)
                     axs[row][column].minorticks_on()
                     if columnkey == 'theta' or columnkey == 'phi':
-                        axs[row][column].xaxis.set_major_formatter(FuncFormatter(exoring_functions.format_fraction_with_pi))
+                        axs[row][column].xaxis.set_major_formatter(FuncFormatter(figure_formatting_functions.format_fraction_with_pi))
                     else:
                         axs[row][column].xaxis.set_major_formatter(
-                            FuncFormatter(exoring_functions.format_fraction_with_r_jup))
+                            FuncFormatter(figure_formatting_functions.format_fraction_with_r_jup))
 
                     axs[row][column].xaxis.set_major_locator(tck.MaxNLocator(3))
                 else:
@@ -1129,10 +1151,10 @@ class DataObject:
                 if column == 0 and row != 0: # y labels given to left column
                     axs[row][column].set_ylabel(varname_to_dispname[rowkey], loc='center')
                     if rowkey == 'theta' or rowkey == 'phi':
-                        axs[row][column].yaxis.set_major_formatter(FuncFormatter(exoring_functions.format_fraction_with_pi_small))
+                        axs[row][column].yaxis.set_major_formatter(FuncFormatter(figure_formatting_functions.format_fraction_with_pi_small))
                     else:
                         axs[row][column].yaxis.set_major_formatter(
-                            FuncFormatter(exoring_functions.format_fraction_with_r_jup_small))
+                            FuncFormatter(figure_formatting_functions.format_fraction_with_r_jup_small))
 
                     axs[row][column].yaxis.set_major_locator(tck.MaxNLocator(3))
                     axs[row][column].tick_params(axis='y', direction='in', left=True, bottom=False, top=False,
