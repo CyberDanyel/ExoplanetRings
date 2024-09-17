@@ -6,15 +6,24 @@ import PyMieScatt as msc
 import materials
 
 def lambert_phase_func(alpha):
-    # important enough to make its own thing
+    """The planetary (not single scattering) phase curve for Lambertian scattering"""
     return (2 / (3*np.pi)) * ((np.pi - np.abs(alpha)) * np.cos(np.abs(alpha)) + np.sin(np.abs(alpha)))
 
 
 class SingleScatteringLaw:
     def __init__(self, albedo, func):
+        '''
+        The basic scattering law object - referred to as capital Phi in equations
+
+        Parameters
+        ----------
+            albedo: (float) value between 0 and 1
+            func: (callable) the single scattering phase function
+        '''
         self.albedo = albedo
         self.func = func
         self.norm = 0.5 * spi.quadrature(lambda angle: np.sin(angle) * func(angle), 0, np.pi, maxiter = 1000)[0]
+        # normalizing the phase function
 
     def __call__(self, alpha):
         return (self.albedo / self.norm) * self.func(np.pi - np.abs(alpha))
@@ -22,11 +31,25 @@ class SingleScatteringLaw:
 
 class Lambert(SingleScatteringLaw):
     def __init__(self, albedo):
+        '''
+        An object implementing Lambertian scattering
+
+        Parameters
+        ----------
+            albedo: (float) value between 0 and 1
+        '''
         SingleScatteringLaw.__init__(self, albedo, lambda x: 1.)
 
 
 class Rayleigh(SingleScatteringLaw):
     def __init__(self, albedo):
+        '''
+        An object implementing Rayleigh scattering
+
+        Parameters
+        ----------
+            albedo: (float) value between 0 and 1
+        '''
         SingleScatteringLaw.__init__(self, albedo, Rayleigh.rayleigh_func)
 
     def rayleigh_func(theta):
@@ -36,15 +59,30 @@ class Rayleigh(SingleScatteringLaw):
 class HG(SingleScatteringLaw):
     # henyey-greenstein
     def __init__(self, g, albedo):
+        '''
+        An object implementing the Henyey-Greenstein phase function as a single scattering law
+        Parameters
+        ----------
+            g: (float) value between -1 and 1 representing the forward-backward asymmetry of the phase function
+            albedo: (float) value between 0 and 1
+        '''
         self.g = g
         SingleScatteringLaw.__init__(self, albedo, self.hg_func)
 
     def hg_func(self, theta):
+        'the Henyey-Greenstein phase function'
         return (2 * (1 - self.g ** 2)) / (1 + self.g ** 2 - 2 * self.g * np.cos(theta)) ** (1.5)
 
 
 class SingleEmpirical(SingleScatteringLaw):
     def __init__(self, filename, albedo):
+        """
+        A single scattering law for phase functions derived from empirical data
+        Parameters
+        ----------
+        filename: (str) name of the file containing the data
+        albedo: (float) a value between 0 and 1
+        """
         self.filename = filename
         self.points = np.loadtxt(filename, delimiter=',')
         emp_func = spip.CubicSpline(self.points[0], self.points[1])
@@ -53,37 +91,34 @@ class SingleEmpirical(SingleScatteringLaw):
 
 class Mie(SingleScatteringLaw):
     def __init__(self, albedo, X, m):
+        """
+        An object implementing Mie scattering for a single particle size and incident wavelength
+
+        Parameters
+        ----------
+            albedo: (float) a value between 0 and 1
+            X: (float) the Mie size parameter (2pi*radius/wavelength)
+            m: (complex) the complex refractive index of the particle material
+        """
         self.X = X
         self.m = m
         SingleScatteringLaw.__init__(self, albedo, np.vectorize(self.mie_func))
 
     def mie_func(self, theta):
+        """The Mie scattering phase function"""
         S1, S2 = msc.MieS1S2(self.m, self.X, np.cos(theta))
         return np.abs(S1) ** 2 + np.abs(S2) ** 2
-
-
-# general functions independent of specific scattering situation
-def psi(x, n):
-    return x * spe.spherical_jn(n, x)
-
-
-def zeta(x, n):
-    return np.sqrt((np.pi * x) / 2) * spe.hankel2(n + 0.5, x)
-
-
-def psi_prime(x, n):
-    dx = 1e-8
-    return (psi(x + dx, n) - psi(x, n)) / dx
-
-
-def zeta_prime(x, n):
-    dx = 1e-8
-    return (zeta(x + dx, n) - zeta(x, n)) / dx
-
 
 class Jupiter(SingleScatteringLaw):
     # from Dyudina et al. 2005
     def __init__(self, albedo):
+        """
+        An empirical phase function object for Jupiter's atmosphere, based on Dyudina et al. 2005
+
+        Parameters
+        ----------
+        albedo: (float) a value between 0 and 1
+        """
         self.g1 = 0.8
         self.g2 = -.38
         self.f = 0.9
@@ -93,6 +128,7 @@ class Jupiter(SingleScatteringLaw):
         return (2 * (1 - g ** 2)) / (1 + g ** 2 - 2 * g * np.cos(theta)) ** (1.5)
 
     def jupiter_func(self, theta):
+        "the double HG function fitted in Dyudina et al. (2005)"
         return self.f * self.hg_func(self.g1, theta) + (1 - self.f) * self.hg_func(self.g2, theta)
 
 
@@ -108,6 +144,17 @@ class RandJ(Rayleigh, Jupiter):
 
 class WavelengthDependentScattering(Jupiter, Rayleigh, Lambert, Mie, SingleEmpirical):
     def __init__(self, material, bandpass, inc_spec):
+        """
+        A wavelength dependent single scattering phase function, based on the scattering properties of a material.
+        The phase function at each wavelength is taken from the material object.
+        The average scattering function is averaged across the bandpass - weighted by the incident spectrum
+
+        Parameters
+        ----------
+        material: (materials.Atmosphere or materials.RingMaterial) the material for which to create a scattering object
+        bandpass: (float, float) a tuple of wavelengths representing a rectangular bandpass
+        inc_spec: (function) a function representing the spectrum of the light incident on the material
+        """
         self.material = material
         self.bandpass = bandpass
         self.inc_spec = inc_spec  # spectrum of the incident light for weighting scattering functions

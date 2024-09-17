@@ -25,7 +25,7 @@ class Planet:
         """
         self.radius = radius
         self.sc_law = sc_law
-        self.phase_curve = np.vectorize(self.phase_curve)  # vectorizing so that arrays of phase angles can be
+        self.phase_curve = np.vectorize(self.phase_curve_scalar)  # vectorizing so that arrays of phase angles can be
         # input more easily than with a Python for loop
         self.star = star
         
@@ -56,7 +56,26 @@ class Planet:
         """
         return np.sin(theta) * np.cos(phi)  # see notes for derivation
 
-    def phase_curve(self, alpha: float) -> float:
+    def phase_curve_integrand(self, theta, phi, alpha):
+        """
+        Parameters
+        ----------
+            theta : angle theta in local spherical coord system - see get_mu()
+            phi : angle phi in local spherical coord system - see get_mu()
+            alpha : phase angle
+        Returns
+        -------
+        The integrand for the phase integral
+
+        """
+        mu = self.get_mu(theta, phi)
+        mu_star = self.get_mu_star(theta, phi, alpha)
+        return np.sin(theta) * mu * mu_star * self.sc_law(alpha) * self.secondary_eclipse(theta, phi,
+                                                                                          alpha)  # * (np.abs(
+        # alpha) >= np.arcsin((self.star.radius + self.radius) / self.star.distance))
+        # Only check secondary eclipse for certain alphas when you are close to the star for speed
+
+    def phase_curve_scalar(self, alpha: float) -> float:
         """
         The unvectorized phase curve for an atmospheric scattering law independent of the angle of incidence
         Parameters
@@ -66,7 +85,7 @@ class Planet:
         -------
         The phase curve evaluated at the phase angle alpha
         """
-        return self.sc_law(alpha) * self.secondary_eclipse(alpha) * scattering.lambert_phase_func(alpha)
+        return self.sc_law(alpha) * self.secondary_eclipse_scalar(alpha) * scattering.lambert_phase_func(alpha)
 
     def shadow_integrand(self, theta, alpha):
         """
@@ -82,7 +101,7 @@ class Planet:
 
         Returns
         -------
-        The flux density (in theta) of the area being blocked by the secondary eclipse
+        The absorbed flux density (at the given theta) for the area being blocked by the secondary eclipse
         """
         R = self.star.distance
         r_star = self.star.radius
@@ -105,7 +124,7 @@ class Planet:
         term_lower = term(phi_lower)
         return term_upper - term_lower
 
-    def secondary_eclipse(self, alpha: float) -> float:
+    def secondary_eclipse_scalar(self, alpha: float) -> float:
         """
         Calculates the fraction of flux blocked due to the secondary
         eclipse at some phase angle, assuming a Lambertian surface.
@@ -119,7 +138,8 @@ class Planet:
 
         Returns
         -------
-        The fraction of flux blocked at a phase angle
+        The fraction of flux blocked at a phase angle 
+
         """
         R = self.star.distance
         r_star = self.star.radius
@@ -143,6 +163,13 @@ class Planet:
             flux = scattering.lambert_phase_func(alpha) * np.pi # The extra factor of pi is required to turn a phase function into a flux
             return (flux - blocked) / flux
 
+    def secondary_eclipse(self, theta, phi, alpha):
+        """returns boolean of whether these planetary coordinates are eclipsed at this phase angle"""
+        if np.abs(alpha) > 2.1 * self.star.radius / self.star.distance:
+            return 1.
+        return ((self.radius * np.sin(theta) * np.sin(phi) - self.star.distance * np.sin(alpha)) ** 2 + (
+                self.radius * np.cos(theta)) ** 2 > self.star.radius ** 2)
+
     def light_curve(self, alpha):
         """turns a phase curve into a light curve"""
         return self.radius ** 2 * self.star.luminosity * (1 / (4 * self.star.distance ** 2)) * self.phase_curve(alpha)
@@ -151,13 +178,18 @@ class Planet:
 class Ring:
     def __init__(self, sc_law, inner_rad, outer_rad, normal, star):
         """
+        The circumplanetary ring
+
         Parameters
         ----------
-            sc_law : scattering law for ring
-            inner_rad : inner radius of ring
-            outer_rad : outer radius of ring
-            normal : normal vector to the ring in Cartesian [x,y,z] form, determines ring orientation
-            star : host star from Star class
+            sc_law: (scattering.sc) scattering law for ring
+            inner_rad: (float)
+        The inner radius of the ring
+            outer_rad: (float)
+        The outer radius of the ring
+            normal: (float, float, float)
+        The normal vector perpendicular to the surface of the ring in Cartesian coordinates
+            star: (exoring_objects.Star) the host star
         """
         self.inner_radius = inner_rad
         self.outer_radius = outer_rad
@@ -203,7 +235,7 @@ class Ring:
         # forwards scattering
 
     def analytic_secondary_eclipse(self, alpha):
-        '''
+        """
         A semi-analytical calculation (1D numerical calculations) for finding the 
         fractional amount of flux blocked by the secondary eclipse
 
@@ -213,15 +245,17 @@ class Ring:
 
         Returns
         -------
-        fractional value of the flux transmitted past secondary eclipse
+        fractional value of the flux transmitted past secondary eclipse (NOT the flux absorbed)
 
-        '''
+        """
         if np.abs(self.star.distance*np.sin(alpha)) > (self.star.radius + self.outer_radius) or np.cos(alpha) < 0:
+            # condition if the ring is completely uncovered by the star
             return 1.
 
         mu = self.get_mu()
         if mu == 0:
-            print("AAAAAAAAAAAAAAAAAAAAAAAA")
+            # edge-on ring, should've been caught by previous checks
+            raise Exception("edge-on ring, should've been caught by previous checks")
         n_x, n_y, n_z = self.normal
         if n_x < 0:
             print('here n_x < 0', n_x, 'alpha', alpha)
@@ -239,23 +273,37 @@ class Ring:
         outer_area = exoring_functions.overlap_area(self.star.radius, self.outer_radius, mu, cos_phi, sin_phi, y_star)
         inner_area = exoring_functions.overlap_area(self.star.radius, self.inner_radius, mu, cos_phi, sin_phi, y_star)
         area_on_ring = outer_area - inner_area
-        total_ring_area = mu * np.pi * (self.outer_radius ** 2 - self.inner_radius ** 2)  # - self.inner_radius**2)
+        total_ring_area = mu * np.pi * (self.outer_radius ** 2 - self.inner_radius ** 2)
         if area_on_ring < 0:
             print('Alpha: %.5f Area on outer: %.4f, area on inner: %.4f' % (alpha, outer_area, inner_area))
             outer_area = exoring_functions.overlap_area(self.star.radius, self.outer_radius, mu, cos_phi, sin_phi, y_star)
             inner_area = exoring_functions.overlap_area(self.star.radius, self.inner_radius, mu, cos_phi, sin_phi, y_star)
             
         elif area_on_ring == 0:
-            return 1. # IDK if this is the right value to set
+            return 1. # All the light gets past the star
         else:
             return 1. - (area_on_ring / total_ring_area)
 
     def light_curve(self, alpha):
+        # converts phase curve (dimensionless) to a luminosity
         return (self.outer_radius ** 2 - self.inner_radius ** 2) * self.phase_curve(alpha) * self.star.luminosity / (
                 4 * self.star.distance ** 2)
 
 class RingedPlanet(Planet):
     def __init__(self, planet_sc, planet_r, ring_sc, ring_inner_r, ring_outer_r, ring_normal, star):
+        """
+        A planet with a ring
+
+        Parameters
+        ----------
+            planet_sc: (scattering.SingleScatteringLaw) the scattering law for the planetary atmosphere
+            planet_r: (float) the radius of the planet
+            ring_sc: (scattering.SingleScatteringLaw) the scattering law for the ring particles
+            ring_inner_r: (float) the inner radius of the ring
+            ring_outer_r: (float) the outer radius of the ring
+            ring_normal: (float, float, float) the normal vector describing the orientation of the ring
+            star: (exoring_objects.Star) the host star object
+        """
         self.ring = Ring(ring_sc, ring_inner_r, ring_outer_r, ring_normal, star)
         Planet.__init__(self, planet_sc, planet_r, star)
 
@@ -267,14 +315,25 @@ class RingedPlanet(Planet):
 s = 5.67037e-8  # stefan boltzmann constant
 class Star:
     def __init__(self, temperature, radius, distance, mass, planet=None):
+        """
+        A host star
+
+        Parameters
+        ----------
+            temperature: (int or float) the effective blackbody temperature of the star
+            radius: (float) the radius of the star
+            distance: (float) the distance between the planet and the star
+            mass: (float) the mass of the star
+        """
         self.T = temperature
         self.radius = radius
         self.distance = distance
         self.mass = mass
-        self.planet = planet
+        self.planet = planet # avoid for recursion reasons
         self.luminosity =  (s * 4 * np.pi * radius**2) * self.T**4
 
     def planck_function(self, wavelength):
+        """The blackbody spectrum"""
         c = 3e8
         h = 6.626e-34
         k = 1.380649e-23
