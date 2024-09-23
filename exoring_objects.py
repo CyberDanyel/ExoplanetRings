@@ -297,7 +297,7 @@ class RingedPlanet(Planet):
             ring_sc: (scattering.SingleScatteringLaw) the scattering law for the ring particles
             ring_inner_r: (float) the inner radius of the ring
             ring_outer_r: (float) the outer radius of the ring
-            ring_normal: (float, float, float) the normal vector describing the orientation of the ring
+            ring_normal: [float, float, float] the normal vector describing the orientation of the ring
             star: (exoring_objects.Star) the host star object
         """
         self.ring = Ring(ring_sc, ring_inner_r, ring_outer_r, ring_normal, star)
